@@ -2,6 +2,8 @@
 #include <stdint.h>
 #include "aes.h"
 
+#define ROTL8(x,shift) ((uint8_t) ((x) << (shift)) | ((x) >> (8 - (shift))))
+
 // The AES S-box lookup table
 const uint8_t sbox[256] = {
     0x63, 0x7c, 0x77, 0x7b, 0xf2, 0x6b, 0x6f, 0xc5, 0x30, 0x01, 0x67, 0x2b, 0xfe, 0xd7, 0xab, 0x76,
@@ -22,10 +24,13 @@ const uint8_t sbox[256] = {
     0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16
 };
 
+static char s_box[256];
+
 /* Static functions */
 int aes_get_round_key(char *key_in, char *round_key);
 
-int aes_create_s_box(char *in);
+/* brief  s-box is generated using a */
+int aes_create_s_box(void);
 
 int aes_substitute_bytes(char *in, char *out);
 
@@ -39,18 +44,45 @@ int aes_get_round_key(char *key_in, char *round_key)
 {
 
 }
-
-int aes_create_s_box(char *in)
+#if 0
+int aes_create_s_box(void)
 {
-    int rowIdx;
-    int columnIdx;
-    for(rowIdx = 0; rowIdx < 16; rowIdx++){
-        for(columnIdx = 0; columnIdx < 16; columnIdx++){
+	uint8_t p = 1, q = 1;
+	
+	/* loop invariant: p * q == 1 in the Galois field (GF) */
+	do {
+		/* multiply p by 3 */
+		p = p ^ (p << 1) ^ (p & 0x80 ? 0x1B : 0);
 
+		/* divide q by 3 (equals multiplication by 0xf6) */
+		q ^= q << 1;
+		q ^= q << 2;
+		q ^= q << 4;
+		q ^= q & 0x80 ? 0x09 : 0;
 
+		/* compute the affine transformation */
+		uint8_t xformed = q ^ ROTL8(q, 1) ^ ROTL8(q, 2) ^ ROTL8(q, 3) ^ ROTL8(q, 4);
+
+		s_box[p] = xformed ^ 0x63;
+	} while (p != 1);
+
+	/* 0 is a special case since it has no inverse */
+	s_box[0] = 0x63;
+}
+#else
+#define ROTR(x,idx) ((0x9FU >> idx) | (((0x9FU >> idx) & 0x01U) << 8))
+int aes_create_s_box(void)
+{
+    int value;
+    int round;
+    for(value = 0; value < 256; value++){
+        for(round = 0; round < 8; round++){
+            s_box[value] = (ROTR(0x9FU,round) * value) + 0xC6U;
         }
     }
+    return 0;
 }
+#endif
 
 int aes_substitute_bytes(char *in, char *out)
 {
