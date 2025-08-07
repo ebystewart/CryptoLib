@@ -1,5 +1,7 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
+#include <string.h>
 #include "aes.h"
 
 #define ROTL8(x,shift) ((uint8_t) ((x) << (shift)) | ((x) >> (8 - (shift))))
@@ -24,12 +26,12 @@ const uint8_t sbox[256] = {
     0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16
 };
 
-static char s_box[256];
+static uint8_t s_box[256];
 
 /* Static functions */
 int aes_get_round_key(char *key_in, char *round_key);
 
-/* brief  s-box is generated using a */
+/* /brief  s-box is generated using a */
 int aes_create_s_box(void);
 
 int aes_substitute_bytes(char *in, char *out);
@@ -70,33 +72,103 @@ int aes_create_s_box(void)
 	s_box[0] = 0x63;
 }
 #else
-#define ROTR(x,idx) ((0x9FU >> idx) | (((0x9FU >> idx) & 0x01U) << 8))
+
 int aes_create_s_box(void)
 {
-    int value;
-    int round;
+    uint8_t value;
+    uint8_t mulInv_value;
+    uint8_t columns;
+    uint8_t rows;
+    bool temp[8];
+    uint8_t mx1;
+    memset(s_box, 0, sizeof(s_box));
+
+    uint16_t M = 0x11B;
     for(value = 0; value < 256; value++){
-        for(round = 0; round < 8; round++){
-            s_box[value] = (ROTR(0x9FU,round) * value) + 0xC6U;
+
+        /* Calculate the multiplicative inverse of input value using Euclidean & Extended Euclidean algorithm */
+        uint16_t A = A % M; // Ensure A is within the range [0, M-1]
+        for (int X = 1; X < M; X++) {
+            // Check if (A * X) % M equals 1
+            if (((A * X) % M) == 1) {
+                mulInv_value = X; // X is the modular multiplicative inverse
+                break;
+            }
         }
+
+        /* Apply affine transform on the multiplicative inverse of the input */
+        for(rows = 0; rows < 8; rows++){
+            mx1 = 0x8FU;
+            for(columns = 0; columns < 8; columns++){
+                
+                temp[rows] ^= (bool)(0x01U & ((mx1 >> columns) & (mulInv_value >> columns)));
+                printf("%x", temp[rows]);
+            }
+            printf("\n");
+            if(rows > 0)
+                mx1 = (0x8FU >> rows) | (((0x8FU >> (rows - 1)) & 0x01U) << 8);
+        }
+
+        for(rows = 0; rows < 8; rows++){
+
+            temp[rows] ^= (0xC6U >> (7 - rows));
+            s_box[mulInv_value] |= ((uint8_t)temp[rows] << rows);
+        }
+        printf("The index is %x and the value is %x\n", value, s_box[value]);
     }
+    s_box[0] = 0x63;
     return 0;
 }
 #endif
 
 int aes_substitute_bytes(char *in, char *out)
 {
-
+    uint8_t idx;
+    for(idx = 0; idx < 16; idx++){
+        out[idx] = s_box[in[idx]];
+    }
+    return 0;
 }
 
 int aes_shift_rows(char *in, char *out)
 {
+    uint8_t idx;
+    for(idx = 0; idx < 16; idx++){
+        if((idx % 4) == 0)
+            out[idx] = in[idx];
+    }
+    /* second row - left shift by one Byte */
+    out[13] = in[1];
+    out[9]  = in[13];
+    out[5]  = in[9];
+    out[1]  = in[5];
 
+    /* third row - left shift by 2 Bytes */
+    out[14] = in[6];
+    out[10] = in[2];
+    out[6]  = in[14];
+    out[2]  = in[10];
+
+    /* fourth row - left shift by 3 Bytes */
+    out[15] = in[11];
+    out[11] = in[7];
+    out[7]  = in[3];
+    out[3]  = in[15];
 }
 
 int aes_mix_columns(char *in, char *out)
 {
+    uint8_t matrix[4][4] = {
+                                {2, 3, 1, 1 },
+                                {1, 2, 3, 1 },
+                                {1, 1, 2, 3 },
+                                {3, 1, 1, 2 }
+                            };
+    uint8_t input[4][4];
 
+    /* Copy the input to a 4*4 matrix */
+
+    /* do the matrix multiplication */
 }
 
 int add_round_key(char *in, char *out)
