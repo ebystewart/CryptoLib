@@ -165,10 +165,31 @@ int aes_mix_columns(char *in, char *out)
                                 {3, 1, 1, 2 }
                             };
     uint8_t input[4][4];
+    uint8_t output[4][4];
+    int x;
+    int y;
 
     /* Copy the input to a 4*4 matrix */
+    for(x = 0; x < 4; x++){
+        for(y = 0; y < 4; y++){
+            input[x][y] = in[x + (4*y)];
+        }
+    }
 
     /* do the matrix multiplication */
+    for(x = 0; x < 4; x++){
+        for(y = 0; y < 4; y++){
+            output[x][y] = matrix[x][y] & input[x][y];
+        }
+    }
+
+    /* deserialize the matrix to output buffer */
+        /* Copy the input to a 4*4 matrix */
+    for(x = 0; x < 4; x++){
+        for(y = 0; y < 4; y++){
+            out[x + (4*y)] = output[x][y]; 
+        }
+    }
 }
 
 int add_round_key(char *in, char *out)
