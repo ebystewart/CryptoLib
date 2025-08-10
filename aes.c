@@ -29,23 +29,105 @@ const uint8_t sbox[256] = {
 static uint8_t s_box[256];
 
 /* Static functions */
-int aes_get_round_key(char *key_in, char *round_key);
+int aes_get_round_key(const uint8_t *key_in, uint8_t *round_key, uint8_t nRound);
 
 /* /brief  s-box is generated using a */
 int aes_create_s_box(void);
 
 int aes_substitute_bytes(char *in, char *out);
 
-int aes_shift_rows(char *in, char *out);
+int aes_shift_rows(uint8_t *in, uint8_t *out);
 
-int aes_mix_columns(char *in, char *out);
+int aes_mix_columns(uint8_t *in, uint8_t *out);
 
 int add_round_key(char *in, char *out);
 
-int aes_get_round_key(char *key_in, char *round_key)
-{
+int aes_transpose(uint8_t *in, uint8_t *out);
 
+int aes_inverseTranspose(uint8_t *in, uint8_t *out);
+
+/*
+From:
+{0,   1,  2,  3}
+{4,   5,  6,  7}
+{8,   9, 10, 11}
+{12, 13, 14, 15}
+
+To:
+{0, 4,  8, 12}
+{1, 5,  9, 13}
+{2, 6, 10, 14}
+{3, 7, 11, 15}
+*/
+int aes_transpose(uint8_t *in, uint8_t *out)
+{
+    uint8_t idx;
+    for(idx = 0; idx < 4; idx++){
+        out[idx]      = in[(idx * 4)];       /* 0 -> 0, 4 -> 1, 8 -> 2, 12 -> 3 */
+        out[idx + 4]  = in[1 + (idx * 4)];   /* 1->4, 5->5, 9->6, 13->7 */
+        out[idx + 8]  = in[2 + (idx * 4)];   /* 2->8, 6->9, 10->10, 14->11 */
+        out[idx + 12] = in[3 + (idx * 4)];   /* 3->12, 7->13, 11->14, 15->15 */
+    }
 }
+
+int aes_inverseTranspose(uint8_t *in, uint8_t *out)
+{
+    uint8_t idx;
+    for(idx = 0; idx < 4; idx++){
+        out[(idx * 4)]     = in[idx];       /* 0 <- 0, 4 <- 1, 8 <- 2, 12 <- 3 */
+        out[1 + (idx * 4)] = in[idx + 4];   /* 1<-4, 5<-5, 9<-6, 13<-7 */
+        out[2 + (idx * 4)] = in[idx + 8];   /* 2<-8, 6<-9, 10<-10, 14<-11 */
+        out[3 + (idx * 4)] = in[idx + 12];  /* 3<-12, 7<-13, 11<-14, 15<-15 */
+    }
+}
+
+int aes_get_round_key(const uint8_t *key_in, uint8_t *round_key, uint8_t nRound)
+{
+    uint8_t idx;
+    uint8_t w0[4] = {0};
+    uint8_t w1[4] = {0};
+    uint8_t w2[4] = {0};
+    uint8_t w3[4] = {0};
+    uint8_t w4[4] = {0};
+    uint8_t w5[4] = {0};
+    uint8_t w6[4] = {0};
+    uint8_t w7[4] = {0};
+    uint8_t gw3[4] = {0};
+   
+    /* arrange 4 byte wise */
+    for(idx = 0; idx < 4; idx++){
+        w0[idx] = key_in[idx];
+        w1[idx] = key_in[idx + 4];
+        w2[idx] = key_in[idx + 8];
+        w3[idx] = key_in[idx + 12];
+    }
+    /* circular byte left shift*/
+    for(idx = 0; idx < 3; idx++){
+        gw3[idx] = w3[idx + 1];
+    }
+    gw3[3] = w3[0]; 
+
+    for(idx = 0; idx < 4; idx++){
+        gw3[idx] = s_box[gw3[idx]];
+    }
+    gw3[0] = gw3[0] ^ 0x01;
+    
+    for(idx = 0; idx < 4; idx++){
+        w4[idx] = w0[idx] ^ gw3[idx];
+        w5[idx] = w4[idx] ^ w1[idx];
+        w6[idx] = w5[idx] ^ w2[idx];
+        w7[idx] = w6[idx] ^ w3[idx];
+    }
+
+    /* re-arrange 4 byte wise in to output buffer */
+    for(idx = 0; idx < 4; idx++){
+        round_key[idx]      = w4[idx];
+        round_key[idx + 4]  = w5[idx];
+        round_key[idx + 8]  = w6[idx];
+        round_key[idx + 12] = w7[idx];
+    }  
+}
+
 #if 0
 int aes_create_s_box(void)
 {
@@ -130,7 +212,13 @@ int aes_substitute_bytes(char *in, char *out)
     return 0;
 }
 
-int aes_shift_rows(char *in, char *out)
+/* expects a matrix arranged stream of bytes of following byte order
+{0, 4,  8, 12}
+{1, 5,  9, 13}
+{2, 6, 10, 14}
+{3, 7, 11, 15}
+*/
+int aes_shift_rows(uint8_t *in, uint8_t *out)
 {
     uint8_t idx;
     for(idx = 0; idx < 16; idx++){
@@ -156,16 +244,16 @@ int aes_shift_rows(char *in, char *out)
     out[3]  = in[15];
 }
 
-int aes_mix_columns(char *in, char *out)
+int aes_mix_columns(uint8_t *in, uint8_t *out)
 {
-    uint8_t matrix[4][4] = {
+    uint8_t matrix[4][4] =  {
                                 {2, 3, 1, 1 },
                                 {1, 2, 3, 1 },
                                 {1, 1, 2, 3 },
                                 {3, 1, 1, 2 }
                             };
-    uint8_t input[4][4];
-    uint8_t output[4][4];
+    uint8_t input[4][4] = {0};
+    uint8_t output[4][4] = {0};
     int x;
     int y;
 
@@ -173,13 +261,19 @@ int aes_mix_columns(char *in, char *out)
     for(x = 0; x < 4; x++){
         for(y = 0; y < 4; y++){
             input[x][y] = in[x + (4*y)];
+            printf("[%d,%d]:%x", x, y, in[x + (4*y)]);
         }
+        printf("\n");
     }
 
-    /* do the matrix multiplication */
+    /* Do the matrix multiplication */
+    int k = 0;
     for(x = 0; x < 4; x++){
         for(y = 0; y < 4; y++){
-            output[x][y] = matrix[x][y] & input[x][y];
+            for(k = 0; k < 4; k++){
+                output[x][y] ^= (matrix[x][k] * input[k][y]);
+                printf("[%d, %d]: matrix is %x, input is %x and output is %x\n", x, y, matrix[x][k], input[k][y], output[x][y]);
+            }
         }
     }
 
@@ -187,8 +281,10 @@ int aes_mix_columns(char *in, char *out)
         /* Copy the input to a 4*4 matrix */
     for(x = 0; x < 4; x++){
         for(y = 0; y < 4; y++){
-            out[x + (4*y)] = output[x][y]; 
+            out[x + (4*y)] = output[x][y];
+            printf("%x", out[x + (4*y)]);
         }
+        printf("\n");
     }
 }
 
