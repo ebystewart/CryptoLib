@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <string.h>
 #include "aes.h"
 
 uint8_t in[16] = {0x63, 0x2F, 0xAF, 0xA2,
@@ -14,15 +15,22 @@ uint8_t key[16] = {0x54, 0x68, 0x61, 0x74, 0x73, 0x20, 0x6D, 0x79, 0x20, 0x4B, 0
 
 int main(int arc, char ** argv)
 {
+    int round = 0;
     //aes_create_s_box();
     //aes_mix_columns(in, out);
     //aes_transpose(in, temp);
     //aes_shift_rows(temp, out);
-    aes_get_round_key(key, out, 0);
-    for(int i=0; i < 16; i++){
-        printf("%x", out[i]);
+    memcpy(temp, key, 16);
+    while(round < 10){
+        aes_get_round_key(temp, out, (round + 1));
+        for (int i = 0; i < 16; i++)
+        {
+            printf("%x", out[i]);
+        }
+        printf("\n");
+        memcpy(temp, out, 16);
+        round++;
     }
-    printf("\n");
 #if 0
     aes_inverseTranspose(temp, out);
     for(int i=0; i < 16; i++){

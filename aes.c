@@ -28,6 +28,13 @@ const uint8_t sbox[256] = {
 
 static uint8_t s_box[256];
 
+static uint8_t aes_job_id;
+static uint8_t aes_job_slot[64];
+
+static uint8_t aes_get_job_id(void);
+
+static void aes_close_job_id(uint8_t job_id);
+
 /* Static functions */
 int aes_get_round_key(const uint8_t *key_in, uint8_t *round_key, uint8_t nRound);
 
@@ -43,6 +50,18 @@ int aes_mix_columns(uint8_t *in, uint8_t *out);
 int add_round_key(char *in, char *out);
 
 int aes_transpose(uint8_t *in, uint8_t *out);
+
+static uint8_t aes_get_job_id(void)
+{
+    uint8_t idx;
+    aes_job_slot[aes_job_id++] = aes_job_id;
+    return aes_job_id;
+}
+
+static void aes_close_job_id(uint8_t job_id)
+{
+    aes_job_slot[aes_job_id] = 0;
+}
 
 int aes_inverseTranspose(uint8_t *in, uint8_t *out);
 
@@ -105,18 +124,23 @@ int aes_get_round_key(const uint8_t *key_in, uint8_t *round_key, uint8_t nRound)
     for(idx = 0; idx < 3; idx++){
         gw3[idx] = w3[idx + 1];
     }
-    gw3[3] = w3[0]; 
+    gw3[3] = w3[0];
+
+    printf("The byte left shifted w3 is %x %x %x %x\n", gw3[0], gw3[1], gw3[2], gw3[3]);
 
     for(idx = 0; idx < 4; idx++){
-        gw3[idx] = s_box[gw3[idx]];
+        gw3[idx] = sbox[(((gw3[idx] >> 4) & 0x0F) * 16) + (gw3[idx] & 0x0F)];
     }
-    gw3[0] = gw3[0] ^ 0x01;
+    printf("The byte substituted w3 is %x %x %x %x\n", gw3[0], gw3[1], gw3[2], gw3[3]);
+    gw3[0] = gw3[0] ^ (0x01U << (nRound - 1));
+    printf("The round constant added w3 is %x %x %x %x\n", gw3[0], gw3[1], gw3[2], gw3[3]);
     
+    /* w(n) = w(n-4) ^ w(n-1) */
     for(idx = 0; idx < 4; idx++){
         w4[idx] = w0[idx] ^ gw3[idx];
-        w5[idx] = w4[idx] ^ w1[idx];
-        w6[idx] = w5[idx] ^ w2[idx];
-        w7[idx] = w6[idx] ^ w3[idx];
+        w5[idx] = w1[idx] ^ w5[idx];
+        w6[idx] = w2[idx] ^ w5[idx];
+        w7[idx] = w3[idx] ^ w6[idx];
     }
 
     /* re-arrange 4 byte wise in to output buffer */
@@ -290,5 +314,74 @@ int aes_mix_columns(uint8_t *in, uint8_t *out)
 
 int add_round_key(char *in, char *out)
 {
-    
+
+}
+
+int aes_encrypt_init(aes_mode_t mode, int keyLen, const uint8_t *key, const uint8_t *initVal, const uint8_t *plain_text, 
+                    uint8_t *ciper_text, uint8_t *round_key, uint8_t *nRound)
+{
+    uint8_t idx;
+    uint8_t job_id;
+    uint8_t temp_data[16] = {0};
+    uint8_t temp_key[16] = {0};
+
+    /* add(XOR) Round key 0 with the plain text */
+    for(idx = 0; idx < 16; idx++){
+        /* XOR the IV with the plain text */
+        temp_data[idx] = plain_text[idx] ^ initVal[idx];
+        /* XOR the Key with the resultant data */
+        temp_data[idx] ^= key[idx];
+    }
+
+    /* Initialize the key schedule */
+    if(keyLen == AES_128){
+        *nRound = 1;
+        aes_get_round_key(key, temp_key, *nRound);
+        memcpy(round_key, temp_key, 16);
+    }
+    else if(keyLen == AES_192){
+        /* to be implemented */
+    }
+    else if(keyLen == AES_256){
+        /* to be implemented */
+    }
+    else{
+        return -1;
+    }
+    return aes_get_job_id();
+}
+
+int aes_encrypt_update(uint8_t job_id, uint8_t *plain_text, uint8_t *cipher_text, uint8_t *round_key, uint8_t nRound)
+{
+    uint8_t round;
+    uint8_t idx;
+    uint8_t temp_data[16];
+    uint8_t temp_data2[16];
+    uint8_t temp_key[16];
+
+    round = nRound;
+    while(round < 11){
+        /* Calculate round key */
+        nRound++;
+        aes_get_round_key(round_key, temp_key, nRound);
+        memcpy(round_key, temp_key, 16);
+
+        aes_transpose(plain_text, temp_data);
+
+        /* S-Box substitution */
+        for(idx = 0; idx < 16; idx++){
+            temp_data2[idx] = sbox[(((temp_data[idx] >> 4) & 0x0F) * 16) + (temp_data[idx] & 0x0F)];
+        }
+
+        /* Shift rows */
+        aes_shift_rows(temp_data2, temp_data);
+
+        /* Mix columns */
+        aes_mix_columns(temp_data, temp_data2);
+
+        /* add round key */
+        for(idx = 0; idx < 16; idx++){
+            temp_data[idx] = temp_data2[idx] ^ temp_key[idx];
+        }
+    }
 }
