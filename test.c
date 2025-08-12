@@ -10,6 +10,7 @@ uint8_t in[16] = {0x63, 0x2F, 0xAF, 0xA2,
 
 uint8_t out[16] = {0};
 uint8_t temp[16] = {0};
+uint8_t temp2[16] = {0};
 uint8_t round_key[16] = {0};
 
 uint8_t plain_text[16] = {0x54, 0x77, 0x6F, 0x20, 0x4F, 0x6E, 0x65, 0x20, 0x4E, 0x69, 0x6E, 0x65, 0x20, 0x54, 0x77, 0x6F};
@@ -36,10 +37,24 @@ int main(int arc, char ** argv)
         round++;
     }
 #endif
-    aes_encrypt_init(AES_CBC, AES_128, key, initVal, plain_text, out, round_key, &nRound);
+    aes_encrypt_init(AES_CBC, AES_128, key, initVal, plain_text, out);
+
     for (int i = 0; i < 16; i++)
     {
         printf("%x", out[i]);
+    }
+    printf("\n");
+    aes_encrypt_update(AES_CBC, out, temp, key, AES_128);
+    for (int i = 0; i < 16; i++)
+    {
+        printf("%x", temp[i]);
+    }
+    printf("\n");
+
+    aes_encrypt_end(AES_CBC, temp, temp2, AES_128);
+    for (int i = 0; i < 16; i++)
+    {
+        printf("%x", temp[i]);
     }
     printf("\n");
 #if 0
