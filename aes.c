@@ -317,8 +317,8 @@ int add_round_key(char *in, char *out)
 
 }
 
-int aes_encrypt_init(aes_mode_t mode, int keyLen, const uint8_t *key, const uint8_t *initVal, const uint8_t *plain_text, 
-                    uint8_t *ciper_text, uint8_t *round_key, uint8_t *nRound)
+int aes_encrypt_init(aes_mode_t mode, uint8_t keyLen, const uint8_t *key, const uint8_t *initVal, const uint8_t *plain_text, 
+    uint8_t *cipher_text)
 {
     uint8_t idx;
     uint8_t job_id;
@@ -326,45 +326,31 @@ int aes_encrypt_init(aes_mode_t mode, int keyLen, const uint8_t *key, const uint
     uint8_t temp_key[16] = {0};
 
     /* add(XOR) Round key 0 with the plain text */
-    for(idx = 0; idx < 16; idx++){
+    for(idx = 0; idx < (keyLen / 8); idx++){
         /* XOR the IV with the plain text */
         temp_data[idx] = plain_text[idx] ^ initVal[idx];
         /* XOR the Key with the resultant data */
-        temp_data[idx] ^= key[idx];
-    }
-
-    /* Initialize the key schedule */
-    if(keyLen == AES_128){
-        *nRound = 1;
-        aes_get_round_key(key, temp_key, *nRound);
-        memcpy(round_key, temp_key, 16);
-    }
-    else if(keyLen == AES_192){
-        /* to be implemented */
-    }
-    else if(keyLen == AES_256){
-        /* to be implemented */
-    }
-    else{
-        return -1;
+        cipher_text[idx] = temp_data[idx] ^ key[idx];
+        //printf("XOR of %x & %x is %x\n", temp_data[idx], key[idx], cipher_text[idx]);
     }
     return aes_get_job_id();
 }
 
-int aes_encrypt_update(uint8_t job_id, uint8_t *plain_text, uint8_t *cipher_text, uint8_t *round_key, uint8_t nRound)
+int aes_encrypt_update(const uint8_t *plain_text, uint8_t *cipher_text, const uint8_t *key, uint8_t keyLen)
 {
     uint8_t round;
     uint8_t idx;
-    uint8_t temp_data[16];
-    uint8_t temp_data2[16];
-    uint8_t temp_key[16];
+    uint8_t temp_data[16] = {0};
+    uint8_t temp_data2[16] = {0};
+    uint8_t temp_key[16] = {0};
+    uint8_t round_key[16] = {0};
 
-    round = nRound;
-    while(round < 11){
+    round = 1;
+    memcpy(temp_key, key, 16);
+    while(round < 10){
         /* Calculate round key */
-        nRound++;
-        aes_get_round_key(round_key, temp_key, nRound);
-        memcpy(round_key, temp_key, 16);
+        aes_get_round_key(temp_key, round_key, round);
+        round++;
 
         aes_transpose(plain_text, temp_data);
 
@@ -383,5 +369,6 @@ int aes_encrypt_update(uint8_t job_id, uint8_t *plain_text, uint8_t *cipher_text
         for(idx = 0; idx < 16; idx++){
             temp_data[idx] = temp_data2[idx] ^ temp_key[idx];
         }
+        memcpy(temp_key, temp_data, 16);
     }
 }

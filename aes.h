@@ -28,11 +28,11 @@ typedef struct aes_param_{
 /* returns a job_id, which is greater than 0 */
 /* This does the first round */
 int aes_encrypt_init(aes_mode_t mode, int keyLen, const uint8_t *key, const uint8_t *initVal, const uint8_t *plain_text, 
-                    uint8_t *ciper_text, uint8_t *round_key, uint8_t *nRound);
+                    uint8_t *cipher_text, uint8_t *round_key, uint8_t *nRound);
 
 /* This API does the intermediate rounds */
 /* gives the number of iterations left */
-int aes_encrypt_update(uint8_t job_id, uint8_t *plain_text, uint8_t *cipher_text, uint8_t *round_key, uint8_t nRound);
+int aes_encrypt_update(uint8_t *plain_text, uint8_t *cipher_text, uint8_t *key);
 
 /* This API does the final round */
 int ase_encrypt_end(int job_id, char *plain_text, char *cipher_text);
