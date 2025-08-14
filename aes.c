@@ -138,7 +138,7 @@ int aes_get_round_key(const uint8_t *key_in, uint8_t *round_key, uint8_t nRound)
     /* w(n) = w(n-4) ^ w(n-1) */
     for(idx = 0; idx < 4; idx++){
         w4[idx] = w0[idx] ^ gw3[idx];
-        w5[idx] = w1[idx] ^ w5[idx];
+        w5[idx] = w1[idx] ^ w4[idx];
         w6[idx] = w2[idx] ^ w5[idx];
         w7[idx] = w3[idx] ^ w6[idx];
     }
@@ -268,6 +268,33 @@ int aes_shift_rows(uint8_t *in, uint8_t *out)
     out[3]  = in[15];
 }
 
+static uint8_t aes_galoisPolyMultiply(uint8_t constPoly, uint8_t y){
+
+    uint8_t out;
+    uint16_t yi;
+
+    if(constPoly == 1){
+        out = constPoly * y;
+    }
+    else if (constPoly == 2){
+        yi = ( y << 1);
+        if(yi > 255){
+            yi = (uint8_t)yi ^ 0x1B;
+        }
+        out = (uint8_t)yi;
+    }
+    else if (constPoly == 3){
+        yi = ( y << 1);
+        yi ^= y;
+        if(yi > 255){
+            yi = (uint8_t)yi ^ 0x1B;
+        }
+        out = (uint8_t)yi;
+    }
+        
+    return out;
+}
+
 int aes_mix_columns(uint8_t *in, uint8_t *out)
 {
     uint8_t matrix[4][4] =  {
@@ -295,20 +322,40 @@ int aes_mix_columns(uint8_t *in, uint8_t *out)
     for(x = 0; x < 4; x++){
         for(y = 0; y < 4; y++){
             for(k = 0; k < 4; k++){
-                output[x][y] ^= (matrix[x][k] * input[k][y]);
-                //printf("[%d, %d]: matrix is %x, input is %x and output is %x\n", x, y, matrix[x][k], input[k][y], output[x][y]);
+                output[x][y] ^= aes_galoisPolyMultiply(matrix[x][k], input[k][y]);
+#if 0
+                if(matrix[x][k] < 2)
+                    output[x][y] ^= (matrix[x][k] * input[k][y]);
+
+                else if (matrix[x][k] == 2){
+
+                    if(input[k][y] < 0x80)
+                        output[x][y] ^= (matrix[x][k] * input[k][y]);
+                    else
+                        output[x][y] ^= (((matrix[x][k] -1) * input[k][y]) ^ input[k][y]);
+                }
+                else if (matrix[x][k] == 3){
+
+                    if(input[k][y] < 0x55)
+                        output[x][y] ^= (matrix[x][k] * input[k][y]);
+                    else if (input[k][y] < 0xAA)
+                        output[x][y] ^= (((matrix[x][k] -1) * input[k][y]) ^ input[k][y]); 
+                    else
+                        output[x][y] ^= ((((matrix[x][k] -2) * input[k][y]) ^ input[k][y]) ^input[k][y]); 
+                }
+#endif
+                printf("[%d, %d]*[%d, %d]->[%d, %d]: matrix is %x, input is %x and output is %x\n", x, k, k, y, x, y, matrix[x][k], input[k][y], output[x][y]);
             }
         }
     }
-
     /* deserialize the matrix to output buffer */
         /* Copy the input to a 4*4 matrix */
     for(x = 0; x < 4; x++){
         for(y = 0; y < 4; y++){
             out[x + (4*y)] = output[x][y];
-            //printf("%x", out[x + (4*y)]);
+            printf("%x", out[x + (4*y)]);
         }
-        //printf("\n");
+        printf("\n");
     }
 }
 
@@ -344,6 +391,7 @@ int aes_encrypt_update(aes_mode_t mode, const uint8_t *plain_text, uint8_t *ciph
     uint8_t temp_data2[16] = {0};
     uint8_t temp_key[16] = {0};
     uint8_t round_key[16] = {0};
+    uint8_t print_buff[16] = {0};
 
     round = 1;
     memcpy(temp_key, key, 16);
@@ -360,7 +408,7 @@ int aes_encrypt_update(aes_mode_t mode, const uint8_t *plain_text, uint8_t *ciph
         printf("\n");
 
         /* S-Box substitution */
-        printf("The round %d substituted maxtrix is:\n", round);
+        printf("The round %d substituted matrix is:\n", round);
         for(idx = 0; idx < 16; idx++){
             temp_data2[idx] = sbox[(((temp_data[idx] >> 4) & 0x0F) * 16) + (temp_data[idx] & 0x0F)];
             printf("%x", temp_data2[idx]);
@@ -369,30 +417,32 @@ int aes_encrypt_update(aes_mode_t mode, const uint8_t *plain_text, uint8_t *ciph
 
         /* Shift rows */
         aes_shift_rows(temp_data2, temp_data);
-        aes_inverseTranspose(temp_data, temp_data2);
-        printf("The round %d row shifted maxtrix is:\n", round);
+        aes_inverseTranspose(temp_data, print_buff);
+        printf("The round %d row shifted matrix is:\n", round);
         for(idx = 0; idx < 16; idx++){
-            printf("%x", temp_data2[idx]);
+            printf("%x", print_buff[idx]);
         }
         printf("\n");   
 
         /* Mix columns */
-        aes_mix_columns(temp_data2, temp_data);
-        printf("The round %d column mixed maxtrix is:\n", round);
+        aes_mix_columns(temp_data, temp_data2);
+        //aes_inverseTranspose(temp_data2, temp_data);
+        printf("The round %d column mixed matrix is:\n", round);
         for(idx = 0; idx < 16; idx++){
-            printf("%x", temp_data[idx]);
+            printf("%x", temp_data2[idx]);
         }
         printf("\n");  
 
         /* add round key */
         for(idx = 0; idx < 16; idx++){
-            temp_data2[idx] = temp_data[idx] ^ temp_key[idx];
+            temp_data[idx] = temp_data2[idx] ^ round_key[idx];
         }
         printf("The round %d round key added maxtrix is:\n", round);
         for(idx = 0; idx < 16; idx++){
-            printf("%x", temp_data2[idx]);
+            printf("%x", temp_data[idx]);
         }
-        printf("\n"); 
+        printf("\n");
+        aes_inverseTranspose(temp_data, temp_data2);
         memcpy(temp_key, temp_data2, 16);
         round++;
     }
