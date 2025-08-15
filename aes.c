@@ -26,6 +26,25 @@ const uint8_t sbox[256] = {
     0x8c, 0xa1, 0x89, 0x0d, 0xbf, 0xe6, 0x42, 0x68, 0x41, 0x99, 0x2d, 0x0f, 0xb0, 0x54, 0xbb, 0x16
 };
 
+const uint8_t inv_sbox[256] = {
+    0x52, 0x09, 0x6a, 0xd5, 0x30, 0x36, 0xa5, 0x38, 0xbf, 0x40, 0xa3, 0x9e, 0x81, 0xf3, 0xd7, 0xfb,
+    0x7c, 0xe3, 0x39, 0x82, 0x9b, 0x2f, 0xff, 0x87, 0x34, 0x8e, 0x43, 0x44, 0xc4, 0xde, 0xe9, 0xcb,
+    0x54, 0x7b, 0x94, 0x32, 0xa6, 0xc2, 0x23, 0x3d, 0xee, 0x4c, 0x95, 0x0b, 0x42, 0xfa, 0xc3, 0x4e,
+    0x08, 0x2e, 0xa1, 0x66, 0x28, 0xd9, 0x24, 0xb2, 0x76, 0x5b, 0xa2, 0x49, 0x6d, 0x8b, 0xd1, 0x25,
+    0x72, 0xf8, 0xf6, 0x64, 0x86, 0x68, 0x98, 0x16, 0xd4, 0xa4, 0x5c, 0xcc, 0x5d, 0x65, 0xb6, 0x92,
+    0x6c, 0x70, 0x48, 0x50, 0xfd, 0xed, 0xb9, 0xda, 0x5e, 0x15, 0x46, 0x57, 0xa7, 0x8d, 0x9d, 0x84,
+    0x90, 0xd8, 0xab, 0x00, 0x8c, 0xbc, 0xd3, 0x0a, 0xf7, 0xe4, 0x58, 0x05, 0xb8, 0xb3, 0x45, 0x06,
+    0xd0, 0x2c, 0x1e, 0x8f, 0xca, 0x3f, 0x0f, 0x02, 0xc1, 0xaf, 0xbd, 0x03, 0x01, 0x13, 0x8a, 0x6b,
+    0x3a, 0x91, 0x11, 0x41, 0x4f, 0x67, 0xdc, 0xea, 0x97, 0xf2, 0xcf, 0xce, 0xf0, 0xb4, 0xe6, 0x73,
+    0x96, 0xac, 0x74, 0x22, 0xe7, 0xad, 0x35, 0x85, 0xe2, 0xf9, 0x0e, 0xb5, 0x1d, 0x62, 0xe5, 0x7a,
+    0x9c, 0x71, 0x0d, 0x33, 0x2b, 0x07, 0x7e, 0xd6, 0x26, 0x63, 0x18, 0x83, 0xce, 0xee, 0x9a, 0x4b,
+    0xef, 0x0c, 0xad, 0x8c, 0x78, 0xc6, 0x8f, 0x14, 0x3c, 0x1b, 0x4b, 0xf1, 0x59, 0x4b, 0x20, 0x9c, 
+    0x2d, 0x29, 0x1c, 0x5f, 0x6f, 0x4a, 0x04, 0x2c, 0xc8, 0x19, 0x80, 0xae, 0x2a, 0xce, 0xed, 0x75,
+    0x78, 0x1b, 0x6e, 0x4c, 0x5a, 0x76, 0x3a, 0x47, 0x30, 0x24, 0x55, 0x69, 0x0e, 0x65, 0x99, 0x4a,
+    0x6d, 0x73, 0x2f, 0x3a, 0x90, 0x45, 0x00, 0x20, 0x8b, 0x10, 0x9b, 0x88, 0x4a, 0x5a, 0x2e, 0xba,
+    0x44, 0x3d, 0x2c, 0x34, 0x8e, 0x19, 0x99, 0x30, 0x4c, 0xc1, 0x3f, 0x25, 0x0e, 0x70, 0x5a, 0x80
+};
+
 static uint8_t s_box[256];
 
 static uint8_t aes_job_id;
@@ -41,15 +60,23 @@ int aes_get_round_key(const uint8_t *key_in, uint8_t *round_key, uint8_t nRound)
 /* /brief  s-box is generated using a */
 int aes_create_s_box(void);
 
-int aes_substitute_bytes(char *in, char *out);
+int aes_substitute_bytes(uint8_t *in, uint8_t *out);
+
+int aes_inverse_substitute_bytes(uint8_t *in, uint8_t *out);
 
 int aes_shift_rows(uint8_t *in, uint8_t *out);
 
+int aes_inverse_shift_rows(uint8_t *in, uint8_t *out);
+
 int aes_mix_columns(uint8_t *in, uint8_t *out);
 
-int add_round_key(char *in, char *out);
+int aes_inverse_mix_columns(uint8_t *in, uint8_t *out);
+
+int add_round_key(uint8_t *in, uint8_t *out);
 
 int aes_transpose(uint8_t *in, uint8_t *out);
+
+int aes_inverseTranspose(uint8_t *in, uint8_t *out);
 
 static uint8_t aes_get_job_id(void)
 {
@@ -62,8 +89,6 @@ static void aes_close_job_id(uint8_t job_id)
 {
     aes_job_slot[aes_job_id] = 0;
 }
-
-int aes_inverseTranspose(uint8_t *in, uint8_t *out);
 
 /*
 From:
@@ -234,12 +259,31 @@ int aes_create_s_box(void)
 }
 #endif
 
-int aes_substitute_bytes(char *in, char *out)
+int aes_substitute_bytes(uint8_t *in, uint8_t *out)
 {
     uint8_t idx;
-    for(idx = 0; idx < 16; idx++){
-        out[idx] = s_box[in[idx]];
+    /* S-Box substitution */
+    printf("S-box substitution of bytes\n");
+    for (idx = 0; idx < 16; idx++)
+    {
+        out[idx] = sbox[(((in[idx] >> 4) & 0x0F) * 16) + (in[idx] & 0x0F)];
+        printf("%x", out[idx]);
     }
+    printf("\n");
+    return 0;
+}
+
+int aes_inverse_substitute_bytes(uint8_t *in, uint8_t *out)
+{
+    uint8_t idx;
+    /* Inverse S-Box substitution */
+    printf(" Inverse S-box substitution of bytes\n");
+    for (idx = 0; idx < 16; idx++)
+    {
+        out[idx] = inv_sbox[(((in[idx] >> 4) & 0x0F) * 16) + (in[idx] & 0x0F)];
+        printf("%x", out[idx]);
+    }
+    printf("\n");
     return 0;
 }
 
@@ -273,6 +317,32 @@ int aes_shift_rows(uint8_t *in, uint8_t *out)
     out[11] = in[7];
     out[7]  = in[3];
     out[3]  = in[15];
+}
+
+int aes_inverse_shift_rows(uint8_t *in, uint8_t *out)
+{
+    uint8_t idx;
+    for(idx = 0; idx < 16; idx++){
+        if((idx % 4) == 0)
+            out[idx] = in[idx];
+    }
+    /* second row - left shift by one Byte */
+    out[1]  = in[13];
+    out[13] = in[9];
+    out[9]  = in[5];
+    out[5]  = in[1];
+
+    /* third row - left shift by 2 Bytes */
+    out[6]  = in[14];
+    out[2]  = in[10];
+    out[14] = in[6];
+    out[10] = in[2];
+
+    /* fourth row - left shift by 3 Bytes */
+    out[11] = in[15];
+    out[7]  = in[11];
+    out[3]  = in[7];
+    out[15] = in[3];
 }
 
 static uint8_t aes_galoisPolyMultiply(uint8_t constPoly, uint8_t y){
@@ -366,7 +436,50 @@ int aes_mix_columns(uint8_t *in, uint8_t *out)
     }
 }
 
-int add_round_key(char *in, char *out)
+int aes_inverse_mix_columns(uint8_t *in, uint8_t *out)
+{
+    uint8_t matrix[4][4] =  {
+                                {2, 3, 1, 1 },
+                                {1, 2, 3, 1 },
+                                {1, 1, 2, 3 },
+                                {3, 1, 1, 2 }
+                            };
+    uint8_t input[4][4] = {0};
+    uint8_t output[4][4] = {0};
+    int x;
+    int y;
+
+    /* Copy the input to a 4*4 matrix */
+    for(x = 0; x < 4; x++){
+        for(y = 0; y < 4; y++){
+            input[x][y] = in[x + (4*y)];
+            //printf("[%d,%d]:%x", x, y, in[x + (4*y)]);
+        }
+        //printf("\n");
+    }
+
+    /* Do the matrix multiplication */
+    int k = 0;
+    for(x = 0; x < 4; x++){
+        for(y = 0; y < 4; y++){
+            for(k = 0; k < 4; k++){
+                output[x][y] ^= aes_galoisPolyMultiply(matrix[x][k], input[k][y]);
+                //printf("[%d, %d]*[%d, %d]->[%d, %d]: matrix is %x, input is %x and output is %x\n", x, k, k, y, x, y, matrix[x][k], input[k][y], output[x][y]);
+            }
+        }
+    }
+    /* deserialize the matrix to output buffer */
+        /* Copy the input to a 4*4 matrix */
+    for(x = 0; x < 4; x++){
+        for(y = 0; y < 4; y++){
+            out[x + (4*y)] = output[x][y];
+            //printf("%x", out[x + (4*y)]);
+        }
+        //printf("\n");
+    }
+}
+
+int add_round_key(uint8_t *in, uint8_t *out)
 {
 
 }
@@ -534,7 +647,35 @@ int aes_encrypt(aes_mode_t mode, uint8_t *initVal, uint8_t *plain_text, uint8_t 
 int aes_decrypt_init(aes_mode_t mode, const uint8_t *initVal, const uint8_t *cipher_text, 
     uint8_t *plain_text, const uint8_t *key, aes_keylen_t keyLen)
 {
+    uint8_t idx;
+    uint8_t round = 1;
+    uint8_t temp[16] = {0};
+    uint8_t round_key[16] = {0};
 
+    memcpy(temp, key, 16);
+
+    while(round < 11){
+        aes_get_round_key(temp, round_key, round);
+        memcpy(temp, round_key, 16);
+        round++;
+    }
+    printf("The round %d key is:\n", round);
+    for (idx = 0; idx < 16; idx++)
+    {
+        printf("%x", round_key[idx]);
+    }
+    printf("\n");
+
+    /* add(XOR) Round key 0 with the plain text */
+    for (idx = 0; idx < (keyLen / 8); idx++)
+    {
+        /* XOR the IV with the plain text */
+        temp[idx] = cipher_text[idx] ^ initVal[idx];
+        /* XOR the Key with the resultant data */
+        plain_text[idx] = temp[idx] ^ round_key[idx];
+        // printf("XOR of %x & %x is %x\n", temp[idx], round_key[idx], plain_text[idx]);
+    }
+    return 0;
 }
 
 int aes_decrypt_update(aes_mode_t mode, const uint8_t *cipher_text, uint8_t *plain_text, const uint8_t *key, uint8_t *rKey, aes_keylen_t keyLen)
@@ -542,12 +683,59 @@ int aes_decrypt_update(aes_mode_t mode, const uint8_t *cipher_text, uint8_t *pla
 
 }
 
-int aes_decrypt_end(aes_mode_t mode, const uint8_t *cipher_text, uint8_t *plain_text, uint8_t *round_key, aes_keylen_t keyLen)
+int aes_decrypt_end(aes_mode_t mode, const uint8_t *cipher_text, uint8_t *plain_text, uint8_t *key, aes_keylen_t keyLen)
 {
+    uint8_t idx;
+    uint8_t round;
+    uint8_t temp_data[16] = {0};
+    uint8_t temp_data2[16] = {0};
 
+    round = (keyLen / 32) + 6;
+
+    memcpy(temp_data, cipher_text, 16);
+
+    /* S-Box substitution */
+    aes_inverse_substitute_bytes(temp_data, temp_data2);
+
+    /* Shift rows */
+    aes_inverse_shift_rows(temp_data2, temp_data);
+    // aes_inverseTranspose(temp_data, print_buff);
+    printf("The round %d row shifted matrix is:\n", round);
+    for (idx = 0; idx < 16; idx++)
+    {
+        printf("%x", temp_data[idx]);
+    }
+    printf("\n");
+
+    /* add round key */
+    for (idx = 0; idx < 16; idx++)
+    {
+        temp_data2[idx] = temp_data[idx] ^ key[idx];
+    }
+    printf("The round %d round key added maxtrix is:\n", round);
+    for (idx = 0; idx < 16; idx++)
+    {
+        printf("%x", temp_data2[idx]);
+    }
+    printf("\n");
+    memcpy(plain_text, temp_data2, 16);
+    return 0;
 }
 
-int aes_decrypt(aes_mode_t mode, uint8_t *initVal, uint8_t *cipher_text, uint8_t *plain_text, const uint8_t *key, aes_keylen_t keyLen)
+int aes_decrypt(aes_mode_t mode, const uint8_t *initVal, const uint8_t *cipher_text, uint8_t *plain_text, const uint8_t *key, aes_keylen_t keyLen)
 {
-
+    int retVal;
+    uint8_t round_key[16] = {0};
+    uint8_t temp[16] = {0};
+    uint8_t temp2[16] = {0};
+    memcpy(round_key, key, 16);
+    retVal = aes_decrypt_init(AES_CBC, initVal, cipher_text, temp, key, AES_128);
+    if(retVal < 0)
+        return -1;
+    retVal = aes_decrypt_update(AES_CBC, temp, temp2, key, round_key, AES_128);
+    if(retVal < 0)
+        return -1;
+    retVal = aes_decrypt_end(AES_CBC, temp2, plain_text, round_key, AES_128);
+    if(retVal < 0)
+        return -1;
 }
