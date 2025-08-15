@@ -20,6 +20,9 @@ uint8_t initVal[16] = {0};
 int main(int arc, char ** argv)
 {
     int nRound = 0;
+    uint8_t round8_key[16] = {0x8e, 0x51, 0xef, 0x21, 0xfa, 0xbb, 0x45, 0x22, 0xe4, 0x3d, 0x7a, 0x06, 0x56, 0x95, 0x4b, 0x6c};
+    uint8_t round9_key[16] = {0};
+    aes_get_round_key(round8_key, round9_key, 9);
 #if 0
     //aes_create_s_box();
     //aes_mix_columns(in, out);
@@ -37,26 +40,38 @@ int main(int arc, char ** argv)
         round++;
     }
 #endif
-    aes_encrypt_init(AES_CBC, AES_128, key, initVal, plain_text, out);
+#if 0
+    /* Test Case 1 - verified against data provided by https://legacy.cryptool.org/en/cto/aes-step-by-step*/
+    aes_encrypt_init(AES_CBC, initVal, plain_text, out, key, AES_128);
 
     for (int i = 0; i < 16; i++)
     {
         printf("%x", out[i]);
     }
     printf("\n");
-    aes_encrypt_update(AES_CBC, out, temp, key, AES_128);
+    aes_encrypt_update(AES_CBC, out, temp, key, round_key, AES_128);
     for (int i = 0; i < 16; i++)
     {
         printf("%x", temp[i]);
     }
     printf("\n");
 
-    aes_encrypt_end(AES_CBC, temp, temp2, AES_128);
+    aes_encrypt_end(AES_CBC, temp, temp2, round_key, AES_128);
+    for (int i = 0; i < 16; i++)
+    {
+        printf("%x", temp2[i]);
+    }
+    printf("\n");
+#endif
+
+#if 1
+    aes_encrypt(AES_CBC, initVal, plain_text, temp, key, AES_128);
     for (int i = 0; i < 16; i++)
     {
         printf("%x", temp[i]);
     }
     printf("\n");
+#endif
 #if 0
     aes_inverseTranspose(temp, out);
     for(int i=0; i < 16; i++){

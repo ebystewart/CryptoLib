@@ -27,26 +27,27 @@ typedef struct aes_param_{
 /* AES Encryption */
 /* returns a job_id, which is greater than 0 */
 /* This does the first round */
-int aes_encrypt_init(aes_mode_t mode, aes_keylen_t keyLen, const uint8_t *key, const uint8_t *initVal, const uint8_t *plain_text, 
-                    uint8_t *cipher_text);
+int aes_encrypt_init(aes_mode_t mode, const uint8_t *initVal, const uint8_t *plain_text, 
+                    uint8_t *cipher_text, const uint8_t *key, aes_keylen_t keyLen);
 
 /* This API does the intermediate rounds */
 /* gives the number of iterations left */
-int aes_encrypt_update(aes_mode_t mode, const uint8_t *plain_text, uint8_t *cipher_text, const uint8_t *key, aes_keylen_t keyLen);
+int aes_encrypt_update(aes_mode_t mode, const uint8_t *plain_text, uint8_t *cipher_text, const uint8_t *key, uint8_t *rKey, aes_keylen_t keyLen);
 
 /* This API does the final round */
-int aes_encrypt_end(aes_mode_t mode, const uint8_t *plain_text, uint8_t *cipher_text, aes_keylen_t keyLen);
+int aes_encrypt_end(aes_mode_t mode, const uint8_t *plain_text, uint8_t *cipher_text, uint8_t *round_key, aes_keylen_t keyLen);
 
 /* AES Decryption */
-int aes_decrypt_init(aes_mode_t mode, int keyLen, char *key, char *initVal, char *cipher_text, char *plain_text);
+int aes_decrypt_init(aes_mode_t mode, const uint8_t *initVal, const uint8_t *cipher_text, 
+    uint8_t *plain_text, const uint8_t *key, aes_keylen_t keyLen);
 
-int aes_decrypt_update(int job_id, char *cipher_text, char *plain_text, int iLeft);
+int aes_decrypt_update(aes_mode_t mode, const uint8_t *cipher_text, uint8_t *plain_text, const uint8_t *key, uint8_t *rKey, aes_keylen_t keyLen);
 
-int aes_decrypt_end(int job_id, char *cipher_text, char *plain_text);
+int aes_decrypt_end(aes_mode_t mode, const uint8_t *cipher_text, uint8_t *plain_text, uint8_t *round_key, aes_keylen_t keyLen);
 
 /* Sync APIs */
-int aes_encrypt(aes_mode_t mode, int keyLen, char *key, char *initVal, char *plain_text, char *ciper_text);
+int aes_encrypt(aes_mode_t mode, uint8_t *initVal, uint8_t *plain_text, uint8_t *cipher_text, const uint8_t *key, aes_keylen_t keyLen);
 
-int aes_decrypt(aes_mode_t mode, int keyLen, char *key, char *initVal, char *cipher_text, char *plain_text);
+int aes_decrypt(aes_mode_t mode, uint8_t *initVal, uint8_t *cipher_text, uint8_t *plain_text, const uint8_t *key, aes_keylen_t keyLen);
 
 #endif
