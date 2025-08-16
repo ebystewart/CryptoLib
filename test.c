@@ -14,6 +14,7 @@ uint8_t temp2[16] = {0};
 uint8_t round_key[16] = {0};
 
 uint8_t plain_text[16] = {0x54, 0x77, 0x6F, 0x20, 0x4F, 0x6E, 0x65, 0x20, 0x4E, 0x69, 0x6E, 0x65, 0x20, 0x54, 0x77, 0x6F};
+uint8_t cipher_text[16] = {0x29, 0xc3, 0x50, 0x5f, 0x57, 0x14, 0x20, 0xf6, 0x40, 0x22, 0x99, 0xb3, 0x1a, 0x02, 0xd7, 0x3a};
 uint8_t key[16] = {0x54, 0x68, 0x61, 0x74, 0x73, 0x20, 0x6D, 0x79, 0x20, 0x4B, 0x75, 0x6E, 0x67, 0x20, 0x46, 0x75};
 uint8_t initVal[16] = {0};
 
@@ -64,7 +65,7 @@ int main(int arc, char ** argv)
     printf("\n");
 #endif
 
-#if 1
+#if 0
     aes_encrypt(AES_CBC, initVal, plain_text, temp, key, AES_128);
     for (int i = 0; i < 16; i++)
     {
@@ -76,6 +77,29 @@ int main(int arc, char ** argv)
     aes_inverseTranspose(temp, out);
     for(int i=0; i < 16; i++){
         printf("%x", out[i]);
+    }
+    printf("\n");
+#endif
+#if 1
+    /* Test Case 2 - verified against data provided by https://legacy.cryptool.org/en/cto/aes-step-by-step*/
+    aes_decrypt_init(AES_CBC, initVal, cipher_text, out, key, AES_128);
+
+    for (int i = 0; i < 16; i++)
+    {
+        printf("%x", out[i]);
+    }
+    printf("\n");
+    aes_decrypt_update(AES_CBC, out, temp, key, round_key, AES_128);
+    for (int i = 0; i < 16; i++)
+    {
+        printf("%x", temp[i]);
+    }
+    printf("\n");
+
+    aes_decrypt_end(AES_CBC, temp, temp2, round_key, AES_128);
+    for (int i = 0; i < 16; i++)
+    {
+        printf("%x", temp2[i]);
     }
     printf("\n");
 #endif

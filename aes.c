@@ -659,7 +659,7 @@ int aes_decrypt_init(aes_mode_t mode, const uint8_t *initVal, const uint8_t *cip
         memcpy(temp, round_key, 16);
         round++;
     }
-    printf("The round %d key is:\n", round);
+    printf("The round %d key is:\n", (round - 1));
     for (idx = 0; idx < 16; idx++)
     {
         printf("%x", round_key[idx]);
@@ -680,7 +680,75 @@ int aes_decrypt_init(aes_mode_t mode, const uint8_t *initVal, const uint8_t *cip
 
 int aes_decrypt_update(aes_mode_t mode, const uint8_t *cipher_text, uint8_t *plain_text, const uint8_t *key, uint8_t *rKey, aes_keylen_t keyLen)
 {
+    uint8_t round;
+    uint8_t reqRound;
+    uint8_t idx;
+    uint8_t temp_data[16] = {0};
+    uint8_t temp_data2[16] = {0};
+    uint8_t temp_key[16] = {0};
+    uint8_t round_key[16] = {0};
+    uint8_t print_buff[16] = {0};
 
+
+    reqRound = 9;
+    memcpy(temp_key, key, 16);
+    memcpy(temp_data, cipher_text, 16);
+
+    while(reqRound > 0){
+        /* Calculate round key */
+        round = 0;
+        while(reqRound != round){
+            round++;
+            aes_get_round_key(temp_key, round_key, round);
+            memcpy(temp_key, round_key, 16);
+        }
+        printf("The round %d key is:\n", reqRound);
+        for(idx = 0; idx < 16; idx++){
+            printf("%x", round_key[idx]);
+        }
+        printf("\n");
+
+
+        /* Inverse Shift rows */
+        aes_inverse_shift_rows(temp_data, temp_data2);
+        printf("The round %d inverse row shifted matrix is:\n", round);
+        for(idx = 0; idx < 16; idx++){
+            printf("%x", temp_data2[idx]);
+        }
+        printf("\n");  
+
+        /* Inverse S-Box substitution */
+        printf("The round %d inverse substituted matrix is:\n", round);
+        for(idx = 0; idx < 16; idx++){
+            temp_data[idx] = inv_sbox[(((temp_data2[idx] >> 4) & 0x0F) * 16) + (temp_data2[idx] & 0x0F)];
+            printf("%x", temp_data[idx]);
+        }
+        printf("\n"); 
+
+        /* add round key */
+        for(idx = 0; idx < 16; idx++){
+            temp_data2[idx] = temp_data[idx] ^ round_key[idx];
+        }
+        printf("The round %d round key added matrix is:\n", round);
+        for(idx = 0; idx < 16; idx++){
+            printf("%x", temp_data2[idx]);
+        }
+        printf("\n");
+
+        /* Mix columns */
+        aes_inverse_mix_columns(temp_data2, temp_data);
+        printf("The round %d inverse column mixed matrix is:\n", round);
+        for(idx = 0; idx < 16; idx++){
+            printf("%x", temp_data[idx]);
+        }
+        printf("\n");  
+        memcpy(temp_key, round_key, 16);
+        reqRound--;
+    }
+    memcpy(rKey, temp_key, 16);
+    memcpy(plain_text, temp_data, 16);
+
+    return 0;
 }
 
 int aes_decrypt_end(aes_mode_t mode, const uint8_t *cipher_text, uint8_t *plain_text, uint8_t *key, aes_keylen_t keyLen)
