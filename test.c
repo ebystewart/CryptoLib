@@ -96,7 +96,7 @@ int main(int arc, char ** argv)
     }
     printf("\n");
 
-    aes_decrypt_end(AES_CBC, temp, temp2, round_key, AES_128);
+    aes_decrypt_end(AES_CBC, temp, temp2, key, AES_128);
     for (int i = 0; i < 16; i++)
     {
         printf("%x", temp2[i]);

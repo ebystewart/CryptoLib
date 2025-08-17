@@ -354,6 +354,7 @@ static uint8_t aes_galoisPolyMultiply(uint8_t constPoly, uint8_t y){
     uint8_t out;
     uint16_t yi;
     uint8_t idx;
+    uint16_t irrPoly = 0x1BU;
 
     if(constPoly == 1){
         out = constPoly * y;
@@ -384,8 +385,9 @@ static uint8_t aes_galoisPolyMultiply(uint8_t constPoly, uint8_t y){
         }
         out = (uint8_t)yi;
     }
-    else if(constPoly == 11){
+    else if(constPoly == 0xB){
         yi = (y << 3);
+        yi ^= (y << 1);
         yi ^= y;
         if(yi > 255){
             for(idx = 8; idx < 15; idx++){
@@ -395,10 +397,10 @@ static uint8_t aes_galoisPolyMultiply(uint8_t constPoly, uint8_t y){
         }
         out = (uint8_t)yi;
     }
-    else if(constPoly == 13){
+    else if(constPoly == 0xD){
         yi = (y << 2);
         yi ^= (y << 3);
-        //yi ^= y;
+        yi ^= y;
         if(yi > 255){
             for(idx = 8; idx < 15; idx++){
                 if(((yi >> idx) & 0x01) == 1)
@@ -408,17 +410,17 @@ static uint8_t aes_galoisPolyMultiply(uint8_t constPoly, uint8_t y){
         out = (uint8_t)yi;
     }
     /* http://www.ee.unb.ca/cgi-bin/tervo/calc2.pl?num=20&den=182&f=m&p=36&d=1 */
-    else if (constPoly == 14){
+    else if (constPoly == 0xe){
         yi = (y << 2);
         yi ^= (y << 3);
-        yi ^= y;
+        yi ^= (y << 1);
         if(yi > 255){
             for(idx = 8; idx < 15; idx++){
                 if(((yi >> idx) & 0x01) == 1)
-                    yi ^= (0x1B << (idx - 8));
+                    yi ^= (irrPoly << (idx - 8));
             }
         }
-        printf("GF multiplication of %x and %x gives %x\n", constPoly, y, yi);
+        //printf("GF multiplication of %x and %x gives %x\n", constPoly, y, yi);
         out = (uint8_t)yi;
     }
         
@@ -517,7 +519,7 @@ int aes_inverse_mix_columns(uint8_t *in, uint8_t *out)
         for(y = 0; y < 4; y++){
             for(k = 0; k < 4; k++){
                 output[x][y] ^= aes_galoisPolyMultiply(matrix[x][k], input[k][y]);
-                printf("[%d, %d]*[%d, %d]->[%d, %d]: matrix is %x, input is %x and output is %x\n", x, k, k, y, x, y, matrix[x][k], input[k][y], output[x][y]);
+                //printf("[%d, %d]*[%d, %d]->[%d, %d]: matrix is %x, input is %x and output is %x\n", x, k, k, y, x, y, matrix[x][k], input[k][y], output[x][y]);
             }
         }
     }
@@ -743,12 +745,12 @@ int aes_decrypt_update(aes_mode_t mode, const uint8_t *cipher_text, uint8_t *pla
     uint8_t print_buff[16] = {0};
 
     reqRound = 9;
-    memcpy(temp_key, key, 16);
     memcpy(temp_data, cipher_text, 16);
 
     while(reqRound > 0){
         /* Calculate round key */
         round = 0;
+        memcpy(temp_key, key, 16);
         while(reqRound != round){
             round++;
             aes_get_round_key(temp_key, round_key, round);
@@ -796,7 +798,8 @@ int aes_decrypt_update(aes_mode_t mode, const uint8_t *cipher_text, uint8_t *pla
         memcpy(temp_key, round_key, 16);
         reqRound--;
     }
-    memcpy(rKey, temp_key, 16);
+    /* return the same key for the final decryption round */
+    memcpy(rKey, key, 16);
     memcpy(plain_text, temp_data, 16);
 
     return 0;
