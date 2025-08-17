@@ -23,7 +23,7 @@ int main(int arc, char ** argv)
     int nRound = 0;
     uint8_t round8_key[16] = {0x8e, 0x51, 0xef, 0x21, 0xfa, 0xbb, 0x45, 0x22, 0xe4, 0x3d, 0x7a, 0x06, 0x56, 0x95, 0x4b, 0x6c};
     uint8_t round9_key[16] = {0};
-    aes_get_round_key(round8_key, round9_key, 9);
+    aes_get_round_key_128(round8_key, round9_key, 9);
 #if 0
     //aes_create_s_box();
     //aes_mix_columns(in, out);
