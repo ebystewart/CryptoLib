@@ -11,5 +11,6 @@ void set_entropy(void)
 
 int generate_random(char *buff, int size)
 {
-
+   /* pseudo- random number generator using XorShift */
+   /* ref: https://en.wikipedia.org/wiki/Xorshift */
 }
