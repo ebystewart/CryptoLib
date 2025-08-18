@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <string.h>
+#include <assert.h>
 #include "aes.h"
 
 #define ROTL8(x,shift) ((uint8_t) ((x) << (shift)) | ((x) >> (8 - (shift))))
@@ -213,6 +214,7 @@ int aes_get_round_key_256(const uint8_t *key_in, uint8_t *round_key, uint8_t nRo
     uint8_t w14[4] = {0};
     uint8_t w15[4] = {0};
     uint8_t gw7[4] = {0};
+    uint8_t gw11[4] = {0};
    
     /* arrange 4 byte wise */
     for(idx = 0; idx < 4; idx++){
@@ -258,16 +260,17 @@ int aes_get_round_key_256(const uint8_t *key_in, uint8_t *round_key, uint8_t nRo
 
     //printf("The round constant added w3 is %x %x %x %x\n", gw3[0], gw3[1], gw3[2], gw3[3]);
     
-    /* w(n) = w(n-4) ^ w(n-1) */
+    /* w(n) = w(n-8) ^ w(n-1) */
     for(idx = 0; idx < 4; idx++){
-        w8[idx] = w4[idx] ^ gw7[idx];
-        w9[idx] = w5[idx] ^ w8[idx];
-        w10[idx] = w6[idx] ^ w9[idx];
-        w11[idx] = w7[idx] ^ w10[idx];
-        w12[idx] = w8[idx] ^ w11[idx];
-        w13[idx] = w9[idx] ^ w12[idx];
-        w14[idx] = w10[idx] ^ w13[idx];
-        w15[idx] = w11[idx] ^ w14[idx];
+        w8[idx] = w0[idx] ^ gw7[idx];
+        w9[idx] = w1[idx] ^ w8[idx];
+        w10[idx] = w2[idx] ^ w9[idx];
+        w11[idx] = w3[idx] ^ w10[idx];
+        gw11[idx] = sbox[(((w11[idx] >> 4) & 0x0F) * 16) + (w11[idx] & 0x0F)];
+        w12[idx] = w4[idx] ^ gw11[idx];
+        w13[idx] = w5[idx] ^ w12[idx];
+        w14[idx] = w6[idx] ^ w13[idx];
+        w15[idx] = w7[idx] ^ w14[idx];
     }
 
     /* re-arrange 4 byte wise in to output buffer */
@@ -646,7 +649,7 @@ int aes_encrypt_init(aes_mode_t mode, const uint8_t *initVal, const uint8_t *pla
     uint8_t temp_key[16] = {0};
 
     /* add(XOR) Round key 0 with the plain text */
-    for(idx = 0; idx < (keyLen / 8); idx++){
+    for(idx = 0; idx < 16; idx++){
         /* XOR the IV with the plain text */
         temp_data[idx] = plain_text[idx] ^ initVal[idx];
         /* XOR the Key with the resultant data */
@@ -659,22 +662,40 @@ int aes_encrypt_init(aes_mode_t mode, const uint8_t *initVal, const uint8_t *pla
 int aes_encrypt_update(aes_mode_t mode, const uint8_t *plain_text, uint8_t *cipher_text, const uint8_t *key, uint8_t *rKey, aes_keylen_t keyLen)
 {
     uint8_t round;
+    uint8_t maxRound;
     uint8_t idx;
     uint8_t temp_data[16] = {0};
     uint8_t temp_data2[16] = {0};
-    uint8_t temp_key[16] = {0};
+    uint8_t temp_key[32] = {0};
     uint8_t round_key[16] = {0};
+    uint8_t roundKey_256[32] = {0};
     uint8_t print_buff[16] = {0};
 
-
+    maxRound = 6 + (keyLen /32);
     round = 1;
-    memcpy(temp_key, key, 16);
+    memcpy(temp_key, key, (keyLen/8));
     //aes_transpose(plain_text, temp_data);
     memcpy(temp_data, plain_text, 16);
 
-    while(round < 10){
+    while(round < maxRound){
         /* Calculate round key */
-        aes_get_round_key_128(temp_key, round_key, round);
+        if(keyLen == AES_128)
+            aes_get_round_key_128(temp_key, round_key, round);
+        else if (keyLen == AES_192)
+            aes_get_round_key_192(temp_key, roundKey_256, round);
+        else if (keyLen == AES_256)
+        {
+            if(round%2 == 0){
+                aes_get_round_key_256(temp_key, roundKey_256, round-1);
+                memcpy(round_key, roundKey_256, 16);
+            }
+            else{
+                memcpy(round_key, (temp_key + 16), 16);
+            }
+        }
+        else
+            assert(0);
+
         printf("The round %d key is:\n", round);
         for(idx = 0; idx < 16; idx++){
             printf("%x", round_key[idx]);
@@ -717,10 +738,16 @@ int aes_encrypt_update(aes_mode_t mode, const uint8_t *plain_text, uint8_t *ciph
         }
         printf("\n");
         //aes_inverseTranspose(temp_data, temp_data2);
-        memcpy(temp_key, round_key, 16);
+        if(keyLen == AES_128)
+            memcpy(temp_key, round_key, 16);
+        else if (keyLen == AES_256){
+            if(round%2 == 0){
+                memcpy(temp_key, roundKey_256, 32);
+            }
+        }
         round++;
     }
-    memcpy(rKey, temp_key, 16);
+    memcpy(rKey, roundKey_256, keyLen/8);
     memcpy(cipher_text, temp_data, 16);
     //aes_inverseTranspose(temp_data, cipher_text);
     return 0;
