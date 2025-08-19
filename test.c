@@ -135,23 +135,31 @@ int main(int arc, char ** argv)
         printf("%x", out[i]);
     }
     printf("\n");
-    uint8_t new_temp[16] = {0};
+
     aes_encrypt_update(AES_CBC, out, temp, key_256, roundKey_256, AES_256);
     for (int i = 0; i < 16; i++)
     {
         printf("%x", temp[i]);
-        //new_temp[i] = temp[i];
     }
     printf("\n");
 
-    //memcpy(new_temp, temp, 16);
-
-    aes_encrypt_end(AES_CBC, new_temp, temp2, roundKey_256, AES_256);
+    aes_encrypt_end(AES_CBC, temp, temp2, roundKey_256, AES_256);
     for (int i = 0; i < 16; i++)
     {
         printf("%x", temp2[i]);
     }
     printf("\n");
 #endif
+
+#if 1
+    /* test Case 4 */
+    aes_encrypt(AES_CBC, initVal, plain_text, temp, key_256, AES_256);
+    for (int i = 0; i < 16; i++)
+    {
+        printf("%x", temp[i]);
+    }
+    printf("\n");
+#endif
+
     return 0;
 }

@@ -760,18 +760,23 @@ int aes_encrypt_end(aes_mode_t mode, const uint8_t *plain_text, uint8_t *cipher_
 {
     uint8_t idx;
     uint8_t round;
-    uint8_t temp_key[16] = {0};
-    uint8_t temp_data[16] = {0};
+    uint8_t temp_key[32] = {0};
+    uint8_t temp_data1[16] = {0};
     uint8_t temp_data2[16] = {0};
 
     round = (keyLen / 32) + 6;
 
-    memcpy(temp_data, plain_text, 16);
+    memcpy(temp_data1, plain_text, 16);
     /* Calculate round key */
     if(keyLen == AES_128)
         aes_get_round_key_128(round_key, temp_key, 10);
+    else if (keyLen == AES_192)
+        aes_get_round_key_192(round_key, temp_key, 8);
     else if (keyLen == AES_256){
         aes_get_round_key_256(round_key, temp_key, 7);
+    }
+    else{
+        assert(0);
     }
     printf("The round %d key is:\n", round);
     for (idx = 0; idx < 16; idx++)
@@ -784,25 +789,25 @@ int aes_encrypt_end(aes_mode_t mode, const uint8_t *plain_text, uint8_t *cipher_
     printf("The round %d substituted matrix is:\n", round);
     for (idx = 0; idx < 16; idx++)
     {
-        temp_data2[idx] = sbox[(((temp_data[idx] >> 4) & 0x0F) * 16) + (temp_data[idx] & 0x0F)];
-        printf("Substitution of %x is %x\n", temp_data[idx],temp_data2[idx]);
+        temp_data2[idx] = sbox[(((temp_data1[idx] >> 4) & 0x0F) * 16) + (temp_data1[idx] & 0x0F)];
+        printf("%x", temp_data2[idx]);
     }
     printf("\n");
 
     /* Shift rows */
-    aes_shift_rows(temp_data2, temp_data);
+    aes_shift_rows(temp_data2, temp_data1);
     // aes_inverseTranspose(temp_data, print_buff);
     printf("The round %d row shifted matrix is:\n", round);
     for (idx = 0; idx < 16; idx++)
     {
-        printf("%x", temp_data[idx]);
+        printf("%x", temp_data1[idx]);
     }
     printf("\n");
 
     /* add round key */
     for (idx = 0; idx < 16; idx++)
     {
-        temp_data2[idx] = temp_data[idx] ^ temp_key[idx];
+        temp_data2[idx] = temp_data1[idx] ^ temp_key[idx];
     }
     printf("The round %d round key added maxtrix is:\n", round);
     for (idx = 0; idx < 16; idx++)
@@ -817,16 +822,16 @@ int aes_encrypt_end(aes_mode_t mode, const uint8_t *plain_text, uint8_t *cipher_
 int aes_encrypt(aes_mode_t mode, uint8_t *initVal, uint8_t *plain_text, uint8_t *cipher_text, const uint8_t *key, aes_keylen_t keyLen)
 {
     int retVal;
-    uint8_t round_key[16] = {0};
+    uint8_t round_key[32] = {0};
     uint8_t temp[16] = {0};
-    memcpy(round_key, key, 16);
-    retVal = aes_encrypt_init(AES_CBC, initVal, plain_text, cipher_text, key, AES_128);
+    memcpy(round_key, key, keyLen/8);
+    retVal = aes_encrypt_init(mode, initVal, plain_text, cipher_text, key, keyLen);
     if(retVal < 0)
         return -1;
-    retVal = aes_encrypt_update(AES_CBC, cipher_text, temp, key, round_key, AES_128);
+    retVal = aes_encrypt_update(mode, cipher_text, temp, key, round_key, keyLen);
     if(retVal < 0)
         return -1;
-    retVal = aes_encrypt_end(AES_CBC, temp, cipher_text, round_key, AES_128);
+    retVal = aes_encrypt_end(mode, temp, cipher_text, round_key, keyLen);
     if(retVal < 0)
         return -1;
 }
