@@ -663,6 +663,7 @@ int aes_encrypt_update(aes_mode_t mode, const uint8_t *plain_text, uint8_t *ciph
 {
     uint8_t round;
     uint8_t maxRound;
+    uint8_t kRound;
     uint8_t idx;
     uint8_t temp_data[16] = {0};
     uint8_t temp_data2[16] = {0};
@@ -673,6 +674,7 @@ int aes_encrypt_update(aes_mode_t mode, const uint8_t *plain_text, uint8_t *ciph
 
     maxRound = 6 + (keyLen /32);
     round = 1;
+    kRound = 1;
     memcpy(temp_key, key, (keyLen/8));
     //aes_transpose(plain_text, temp_data);
     memcpy(temp_data, plain_text, 16);
@@ -686,8 +688,9 @@ int aes_encrypt_update(aes_mode_t mode, const uint8_t *plain_text, uint8_t *ciph
         else if (keyLen == AES_256)
         {
             if(round%2 == 0){
-                aes_get_round_key_256(temp_key, roundKey_256, round-1);
+                aes_get_round_key_256(temp_key, roundKey_256, kRound);
                 memcpy(round_key, roundKey_256, 16);
+                kRound++;
             }
             else{
                 memcpy(round_key, (temp_key + 16), 16);
@@ -765,7 +768,11 @@ int aes_encrypt_end(aes_mode_t mode, const uint8_t *plain_text, uint8_t *cipher_
 
     memcpy(temp_data, plain_text, 16);
     /* Calculate round key */
-    aes_get_round_key_128(round_key, temp_key, 10);
+    if(keyLen == AES_128)
+        aes_get_round_key_128(round_key, temp_key, 10);
+    else if (keyLen == AES_256){
+        aes_get_round_key_256(round_key, temp_key, 7);
+    }
     printf("The round %d key is:\n", round);
     for (idx = 0; idx < 16; idx++)
     {
@@ -774,11 +781,11 @@ int aes_encrypt_end(aes_mode_t mode, const uint8_t *plain_text, uint8_t *cipher_
     printf("\n");
 
     /* S-Box substitution */
-    printf("The round %d substituted mxtrix is:\n", round);
+    printf("The round %d substituted matrix is:\n", round);
     for (idx = 0; idx < 16; idx++)
     {
         temp_data2[idx] = sbox[(((temp_data[idx] >> 4) & 0x0F) * 16) + (temp_data[idx] & 0x0F)];
-        printf("%x", temp_data2[idx]);
+        printf("Substitution of %x is %x\n", temp_data[idx],temp_data2[idx]);
     }
     printf("\n");
 

@@ -63,7 +63,7 @@ int main(int arc, char ** argv)
         round++;
     }
 #endif
-#if 1
+#if 0
     /* Test Case 1 - verified against data provided by https://legacy.cryptool.org/en/cto/aes-step-by-step*/
     aes_encrypt_init(AES_CBC, initVal, plain_text, out, key, AES_128);
 
@@ -126,7 +126,7 @@ int main(int arc, char ** argv)
     printf("\n");
 #endif
 
-#if 0
+#if 1
     /* Test Case 3 - verified against data provided by https://legacy.cryptool.org/en/cto/aes-step-by-step*/
     aes_encrypt_init(AES_CBC, initVal, plain_text, out, key_256, AES_256);
 
@@ -135,14 +135,18 @@ int main(int arc, char ** argv)
         printf("%x", out[i]);
     }
     printf("\n");
+    uint8_t new_temp[16] = {0};
     aes_encrypt_update(AES_CBC, out, temp, key_256, roundKey_256, AES_256);
     for (int i = 0; i < 16; i++)
     {
         printf("%x", temp[i]);
+        //new_temp[i] = temp[i];
     }
     printf("\n");
 
-    //aes_encrypt_end(AES_CBC, temp, temp2, roundKey_256, AES_256);
+    //memcpy(new_temp, temp, 16);
+
+    aes_encrypt_end(AES_CBC, new_temp, temp2, roundKey_256, AES_256);
     for (int i = 0; i < 16; i++)
     {
         printf("%x", temp2[i]);
