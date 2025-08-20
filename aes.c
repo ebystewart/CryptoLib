@@ -917,10 +917,12 @@ int aes_decrypt_update(aes_mode_t mode, const uint8_t *cipher_text, uint8_t *pla
             }
             else if (keyLen == AES_256){
                 round++;
-                if((round % 2 != 0) && (subRound < ((reqRound/2) - 1))){
+                if((round % 2 != 0) && (subRound < (reqRound/2))){
                     subRound++;
                     aes_get_round_key_256(temp_key, round_key, subRound);
                 }
+                if(reqRound == 1)
+                    memcpy(round_key, key, (keyLen/8));
             }
             else
                 assert(0);
@@ -1026,17 +1028,17 @@ int aes_decrypt_end(aes_mode_t mode, const uint8_t *cipher_text, uint8_t *plain_
 int aes_decrypt(aes_mode_t mode, const uint8_t *initVal, const uint8_t *cipher_text, uint8_t *plain_text, const uint8_t *key, aes_keylen_t keyLen)
 {
     int retVal;
-    uint8_t round_key[16] = {0};
+    uint8_t round_key[32] = {0};
     uint8_t temp[16] = {0};
     uint8_t temp2[16] = {0};
-    memcpy(round_key, key, 16);
+    memcpy(round_key, key, (keyLen/8));
     retVal = aes_decrypt_init(mode, initVal, cipher_text, temp, key, keyLen);
     if(retVal < 0)
         return -1;
     retVal = aes_decrypt_update(mode, temp, temp2, key, round_key, keyLen);
     if(retVal < 0)
         return -1;
-    retVal = aes_decrypt_end(mode, temp2, plain_text, round_key, keyLen);
+    retVal = aes_decrypt_end(mode, temp2, plain_text, key, keyLen);
     if(retVal < 0)
         return -1;
 }
