@@ -191,7 +191,85 @@ int aes_get_round_key_128(const uint8_t *key_in, uint8_t *round_key, uint8_t nRo
 
 int aes_get_round_key_192(const uint8_t *key_in, uint8_t *round_key, uint8_t nRound)
 {
+    uint8_t idx;
+    uint8_t w0[4] = {0};
+    uint8_t w1[4] = {0};
+    uint8_t w2[4] = {0};
+    uint8_t w3[4] = {0};
+    uint8_t w4[4] = {0};
+    uint8_t w5[4] = {0};
+    uint8_t w6[4] = {0};
+    uint8_t w7[4] = {0};
+    uint8_t w8[4] = {0};
+    uint8_t w9[4] = {0};
+    uint8_t w10[4] = {0};
+    uint8_t w11[4] = {0};
 
+    uint8_t gw5[4] = {0};
+    //uint8_t gw8[4] = {0};
+   
+    /* arrange 4 byte wise */
+    for(idx = 0; idx < 4; idx++){
+        w0[idx] = key_in[idx];
+        w1[idx] = key_in[idx + 4];
+        w2[idx] = key_in[idx + 8];
+        w3[idx] = key_in[idx + 12];
+        w4[idx] = key_in[idx + 16];
+        w5[idx] = key_in[idx + 20];
+    }
+    /* circular byte left shift on the last quadret of the input key*/
+    for(idx = 0; idx < 3; idx++){
+        gw5[idx] = w5[idx + 1];
+    }
+    gw5[3] = w5[0];
+
+    //printf("The byte left shifted w3 is %x %x %x %x\n", gw3[0], gw3[1], gw3[2], gw3[3]);
+
+    for(idx = 0; idx < 4; idx++){
+        gw5[idx] = sbox[(((gw5[idx] >> 4) & 0x0F) * 16) + (gw5[idx] & 0x0F)];
+    }
+    //printf("The byte substituted w3 is %x %x %x %x\n", gw3[0], gw3[1], gw3[2], gw3[3]);
+    /* matrix addition of gw3 with round constant array */
+    /*  const array for round ≥ 11 are: 6C, D8, AB, 4D, 9A, 2F, 5E, BC, 63, C6, 97, 35, 6A, D4, B3, 7D, FA, EF and C5 */
+    if(nRound < 9)
+        gw5[0] = gw5[0] ^ (0x01U << (nRound - 1));
+    else if(nRound == 9)
+        gw5[0] = gw5[0] ^ 0x1B;
+    else if (nRound == 10)
+        gw5[0] = gw5[0] ^ 0x36;
+    else if(nRound == 11)
+        gw5[0] = gw5[0] ^ 0x6C;
+    else if(nRound == 12)
+        gw5[0] = gw5[0] ^ 0xD8; 
+    else if(nRound == 13)
+        gw5[0] = gw5[0] ^ 0xAB;
+    else if(nRound == 14)
+        gw5[0] = gw5[0] ^ 0x4D;
+    else if(nRound == 15)
+        gw5[0] = gw5[0] ^ 0x9A;               
+
+    //printf("The round constant added w3 is %x %x %x %x\n", gw3[0], gw3[1], gw3[2], gw3[3]);
+    
+    /* w(n) = w(n-6) ^ w(n-1) */
+    for(idx = 0; idx < 4; idx++){
+        w6[idx] = w0[idx] ^ gw5[idx];
+        w7[idx] = w1[idx] ^ w6[idx];
+        //gw8[idx] = sbox[(((w8[idx] >> 4) & 0x0F) * 16) + (w8[idx] & 0x0F)];
+        w8[idx] = w2[idx] ^ w7[idx];
+        w9[idx] = w3[idx] ^ w8[idx];
+        w10[idx] = w4[idx] ^ w9[idx];
+        w11[idx] = w5[idx] ^ w10[idx];
+    }
+
+    /* re-arrange 4 byte wise in to output buffer */
+    for(idx = 0; idx < 4; idx++){
+        round_key[idx]      = w6[idx];
+        round_key[idx + 4]  = w7[idx];
+        round_key[idx + 8]  = w8[idx];
+        round_key[idx + 12] = w9[idx];
+        round_key[idx + 16] = w10[idx];
+        round_key[idx + 20] = w11[idx];
+    }  
 }
 
 int aes_get_round_key_256(const uint8_t *key_in, uint8_t *round_key, uint8_t nRound)
@@ -668,6 +746,7 @@ int aes_encrypt_update(aes_mode_t mode, const uint8_t *plain_text, uint8_t *ciph
     uint8_t temp_data[16] = {0};
     uint8_t temp_data2[16] = {0};
     uint8_t temp_key[32] = {0};
+    uint8_t seg_key[16] = {0};
     uint8_t round_key[16] = {0};
     uint8_t roundKey_256[32] = {0};
     uint8_t print_buff[16] = {0};
@@ -683,8 +762,23 @@ int aes_encrypt_update(aes_mode_t mode, const uint8_t *plain_text, uint8_t *ciph
         /* Calculate round key */
         if(keyLen == AES_128)
             aes_get_round_key_128(temp_key, round_key, round);
-        else if (keyLen == AES_192)
-            aes_get_round_key_192(temp_key, roundKey_256, round);
+        else if (keyLen == AES_192){
+            if(round % 2 != 0){
+                aes_get_round_key_192(temp_key, roundKey_256, kRound);
+                kRound++;
+            }
+            if (round == 1 || round == 4 || round == 7){ 
+                memcpy(seg_key, (temp_key+16), 8);
+                memcpy((seg_key+8), roundKey_256, 8);
+            }
+            else if (round == 2 || round == 5 || round == 8){
+                memcpy(seg_key, (roundKey_256+8), 16);
+            }
+            else if (round == 3 || round == 6 || round == 9){
+                memcpy(seg_key, roundKey_256, 16);
+            }
+
+        }
         else if (keyLen == AES_256)
         {
             if(round%2 == 0){
@@ -701,7 +795,10 @@ int aes_encrypt_update(aes_mode_t mode, const uint8_t *plain_text, uint8_t *ciph
 
         printf("The round %d key is:\n", round);
         for(idx = 0; idx < 16; idx++){
-            printf("%x", round_key[idx]);
+            if(keyLen == AES_192)
+                printf("%x", seg_key[idx]);
+            else
+                printf("%x", round_key[idx]);
         }
         printf("\n");
 
@@ -733,7 +830,10 @@ int aes_encrypt_update(aes_mode_t mode, const uint8_t *plain_text, uint8_t *ciph
 
         /* add round key */
         for(idx = 0; idx < 16; idx++){
-            temp_data[idx] = temp_data2[idx] ^ round_key[idx];
+            if(keyLen == AES_192)
+                temp_data[idx] = temp_data2[idx] ^ seg_key[idx];
+            else
+                temp_data[idx] = temp_data2[idx] ^ round_key[idx];
         }
         printf("The round %d round key added maxtrix is:\n", round);
         for(idx = 0; idx < 16; idx++){
@@ -746,6 +846,11 @@ int aes_encrypt_update(aes_mode_t mode, const uint8_t *plain_text, uint8_t *ciph
         else if (keyLen == AES_256){
             if(round%2 == 0){
                 memcpy(temp_key, roundKey_256, 32);
+            }
+        }
+        else if (keyLen == AES_192){
+            if(round%2 != 0){
+                memcpy(temp_key, roundKey_256, 24);
             }
         }
         round++;
@@ -1031,7 +1136,7 @@ int aes_decrypt(aes_mode_t mode, const uint8_t *initVal, const uint8_t *cipher_t
     uint8_t round_key[32] = {0};
     uint8_t temp[16] = {0};
     uint8_t temp2[16] = {0};
-    memcpy(round_key, key, (keyLen/8));
+    //memcpy(round_key, key, (keyLen/8));
     retVal = aes_decrypt_init(mode, initVal, cipher_text, temp, key, keyLen);
     if(retVal < 0)
         return -1;

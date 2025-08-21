@@ -22,13 +22,41 @@ uint8_t key[16] = {0x54, 0x68, 0x61, 0x74, 0x73, 0x20, 0x6D, 0x79, 0x20, 0x4B, 0
 /* 0x5468617473206D79204B756E67204675458616473702D69702B457E676026457 */
 uint8_t key_256[32] = {0x54, 0x68, 0x61, 0x74, 0x73, 0x20, 0x6D, 0x79, 0x20, 0x4B, 0x75, 0x6E, 0x67, 0x20, 0x46, 0x75,
                         0x45, 0x86, 0x16, 0x47, 0x37, 0x02, 0xD6, 0x97, 0x02, 0xB4, 0x57, 0xE6, 0x76, 0x02, 0x64, 0x57};
+/* 0x5468617473206D79204B756E67204675458616473702D697 */
+uint8_t key_192[24] = {0x54, 0x68, 0x61, 0x74, 0x73, 0x20, 0x6D, 0x79, 0x20, 0x4B, 0x75, 0x6E, 0x67, 0x20, 0x46, 0x75,
+                        0x45, 0x86, 0x16, 0x47, 0x37, 0x02, 0xD6, 0x97};
 uint8_t roundKey_256[32] = {0};
 uint8_t temp_256[32] = {0};
 uint8_t initVal[16] = {0};
+uint8_t temp_192[24] = {0};
+uint8_t roundKey_192[24] = {0};
 
 int main(int arc, char ** argv)
 {
-#if 1
+#if 0
+    /* Test Case 0.1: AES 128 round keys generation */    
+    int nRound = 0;
+    uint8_t round8_key[16] = {0x8e, 0x51, 0xef, 0x21, 0xfa, 0xbb, 0x45, 0x22, 0xe4, 0x3d, 0x7a, 0x06, 0x56, 0x95, 0x4b, 0x6c};
+    uint8_t round9_key[16] = {0};
+    aes_get_round_key_128(round8_key, round9_key, 9);
+#endif
+#if 0
+    /* Test Case 0.2: AES 192 round keys generation */   
+    int nRound = 1;
+    memcpy(temp_192, key_192, 24);
+    while(nRound < 9){
+        aes_get_round_key_192(temp_192, roundKey_192, nRound);
+        for (int i = 0; i < 24; i++)
+        {
+            printf("%x", roundKey_192[i]);
+        }
+        printf("\n");
+        memcpy(temp_192, roundKey_192, 24);
+        nRound++;
+    }
+#endif
+#if 0
+    /* Test Case 0.3: AES 256 round keys generation */   
     int nRound = 1;
     memcpy(temp_256, key_256, 32);
     while(nRound < 8){
@@ -41,12 +69,6 @@ int main(int arc, char ** argv)
         memcpy(temp_256, roundKey_256, 32);
         nRound++;
     }
-#endif
-#if 0    
-    int nRound = 0;
-    uint8_t round8_key[16] = {0x8e, 0x51, 0xef, 0x21, 0xfa, 0xbb, 0x45, 0x22, 0xe4, 0x3d, 0x7a, 0x06, 0x56, 0x95, 0x4b, 0x6c};
-    uint8_t round9_key[16] = {0};
-    aes_get_round_key_128(round8_key, round9_key, 9);
 #endif
 #if 0
     //aes_create_s_box();
@@ -90,6 +112,7 @@ int main(int arc, char ** argv)
 #endif
 
 #if 0
+ `  /* Test Case 2 - verified against data provided by https://legacy.cryptool.org/en/cto/aes-step-by-step*/
     aes_encrypt(AES_CBC, initVal, plain_text, temp, key, AES_128);
     for (int i = 0; i < 16; i++)
     {
@@ -105,7 +128,7 @@ int main(int arc, char ** argv)
     printf("\n");
 #endif
 #if 0
-    /* Test Case 2 - verified against data provided by https://legacy.cryptool.org/en/cto/aes-step-by-step*/
+    /* Test Case 3 - verified against data provided by https://legacy.cryptool.org/en/cto/aes-step-by-step*/
     aes_decrypt_init(AES_CBC, initVal, cipher_text, out, key, AES_128);
 
     for (int i = 0; i < 16; i++)
@@ -129,7 +152,7 @@ int main(int arc, char ** argv)
 #endif
 
 #if 0
-    /* Test Case 3 - verified against data provided by https://legacy.cryptool.org/en/cto/aes-step-by-step*/
+    /* Test Case 5 - verified against data provided by https://legacy.cryptool.org/en/cto/aes-step-by-step*/
     aes_encrypt_init(AES_CBC, initVal, plain_text, out, key_256, AES_256);
 
     for (int i = 0; i < 16; i++)
@@ -155,7 +178,7 @@ int main(int arc, char ** argv)
 #endif
 
 #if 0
-    /* test Case 4 */
+    /* test Case 6 */
     aes_encrypt(AES_CBC, initVal, plain_text, temp, key_256, AES_256);
     for (int i = 0; i < 16; i++)
     {
@@ -165,7 +188,7 @@ int main(int arc, char ** argv)
     /* Expected value: 0x9f0a4d7131f995d1b608010903f5e82 */
 #endif
 #if 0
-    /* Test Case 5 - verified against data provided by https://legacy.cryptool.org/en/cto/aes-step-by-step*/
+    /* Test Case 7 - verified against data provided by https://legacy.cryptool.org/en/cto/aes-step-by-step*/
     aes_decrypt_init(AES_CBC, initVal, cipher_text, out, key_256, AES_256);
 
     for (int i = 0; i < 16; i++)
@@ -188,8 +211,8 @@ int main(int arc, char ** argv)
     printf("\n");
     /* Expected output: 0x54776f204f6e65204e696e652054776f */
 #endif
-#if 1
-    /* test Case 6 */
+#if 0
+    /* test Case 8 */
     aes_decrypt(AES_CBC, initVal, cipher_text, temp, key_256, AES_256);
     for (int i = 0; i < 16; i++)
     {
@@ -197,6 +220,42 @@ int main(int arc, char ** argv)
     }
     printf("\n");
     /* Expected value: 0x54776f204f6e65204e696e652054776f */
+#endif
+#if 1
+    /* Test Case 9 - verified against data provided by https://legacy.cryptool.org/en/cto/aes-step-by-step*/
+    aes_encrypt_init(AES_CBC, initVal, plain_text, out, key_192, AES_192);
+
+    for (int i = 0; i < 16; i++)
+    {
+        printf("%x", out[i]);
+    }
+    printf("\n");
+
+    aes_encrypt_update(AES_CBC, out, temp, key_192, roundKey_256, AES_192);
+    for (int i = 0; i < 16; i++)
+    {
+        printf("%x", temp[i]);
+    }
+    printf("\n");
+
+    aes_encrypt_end(AES_CBC, temp, temp2, roundKey_256, AES_192);
+    for (int i = 0; i < 16; i++)
+    {
+        printf("%x", temp2[i]);
+    }
+    printf("\n");
+    /* Expected value: 0x */
+#endif
+
+#if 0
+    /* test Case 10 */
+    aes_encrypt(AES_CBC, initVal, plain_text, temp, key_192, AES_192);
+    for (int i = 0; i < 16; i++)
+    {
+        printf("%x", temp[i]);
+    }
+    printf("\n");
+    /* Expected value: 0x*/
 #endif
     return 0;
 }
