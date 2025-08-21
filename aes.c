@@ -763,21 +763,20 @@ int aes_encrypt_update(aes_mode_t mode, const uint8_t *plain_text, uint8_t *ciph
         if(keyLen == AES_128)
             aes_get_round_key_128(temp_key, round_key, round);
         else if (keyLen == AES_192){
-            if(round % 2 != 0){
+            if(round == 1 || round == 3 || round == 4 || round == 6 || round == 7 || round == 9 || round == 10 || round == 12){
                 aes_get_round_key_192(temp_key, roundKey_256, kRound);
                 kRound++;
             }
-            if (round == 1 || round == 4 || round == 7){ 
+            if (round == 1 || round == 4 || round == 7 || round == 10){ 
                 memcpy(seg_key, (temp_key+16), 8);
                 memcpy((seg_key+8), roundKey_256, 8);
-            }
-            else if (round == 2 || round == 5 || round == 8){
+            }        
+            else if (round == 2 || round == 5 || round == 8 || round == 11){
                 memcpy(seg_key, (roundKey_256+8), 16);
             }
-            else if (round == 3 || round == 6 || round == 9){
+            else if (round == 3 || round == 6 || round == 9 || round == 12){
                 memcpy(seg_key, roundKey_256, 16);
             }
-
         }
         else if (keyLen == AES_256)
         {
@@ -849,7 +848,7 @@ int aes_encrypt_update(aes_mode_t mode, const uint8_t *plain_text, uint8_t *ciph
             }
         }
         else if (keyLen == AES_192){
-            if(round%2 != 0){
+            if(round == 1 || round == 3 || round == 4 || round == 6 || round == 7 || round == 9 || round == 10 || round == 12){
                 memcpy(temp_key, roundKey_256, 24);
             }
         }

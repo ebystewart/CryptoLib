@@ -221,7 +221,7 @@ int main(int arc, char ** argv)
     printf("\n");
     /* Expected value: 0x54776f204f6e65204e696e652054776f */
 #endif
-#if 1
+#if 0
     /* Test Case 9 - verified against data provided by https://legacy.cryptool.org/en/cto/aes-step-by-step*/
     aes_encrypt_init(AES_CBC, initVal, plain_text, out, key_192, AES_192);
 
@@ -244,10 +244,10 @@ int main(int arc, char ** argv)
         printf("%x", temp2[i]);
     }
     printf("\n");
-    /* Expected value: 0x */
+    /* Expected value: 0xa79f34e3d68874c2e565aae32c08c3b */
 #endif
 
-#if 0
+#if 1
     /* test Case 10 */
     aes_encrypt(AES_CBC, initVal, plain_text, temp, key_192, AES_192);
     for (int i = 0; i < 16; i++)
@@ -255,7 +255,7 @@ int main(int arc, char ** argv)
         printf("%x", temp[i]);
     }
     printf("\n");
-    /* Expected value: 0x*/
+    /* Expected value: 0xa79f34e3d68874c2e565aae32c08c3b */
 #endif
     return 0;
 }
