@@ -959,7 +959,12 @@ int aes_decrypt_init(aes_mode_t mode, const uint8_t *initVal, const uint8_t *cip
         }
     }
     else if (keyLen == AES_192){
-
+        while (round < 9)
+        {
+            aes_get_round_key_192(temp, round_key, round);
+            memcpy(temp, round_key, 24);
+            round++;
+        }
     }
     else if(keyLen == AES_256){
         while (round < 8)
@@ -1001,6 +1006,7 @@ int aes_decrypt_update(aes_mode_t mode, const uint8_t *cipher_text, uint8_t *pla
     uint8_t temp_key[32] = {0};
     uint8_t round_key[32] = {0};
     uint8_t print_buff[16] = {0};
+    uint8_t seg_key[16] = {0};
 
     reqRound = ((keyLen/32) + 6 - 1);
     memcpy(temp_data, cipher_text, 16);
@@ -1017,7 +1023,10 @@ int aes_decrypt_update(aes_mode_t mode, const uint8_t *cipher_text, uint8_t *pla
             }
             else if(keyLen == AES_192){
                 round++;
-                aes_get_round_key_192(temp_key, round_key, round);
+                if((round == 1 || round == 3 || round == 4 || round == 6 || round == 7 || round == 9 || round == 10 || round == 11) && (round < (reqRound))){
+                    subRound++;
+                    aes_get_round_key_192(temp_key, round_key, subRound);
+                }
             }
             else if (keyLen == AES_256){
                 round++;
@@ -1030,11 +1039,35 @@ int aes_decrypt_update(aes_mode_t mode, const uint8_t *cipher_text, uint8_t *pla
             }
             else
                 assert(0);
+
             memcpy(temp_key, round_key, (keyLen/8));
         }
+
+        if(keyLen == AES_192){
+            if (reqRound == 1 || reqRound == 4 || reqRound == 7 || reqRound == 10){ 
+                memcpy(seg_key, (temp_key+16), 8);
+                memcpy((seg_key+8), round_key, 8);
+            }        
+            else if (reqRound == 2 || reqRound == 5 || reqRound == 8 || reqRound == 11){
+                memcpy(seg_key, (round_key+8), 16);
+            }
+            else if (reqRound == 3 || reqRound == 6 || reqRound == 9 || reqRound == 12){
+                memcpy(seg_key, round_key, 16);
+            }
+        }
         printf("The round %d key is:\n", reqRound);
-        for(idx = 0; idx < 32; idx++){
-            printf("%x", round_key[idx]);
+        for(idx = 0; idx < (keyLen/8); idx++){
+            if(keyLen == AES_128)
+                printf("%x", round_key[idx]);
+            else if(keyLen == AES_192)
+                printf("%x", seg_key[idx]);
+            else if (keyLen == AES_256)
+            {
+                if(reqRound % 2 == 0)
+                    printf("%x", round_key[idx]);
+                else
+                    printf("%x", round_key[idx+16]);
+            }
         }
         printf("\n");
 
@@ -1065,6 +1098,9 @@ int aes_decrypt_update(aes_mode_t mode, const uint8_t *cipher_text, uint8_t *pla
                 else{
                     temp_data2[idx] = temp_data[idx] ^ round_key[idx];
                 }
+            }
+            else if (keyLen == AES_192){
+                temp_data2[idx] = temp_data[idx] ^ seg_key[idx];
             }
         }
         printf("The round %d round key added matrix is:\n", reqRound);

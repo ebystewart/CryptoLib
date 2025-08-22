@@ -15,8 +15,9 @@ uint8_t round_key[16] = {0};
 
 /* 0x54776F204F6E65204E696E652054776F */
 uint8_t plain_text[16] = {0x54, 0x77, 0x6F, 0x20, 0x4F, 0x6E, 0x65, 0x20, 0x4E, 0x69, 0x6E, 0x65, 0x20, 0x54, 0x77, 0x6F};
-uint8_t cipher_text[16] = {0x9f, 0x00, 0xa4, 0xd7, 0x13, 0x1f, 0x99, 0x5d, 0x1b, 0x60, 0x80, 0x10, 0x90, 0x3f, 0x5e, 0x82};
+uint8_t cipher_text[16] = {0xa7, 0x9f, 0x34, 0xe3, 0xd6, 0x88, 0x74, 0x0c, 0x2e, 0x56, 0x5a, 0xae, 0x32, 0xc0, 0x8c, 0x3b};
 // AES_128 output {0x29, 0xc3, 0x50, 0x5f, 0x57, 0x14, 0x20, 0xf6, 0x40, 0x22, 0x99, 0xb3, 0x1a, 0x02, 0xd7, 0x3a};
+// AES_192 output {0xa7, 0x9f, 0x34, 0xe3, 0xd6, 0x88, 0x74, 0x0c, 0x2e, 0x56, 0x5a, 0xae, 0x32, 0xc0, 0x8c, 0x3b};
 // AES_256 output {0x9f, 0x00, 0xa4, 0xd7, 0x13, 0x1f, 0x99, 0x5d, 0x1b, 0x60, 0x80, 0x10, 0x90, 0x3f, 0x5e, 0x82};
 uint8_t key[16] = {0x54, 0x68, 0x61, 0x74, 0x73, 0x20, 0x6D, 0x79, 0x20, 0x4B, 0x75, 0x6E, 0x67, 0x20, 0x46, 0x75};
 /* 0x5468617473206D79204B756E67204675458616473702D69702B457E676026457 */
@@ -247,7 +248,7 @@ int main(int arc, char ** argv)
     /* Expected value: 0xa79f34e3d68874c2e565aae32c08c3b */
 #endif
 
-#if 1
+#if 0
     /* test Case 10 */
     aes_encrypt(AES_CBC, initVal, plain_text, temp, key_192, AES_192);
     for (int i = 0; i < 16; i++)
@@ -256,6 +257,42 @@ int main(int arc, char ** argv)
     }
     printf("\n");
     /* Expected value: 0xa79f34e3d68874c2e565aae32c08c3b */
+#endif
+#if 1
+    /* Test Case 11 - verified against data provided by https://legacy.cryptool.org/en/cto/aes-step-by-step */
+    /* input : 0xa79f34e3d688740c2e565aae32c08c3b */
+    aes_decrypt_init(AES_CBC, initVal, cipher_text, out, key_192, AES_192);
+
+    for (int i = 0; i < 16; i++)
+    {
+        printf("%x", out[i]);
+    }
+    printf("\n");
+    aes_decrypt_update(AES_CBC, out, temp, key_192, roundKey_256, AES_192);
+    for (int i = 0; i < 16; i++)
+    {
+        printf("%x", temp[i]);
+    }
+    printf("\n");
+
+    aes_decrypt_end(AES_CBC, temp, temp2, key_192, AES_192);
+    for (int i = 0; i < 16; i++)
+    {
+        printf("%x", temp2[i]);
+    }
+    printf("\n");
+    /* Expected output: 0x54776f204f6e65204e696e652054776f */
+#endif
+#if 0
+    /* test Case 12 */
+    /* input: a79f34e3d688740c2e565aae32c08c3b */
+    aes_decrypt(AES_CBC, initVal, cipher_text, temp, key_192, AES_192);
+    for (int i = 0; i < 16; i++)
+    {
+        printf("%x", temp[i]);
+    }
+    printf("\n");
+    /* Expected value: 0x54776f204f6e65204e696e652054776f */
 #endif
     return 0;
 }
