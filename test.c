@@ -258,7 +258,7 @@ int main(int arc, char ** argv)
     printf("\n");
     /* Expected value: 0xa79f34e3d68874c2e565aae32c08c3b */
 #endif
-#if 1
+#if 0
     /* Test Case 11 - verified against data provided by https://legacy.cryptool.org/en/cto/aes-step-by-step */
     /* input : 0xa79f34e3d688740c2e565aae32c08c3b */
     aes_decrypt_init(AES_CBC, initVal, cipher_text, out, key_192, AES_192);
@@ -283,7 +283,7 @@ int main(int arc, char ** argv)
     printf("\n");
     /* Expected output: 0x54776f204f6e65204e696e652054776f */
 #endif
-#if 0
+#if 1
     /* test Case 12 */
     /* input: a79f34e3d688740c2e565aae32c08c3b */
     aes_decrypt(AES_CBC, initVal, cipher_text, temp, key_192, AES_192);
