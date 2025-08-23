@@ -923,21 +923,84 @@ int aes_encrypt_end(aes_mode_t mode, const uint8_t *plain_text, uint8_t *cipher_
     return 0;
 }
 
-int aes_encrypt(aes_mode_t mode, uint8_t *initVal, uint8_t *plain_text, uint8_t *cipher_text, const uint8_t *key, aes_keylen_t keyLen)
+int aes_encrypt(aes_mode_t mode, uint8_t *initVal, uint8_t *plain_text, uint8_t *cipher_text, uint8_t dataLen, const uint8_t *key, aes_keylen_t keyLen)
 {
     int retVal;
+    uint8_t dLength = dataLen;
+    uint8_t nIteration = 0;
+    uint8_t offset;
+    uint8_t currIteration = 0;
+    uint8_t idx;
     uint8_t round_key[32] = {0};
     uint8_t temp[16] = {0};
+    uint8_t dIn[16] = {0};
+    uint8_t dOut[16] = {0};
+    uint8_t intVal[16] = {0};
     memcpy(round_key, key, keyLen/8);
-    retVal = aes_encrypt_init(mode, initVal, plain_text, cipher_text, key, keyLen);
-    if(retVal < 0)
-        return -1;
-    retVal = aes_encrypt_update(mode, cipher_text, temp, key, round_key, keyLen);
-    if(retVal < 0)
-        return -1;
-    retVal = aes_encrypt_end(mode, temp, cipher_text, round_key, keyLen);
-    if(retVal < 0)
-        return -1;
+
+    nIteration = (dataLen / 16);
+    if(dataLen%16 > 0){
+        nIteration++;
+        offset = 16-(dataLen%16);
+        if(mode == AES_ECB || mode == AES_CBC){
+            /* append 0's if not 16 Byte aligned */
+            memcpy((dIn+offset), plain_text, offset);
+        }
+    }
+    if(initVal){
+        memcpy(intVal, initVal, 16);
+    }
+    if(mode == AES_CFB || mode == AES_OFB || mode == AES_GCM){
+        memcpy(dIn, initVal, 16);
+        //memset(intVal, 0, 16);
+    }
+
+    while((dLength > 0) && (currIteration <= nIteration)){
+
+        retVal = aes_encrypt_init(mode, intVal, dIn, dOut, key, keyLen);
+        if (retVal < 0)
+            return -1;
+        retVal = aes_encrypt_update(mode, dOut, temp, key, round_key, keyLen);
+        if (retVal < 0)
+            return -1;
+        retVal = aes_encrypt_end(mode, temp, dOut, round_key, keyLen);
+        if (retVal < 0)
+            return -1;
+        /* ref: https://www.highgo.ca/2019/08/08/the-difference-in-five-modes-in-the-aes-encryption-algorithm/ */
+        if (mode == AES_CBC)
+        {
+            /* Cipher Block Chaining mode  */
+            memcpy(intVal, dOut, 16);
+        }
+        else if (mode == AES_CFB)
+        {
+            /* Cipher Feedback mode */
+            for(idx = 0; idx < 16; idx++){
+                dOut[idx] ^=  dIn[idx];
+            }
+        }
+        else if(mode == AES_OFB){
+            /* Output feedback Mode */
+        }
+        else if(mode == AES_GCM){
+            /* Galois Counter mode */
+        }
+        else{
+            assert(0);
+        }
+        memcpy((cipher_text + (currIteration * 16)), dOut, 16);
+        if((currIteration == 0) && (mode == AES_CBC || mode == AES_ECB)){
+            dLength -= offset;
+        }
+        else{
+            dLength -= 16;
+        }
+        currIteration++;
+        if(mode == AES_ECB || mode == AES_CBC)
+            memcpy(dIn, ((plain_text) + (currIteration*16)-offset), 16);
+        else
+            memcpy(dIn, ((plain_text) + (currIteration*16)), 16);
+    }
 }
 
 int aes_decrypt_init(aes_mode_t mode, const uint8_t *initVal, const uint8_t *cipher_text, 
