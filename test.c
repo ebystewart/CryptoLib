@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdlib.h>
 #include "aes.h"
+#include "rsa.h"
 
 uint8_t in[16] = {0x63, 0x2F, 0xAF, 0xA2,
                0xEB, 0x93, 0xC7, 0x20,
@@ -283,7 +285,7 @@ int main(int arc, char ** argv)
     printf("\n");
     /* Expected output: 0x54776f204f6e65204e696e652054776f */
 #endif
-#if 1
+#if 0
     /* test Case 12 */
     /* input: a79f34e3d688740c2e565aae32c08c3b */
     aes_decrypt(AES_CBC, initVal, cipher_text, temp, key_192, AES_192);
@@ -293,6 +295,11 @@ int main(int arc, char ** argv)
     }
     printf("\n");
     /* Expected value: 0x54776f204f6e65204e696e652054776f */
+#endif
+
+#if 1
+    uint8_t *prime = (uint8_t *)calloc(1, RSA_1024/8);
+    rsa_generate_prime(RSA_1024/8, prime);
 #endif
     return 0;
 }

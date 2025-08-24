@@ -3,6 +3,6 @@
 
 void set_entropy(void);
 
-int generate_random(char *buff, int size);
+int generate_random(uint8_t *buff, uint16_t size);
 
 #endif
