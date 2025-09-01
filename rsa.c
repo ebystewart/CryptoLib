@@ -51,30 +51,44 @@ int rsa_generate_prime(rsa_keyLen_e keyLen, uint8_t *prime)
 
 }
 
-static uint8_t rsa_decrement_by_two(const uint8_t *dIn, uint8_t dInLen, uint8_t *dOut)
+//static
+bool rsa_is_equal_zero(const uint8_t *dIn, uint8_t dInLen)
 {
-    uint8_t dOutLen = 0;
+    uint32_t idx = 0;
+    for(idx = 0; idx < dInLen; idx++){
+      if(dIn[idx] != 0)
+          return false;
+    }
+    return true;
+}
+
+//static
+uint8_t rsa_decrement_by_two(const uint8_t *dIn, uint8_t dInLen, uint8_t *dOut)
+{
+    uint8_t dOutLen = 32;
     uint8_t idx = 0;
     uint8_t propagate_decrementValue = 2;
     bool iterEnd = false;
+    memcpy(dOut, dIn, dInLen);
     /* Subtract the array by 2 */
-    for(idx = (dInLen - 1); (idx >= 0 || iterEnd == true || propagate_decrementValue == 0); idx--){
-
-      if(dIn[idx] >= 2){
-          dOut[idx] = dIn[idx] - propagate_decrementValue;
+    //printf("1\n");
+    for(idx = dInLen; (idx > 0 || (iterEnd != true && propagate_decrementValue != 0)); idx--){
+      //printf("2\n");
+      if(dIn[idx-1] >= 2){
+          dOut[idx-1] = dIn[idx-1] - propagate_decrementValue;
           propagate_decrementValue = 0;
           iterEnd = true;
       }
       /* handle zero crossing */
-      else if(dIn[idx] == 1){
+      else if(dIn[idx-1] == 1){
           iterEnd = false;
           propagate_decrementValue = 1;
-          dOut[idx] = 0xFF;
+          dOut[idx-1] = 0xFF;
       }
-      else if (dIn[idx] == 0){
+      else if (dIn[idx-1] == 0){
           iterEnd = false;
           propagate_decrementValue = 1;
-          dOut[idx] = 0xFE;
+          dOut[idx-1] = 0xFE;
       }
     }
     return dOutLen;
@@ -103,6 +117,13 @@ static uint32_t rsa_multiply_by_two(const uint8_t *dIn, uint8_t dInLen, uint8_t 
     }
     dOutLen = dOutLenBits/8;
     return dOutLen;
+}
+
+static void rsa_divide(const uint8_t *divident, uint8_t dividentLen, const uint8_t *divisor, uint8_t divisorLen, uint8_t *quotient, uint8_t *quotientLen,
+    uint8_t * remainder, uint8_t *remainderLen)
+{
+
+
 }
 
 uint8_t rsa_find_exponent(const uint8_t *base, uint8_t baseLen, const uint8_t *power, uint8_t powerLen, uint8_t *out)

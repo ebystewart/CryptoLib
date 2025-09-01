@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include "aes.h"
 #include "rsa.h"
 
@@ -297,9 +298,29 @@ int main(int arc, char ** argv)
     /* Expected value: 0x54776f204f6e65204e696e652054776f */
 #endif
 
-#if 1
+#if 0
     uint8_t *prime = (uint8_t *)calloc(1, RSA_1024/8);
     rsa_generate_prime(RSA_1024/8, prime);
+#endif
+
+#if 1
+    uint32_t dOutLen = 0;
+    uint8_t idx = 0;
+    memcpy(roundKey_256, key_256, 32);
+    for(idx = 0; idx < 32; idx++){
+        printf("%x",roundKey_256[idx]);
+    }
+    printf("\n");
+    while(rsa_is_equal_zero(roundKey_256) == false){
+        printf("Iteration %d:\n", dOutLen);
+        rsa_decrement_by_two(roundKey_256, 32, temp_256);
+        for(idx = 0; idx < 32; idx++){
+            printf("%x",temp_256[idx]);
+        }
+        dOutLen++;
+        printf("\n");
+        memcpy(roundKey_256, temp_256, 32);
+    }
 #endif
     return 0;
 }
