@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include <stdbool.h>
 #include <assert.h>
+#include <stdlib.h>
+#include <string.h>
 #include "rsa.h"
 #include "rand.h"
 
@@ -53,11 +55,28 @@ static uint8_t rsa_decrement_by_two(const uint8_t *dIn, uint8_t dInLen, uint8_t 
 {
     uint8_t dOutLen = 0;
     uint8_t idx = 0;
+    uint8_t propagate_decrementValue = 2;
+    bool iterEnd = false;
     /* Subtract the array by 2 */
-    for(idx = 0; idx < dInLen; idx++){
+    for(idx = (dInLen - 1); (idx >= 0 || iterEnd == true || propagate_decrementValue == 0); idx--){
 
+      if(dIn[idx] >= 2){
+          dOut[idx] = dIn[idx] - propagate_decrementValue;
+          propagate_decrementValue = 0;
+          iterEnd = true;
+      }
+      /* handle zero crossing */
+      else if(dIn[idx] == 1){
+          iterEnd = false;
+          propagate_decrementValue = 1;
+          dOut[idx] = 0xFF;
+      }
+      else if (dIn[idx] == 0){
+          iterEnd = false;
+          propagate_decrementValue = 1;
+          dOut[idx] = 0xFE;
+      }
     }
-
     return dOutLen;
 }
 
@@ -71,7 +90,7 @@ static uint32_t rsa_multiply_by_two(const uint8_t *dIn, uint8_t dInLen, uint8_t 
 
     /* Multiply the array by 2 
        This is equivalent to a left-shift by one position ny all the array elements */
-    for(idx = 0; idx <= dInLen; idx++){
+    for(idx = (dInLen - 1); idx >= 0; idx--){
         if(dIn[idx] & 0x80 == 0x80){
           carry_for_lsb_next = true;
         }
