@@ -62,6 +62,44 @@ bool rsa_is_equal_zero(const uint8_t *dIn, uint8_t dInLen)
     return true;
 }
 
+/* An approximate algorithm (weighted downward scaling). Need to test its accuracy */
+/* This method may work for numbers with relatively larger differences */
+//static
+rsa_comparison_e rsa_is_greater_than(const uint8_t *dIn1, uint8_t dInLen1, const uint8_t *dIn2, uint8_t dInLen2)
+{
+    uint32_t idx = 0;
+    uint64_t left = 0;
+    uint64_t right = 0;
+    uint32_t compLen = 0;
+    if(dInLen1 >= dInLen2){
+       compLen = dInLen1;
+    }
+    else{
+        compLen = dInLen2;
+    }
+    /* Now we are comparing bytewise */
+    /* algorithm should be improved to compare bitwise */
+    for(idx = 0; idx < compLen; idx++){
+        if(dIn1[idx] > dIn2[idx]){
+            left |= (1 << (compLen - idx));
+        }
+        else if(dIn1[idx] < dIn2[idx]){
+            right |= (1 << (compLen - idx));
+        }
+        else{
+            left |= (1 << (compLen - idx));
+            right |= (1 << (compLen - idx));
+        }
+    }
+    /* final check */
+    if(left > right)
+        return RSA_GREATER_THAN;
+    else if (left < right)
+        return RSA_LESSER_THAN;
+    else 
+       return RSA_EQUAL_TO;
+}
+
 //static
 uint8_t rsa_decrement_by_two(const uint8_t *dIn, uint8_t dInLen, uint8_t *dOut)
 {
@@ -119,7 +157,7 @@ static uint32_t rsa_multiply_by_two(const uint8_t *dIn, uint8_t dInLen, uint8_t 
     return dOutLen;
 }
 
-static void rsa_divide(const uint8_t *divident, uint8_t dividentLen, const uint8_t *divisor, uint8_t divisorLen, uint8_t *quotient, uint8_t *quotientLen,
+static void rsa_divide(const uint8_t *dividend, uint8_t dividentLen, const uint8_t *divisor, uint8_t divisorLen, uint8_t *quotient, uint8_t *quotientLen,
     uint8_t * remainder, uint8_t *remainderLen)
 {
 

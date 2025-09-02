@@ -11,6 +11,12 @@ typedef enum{
     RSA_4096 = 4096U
 }rsa_keyLen_e;
 
+typedef enum{
+    RSA_LESSER_THAN  = -1,
+    RSA_EQUAL_TO     =  0,
+    RSA_GREATER_THAN =  1
+}rsa_comparison_e;
+
 int rsa_generate_prime(rsa_keyLen_e keyLen, uint8_t *prime);
 uint8_t rsa_find_exponent(const uint8_t *base, uint8_t baseLen, const uint8_t *power, uint8_t powerLen, uint8_t *out);
 
