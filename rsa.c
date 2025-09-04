@@ -157,7 +157,60 @@ static uint32_t rsa_multiply_by_two(const uint8_t *dIn, uint8_t dInLen, uint8_t 
     return dOutLen;
 }
 
-static void rsa_divide(const uint8_t *dividend, uint8_t dividentLen, const uint8_t *divisor, uint8_t divisorLen, uint8_t *quotient, uint8_t *quotientLen,
+/* ref: https://www.vedantu.com/maths/2s-complement-subtraction */
+//static 
+uint32_t rsa_subtract(const uint8_t *dIn1, uint8_t dInLen1, const uint8_t *dIn2, uint8_t dInLen2, uint8_t *dOut)
+{
+    uint32_t idx;
+    uint32_t compLen = 0;
+    uint8_t subIdx;
+    uint8_t *temp;
+    uint8_t value = 0;
+    bool subtrahend = 0;
+    bool minuend = 0;
+    bool carry = 0;
+    if(dInLen1 >= dInLen2){
+       compLen = dInLen1;
+    }
+    else{
+        compLen = dInLen2;
+    }
+    /* compute 2's complement */
+    temp = calloc(1, compLen);
+
+    /* Assuming dIn2 as the smaller number */
+    for(idx = 0; idx < (dInLen2 - 1); idx++){
+      temp[idx] = ~dIn2[idx]; 
+    }
+    temp[dInLen2 - 1] = (~dIn2[dInLen2 - 1]) + 1;
+
+    for(idx = compLen; idx > 0; idx--){
+        for(subIdx = 0; subIdx < 8; subIdx++){
+            /* carry needs to be handled */
+            subtrahend = (dIn1[idx - 1] >> subIdx) & 0x01;
+            minuend = (temp[idx - 1] >> subIdx) & 0x01;
+
+            value = (subtrahend ^ minuend ^ carry);
+            printf("compLen: %x, idx: %x, sup:%x, min: %x, carry: %x, value: %x\n", compLen, idx, subtrahend, minuend, carry, value);
+            dOut[idx - 1] |= (value << subIdx);
+
+            if(subtrahend == 1 && minuend == 1){
+                carry = 1;
+            }
+            else if ((subtrahend == 1 || minuend == 1) && carry == 1){
+                carry = 1;
+            }
+            else{
+                carry = 0;
+            }
+        }
+        value = 0;
+    }
+    free(temp);
+    return compLen;
+}
+
+static void rsa_divide(const uint8_t *dividend, uint8_t dividendLen, const uint8_t *divisor, uint8_t divisorLen, uint8_t *quotient, uint8_t *quotientLen,
     uint8_t * remainder, uint8_t *remainderLen)
 {
 
