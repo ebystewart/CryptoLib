@@ -210,8 +210,20 @@ uint32_t rsa_subtract(const uint8_t *dIn1, uint8_t dInLen1, const uint8_t *dIn2,
     return compLen;
 }
 
-static void rsa_divide(const uint8_t *dividend, uint8_t dividendLen, const uint8_t *divisor, uint8_t divisorLen, uint8_t *quotient, uint8_t *quotientLen,
+/* division by long division method 
+   Ref: https://byjus.com/maths/binary-division/https://byjus.com/maths/binary-division/ 
+   Ref: https://www.cuemath.com/numbers/binary-division/ */
+//static 
+void rsa_divide(const uint8_t *dividend, uint8_t dividendLen, const uint8_t *divisor, uint8_t divisorLen, uint8_t *quotient, uint8_t *quotientLen,
     uint8_t * remainder, uint8_t *remainderLen)
+{
+
+
+}
+
+/* Ref: https://www.cuemath.com/numbers/binary-multiplication/ */
+//static 
+void rsa_multiply(const uint8_t *multiplicant, uint8_t multiplicantLen, const uint8_t *multiplier, uint8_t multiplierLen, uint8_t *product, uint8_t *productLen)
 {
 
 
