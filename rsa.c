@@ -210,12 +210,50 @@ uint32_t rsa_subtract(const uint8_t *dIn1, uint8_t dInLen1, const uint8_t *dIn2,
     return compLen;
 }
 
+//static 
+uint32_t rsa_left_shift(const uint8_t *dIn, uint32_t dInLen, uint32_t shiftPos, uint8_t *dOut)
+{
+    uint32_t idx;
+    uint32_t subIdx;
+    uint8_t carry = 0;
+    uint32_t shiftPosCopy = shiftPos;
+    uint32_t offset = (shiftPos/8);
+    if (shiftPos % 8){
+        offset++;
+    }
+
+    /* calculate the output length in Bytes */
+    uint32_t dOutLen = dInLen + offset;
+    uint8_t *tmp1 = calloc(1, dOutLen);
+    uint8_t *tmp2 = calloc(1, dOutLen);
+    memcpy((tmp1 + offset), dIn, dInLen);
+
+    while(shiftPosCopy > 0){
+        /*  */
+        for (idx = dOutLen; idx > 0; idx--)
+        {
+            tmp2[idx] = (tmp1[idx] << 1) | carry;;
+            if((tmp1[idx] & 0x80) > 0){
+                carry = 1;
+            }
+            else{
+                carry = 0;
+            }
+        }
+        memcpy(tmp1, tmp2, dOutLen);
+        shiftPosCopy--;
+    }
+    memcpy(dOut, tmp1, dOutLen);
+    free(tmp1);
+    free(tmp2);
+}
+
 /* division by long division method 
    Ref: https://byjus.com/maths/binary-division/https://byjus.com/maths/binary-division/ 
    Ref: https://www.cuemath.com/numbers/binary-division/ */
 //static 
-void rsa_divide(const uint8_t *dividend, uint8_t dividendLen, const uint8_t *divisor, uint8_t divisorLen, uint8_t *quotient, uint8_t *quotientLen,
-    uint8_t * remainder, uint8_t *remainderLen)
+void rsa_divide(const uint8_t *dividend, uint32_t dividendLen, const uint8_t *divisor, uint32_t divisorLen, uint8_t *quotient, uint32_t *quotientLen,
+    uint8_t * remainder, uint32_t *remainderLen)
 {
 
 
@@ -223,10 +261,67 @@ void rsa_divide(const uint8_t *dividend, uint8_t dividendLen, const uint8_t *div
 
 /* Ref: https://www.cuemath.com/numbers/binary-multiplication/ */
 //static 
-void rsa_multiply(const uint8_t *multiplicant, uint8_t multiplicantLen, const uint8_t *multiplier, uint8_t multiplierLen, uint8_t *product, uint8_t *productLen)
+void rsa_multiply(const uint8_t *multiplicant, uint32_t multiplicantLen, const uint8_t *multiplier, uint32_t multiplierLen, uint8_t *product, uint32_t *productLen)
 {
+    uint32_t idx1;
+    uint32_t idx2;
+    uint8_t subIdx1;
+    uint8_t subIdx2;
+    uint32_t len = multiplicantLen + multiplierLen;
+    uint32_t m1Len = multiplicantLen;
+    uint32_t m2Len = multiplierLen;
+    uint8_t val1 = 0;
+    uint8_t val2 = 0;
+    uint8_t val3 = 0;
+    uint8_t val4 = 0;
+    uint32_t newLen = m1Len;
 
+    bool carry = 0;
 
+    uint8_t *temp1 = calloc(1, len);
+    /* copy data right- aligned */
+    memcpy((temp1 + multiplierLen), multiplicant, m1Len);
+    uint8_t *shift_holder = calloc(1, len);
+    uint8_t *temp3 = calloc(1, len);
+
+    for (idx2 = m2Len; idx2 > 0; idx2--)
+    {
+        for (subIdx2 = 0; subIdx2 < 8; subIdx2++)
+        {
+            val2 = (multiplier[m2Len-1] >> subIdx2) & 0x01;
+
+            if(val2 != 0)
+            {
+                for(idx1 = len; idx1 > 0; idx1--)
+                {
+                    for(subIdx2 = 0; subIdx2 < 8; subIdx2++){
+                        val1 = (temp1[idx1-1] >> subIdx1) & 0x01;
+                        val3 = (temp3[idx1-1] >> subIdx1) & 0x01;
+                        val4 = val1 | val3 | carry;
+
+                        temp3[idx1] |= (val4 << subIdx2);
+
+                        if(val1 == 1 && val3 == 1 && carry == 1){
+                            carry = 1;
+                        }
+                        else if((val1 == 1 || val3 == 1) && carry == 1){
+                            carry = 1;
+                        }
+                        else{
+                            carry = 0;
+                        }
+                    }
+                }
+            }
+            newLen = rsa_left_shift((temp1 + (len - newLen)), newLen, 1, shift_holder);
+            memcpy(temp1, shift_holder, newLen);
+        }
+    }
+    *productLen = len;
+    memcpy(product, temp3, len);
+    free(temp1);
+    free(temp3);
+    free(shift_holder);
 }
 
 uint8_t rsa_find_exponent(const uint8_t *base, uint8_t baseLen, const uint8_t *power, uint8_t powerLen, uint8_t *out)
