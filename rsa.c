@@ -65,7 +65,7 @@ bool rsa_is_equal_zero(const uint8_t *dIn, uint8_t dInLen)
 /* An approximate algorithm (weighted downward scaling). Need to test its accuracy */
 /* This method may work for numbers with relatively larger differences */
 //static
-rsa_comparison_e rsa_is_greater_than(const uint8_t *dIn1, uint8_t dInLen1, const uint8_t *dIn2, uint8_t dInLen2)
+rsa_comparison_e rsa_is_greater_than(const uint8_t *dIn1, uint32_t dInLen1, const uint8_t *dIn2, uint32_t dInLen2)
 {
     uint32_t idx = 0;
     uint64_t left = 0;
@@ -101,9 +101,9 @@ rsa_comparison_e rsa_is_greater_than(const uint8_t *dIn1, uint8_t dInLen1, const
 }
 
 //static
-uint8_t rsa_decrement_by_two(const uint8_t *dIn, uint8_t dInLen, uint8_t *dOut)
+uint32_t rsa_decrement_by_two(const uint8_t *dIn, uint32_t dInLen, uint8_t *dOut)
 {
-    uint8_t dOutLen = 32;
+    uint32_t dOutLen = dInLen;
     uint8_t idx = 0;
     uint8_t propagate_decrementValue = 2;
     bool iterEnd = false;
@@ -132,7 +132,7 @@ uint8_t rsa_decrement_by_two(const uint8_t *dIn, uint8_t dInLen, uint8_t *dOut)
     return dOutLen;
 }
 
-static uint32_t rsa_multiply_by_two(const uint8_t *dIn, uint8_t dInLen, uint8_t *dOut)
+static uint32_t rsa_multiply_by_two(const uint8_t *dIn, uint32_t dInLen, uint8_t *dOut)
 {
     uint32_t dOutLen = 0;
     uint32_t dOutLenBits = 8 * dInLen;
@@ -159,7 +159,7 @@ static uint32_t rsa_multiply_by_two(const uint8_t *dIn, uint8_t dInLen, uint8_t 
 
 /* ref: https://www.vedantu.com/maths/2s-complement-subtraction */
 //static 
-uint32_t rsa_subtract(const uint8_t *dIn1, uint8_t dInLen1, const uint8_t *dIn2, uint8_t dInLen2, uint8_t *dOut)
+uint32_t rsa_subtract(const uint8_t *dIn1, uint32_t dInLen1, const uint8_t *dIn2, uint32_t dInLen2, uint8_t *dOut)
 {
     uint32_t idx;
     uint32_t compLen = 0;
@@ -270,9 +270,9 @@ void rsa_multiply(const uint8_t *multiplicant, uint32_t multiplicantLen, const u
     uint32_t len = multiplicantLen + multiplierLen;
     uint32_t m1Len = multiplicantLen;
     uint32_t m2Len = multiplierLen;
-    uint8_t val1 = 0;
-    uint8_t val2 = 0;
-    uint8_t val3 = 0;
+    bool val1 = 0;
+    bool val2 = 0;
+    bool val3 = 0;
     uint8_t val4 = 0;
     uint32_t newLen = m1Len;
 
@@ -281,22 +281,28 @@ void rsa_multiply(const uint8_t *multiplicant, uint32_t multiplicantLen, const u
     uint8_t *temp1 = calloc(1, len);
     /* copy data right- aligned */
     memcpy((temp1 + multiplierLen), multiplicant, m1Len);
+    int idxx;
+    for (idxx= 0; idxx < len; idxx++){
+        printf("%x", temp1[idxx]);
+    }
+    printf("\n");
     uint8_t *shift_holder = calloc(1, len);
     uint8_t *temp3 = calloc(1, len);
 
     for (idx2 = m2Len; idx2 > 0; idx2--)
-    {
+    {printf("%x\n",multiplier[idx2-1]);
         for (subIdx2 = 0; subIdx2 < 8; subIdx2++)
         {
-            val2 = (multiplier[m2Len-1] >> subIdx2) & 0x01;
-
+            val2 = (multiplier[idx2-1] >> subIdx2) & 0x01U;
+            printf("--> bitposition %x has %x\n", subIdx2, val2);
             if(val2 != 0)
             {
                 for(idx1 = len; idx1 > 0; idx1--)
                 {
-                    for(subIdx2 = 0; subIdx2 < 8; subIdx2++){
-                        val1 = (temp1[idx1-1] >> subIdx1) & 0x01;
-                        val3 = (temp3[idx1-1] >> subIdx1) & 0x01;
+                    printf("%x\n", temp1[idx1-1]);
+                    for(subIdx1 = 0; subIdx1 < 8; subIdx1++){
+                        val1 = (temp1[idx1-1] >> subIdx1) & 0x01U;
+                        val3 = (temp3[idx1-1] >> subIdx1) & 0x01U;
                         val4 = val1 | val3 | carry;
 
                         temp3[idx1] |= (val4 << subIdx2);
@@ -311,10 +317,15 @@ void rsa_multiply(const uint8_t *multiplicant, uint32_t multiplicantLen, const u
                             carry = 0;
                         }
                     }
+                    printf("%x\n", temp3[idx1-1]);
                 }
             }
             newLen = rsa_left_shift((temp1 + (len - newLen)), newLen, 1, shift_holder);
-            memcpy(temp1, shift_holder, newLen);
+            for (idxx= 0; idxx < len; idxx++){
+                printf("%x", shift_holder[idxx]);
+            }
+            printf("\n");
+            memcpy((temp1 + (len - newLen)), shift_holder, newLen);
         }
     }
     *productLen = len;
@@ -324,7 +335,7 @@ void rsa_multiply(const uint8_t *multiplicant, uint32_t multiplicantLen, const u
     free(shift_holder);
 }
 
-uint8_t rsa_find_exponent(const uint8_t *base, uint8_t baseLen, const uint8_t *power, uint8_t powerLen, uint8_t *out)
+uint8_t rsa_find_exponent(const uint8_t *base, uint32_t baseLen, const uint8_t *power, uint32_t powerLen, uint8_t *out)
 {
     uint8_t outLen = 0;
     uint8_t intPowLen = powerLen;
