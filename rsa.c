@@ -246,6 +246,7 @@ uint32_t rsa_left_shift(const uint8_t *dIn, uint32_t dInLen, uint32_t shiftPos, 
     memcpy(dOut, tmp1, dOutLen);
     free(tmp1);
     free(tmp2);
+    return dOutLen;
 }
 
 /* division by long division method 
@@ -255,8 +256,55 @@ uint32_t rsa_left_shift(const uint8_t *dIn, uint32_t dInLen, uint32_t shiftPos, 
 void rsa_divide(const uint8_t *dividend, uint32_t dividendLen, const uint8_t *divisor, uint32_t divisorLen, uint8_t *quotient, uint32_t *quotientLen,
     uint8_t * remainder, uint32_t *remainderLen)
 {
+    uint32_t remLen;
+    uint32_t quoLen = 1;
 
+    uint8_t *tmpQuo1 = calloc(1, dividendLen);
+    uint8_t *tmpRem1 = calloc(1, dividendLen);
+    uint8_t *tmpQuo2 = calloc(1, dividendLen);
+    uint8_t *tmpRem2 = calloc(1, dividendLen);
+    uint8_t *tmpDivd = calloc(1, dividendLen);
+    memcpy(tmpDivd, dividend, divisorLen);
+    uint8_t *tmpDivr = calloc(1, divisorLen);
+    memcpy(tmpDivr, divisor, divisorLen);
 
+    /* Step 1 - subtract the divisor from dividend (left aligned) */
+    remLen = rsa_subtract(tmpDivd, divisorLen, tmpDivr, divisorLen, tmpRem1);
+    /* set the initial quotient - quotient has to be right aligned */
+    tmpQuo1[dividendLen-1] = 0x01;
+
+    //uint32_t nBitsYetToCover = (dividendLen - divisorLen) * 8U;
+    uint32_t idx = 0;
+    uint8_t subIdx = 0;
+
+    /* Step 2 - loop and further do subtraction bitwise on the remainder */
+    for(idx = divisorLen; idx < dividendLen; idx++){
+        
+        for(subIdx = 7; subIdx > 0; subIdx--){
+            remLen = rsa_left_shift(tmpRem1, remLen, 1, tmpRem2);
+            quoLen = rsa_left_shift(tmpQuo1, quoLen, 1, tmpQuo2);
+            tmpRem2[0] |= (tmpDivd[idx] >> subIdx) & 0x01U;
+
+            if(rsa_is_greater_than(tmpRem2, remLen, tmpDivr, divisorLen) >= RSA_EQUAL_TO){
+                remLen = rsa_subtract(tmpRem2, remLen, tmpDivr, divisorLen, tmpRem1);
+                tmpQuo2[0] |= 0x01U;
+            }
+            else{
+                memcpy(tmpRem1, tmpRem2, dividendLen);
+            }
+        }
+        memcpy(tmpQuo1, tmpQuo2, dividendLen);
+    }
+    memcpy(quotient, tmpQuo1, dividendLen);
+    memcpy(remainder, tmpRem1, remLen);
+    free(tmpQuo1);
+    free(tmpRem1);
+    free(tmpQuo2);
+    free(tmpRem2);
+    free(tmpDivd);
+    free(tmpDivr);
+    *quotientLen = dividendLen;//quoLen;
+    *remainderLen = remLen;
 }
 
 /* Ref: https://www.cuemath.com/numbers/binary-multiplication/ */
