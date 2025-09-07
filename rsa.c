@@ -218,7 +218,7 @@ uint32_t rsa_left_shift(const uint8_t *dIn, uint32_t dInLen, uint32_t shiftPos, 
     uint8_t carry = 0;
     uint32_t shiftPosCopy = shiftPos;
     uint32_t offset = (shiftPos/8);
-    if (shiftPos % 8){
+    if ((shiftPos % 8) && ( dIn[0] > (0xFFU >> (shiftPos % 8)))){
         offset++;
     }
 
@@ -232,8 +232,9 @@ uint32_t rsa_left_shift(const uint8_t *dIn, uint32_t dInLen, uint32_t shiftPos, 
         /*  */
         for (idx = dOutLen; idx > 0; idx--)
         {
-            tmp2[idx] = (tmp1[idx] << 1) | carry;;
-            if((tmp1[idx] & 0x80) > 0){
+            tmp2[idx-1] = (tmp1[idx-1] << 1) | carry;
+
+            if((tmp1[idx-1] & 0x80) > 0){
                 carry = 1;
             }
             else{
@@ -257,14 +258,14 @@ void rsa_divide(const uint8_t *dividend, uint32_t dividendLen, const uint8_t *di
     uint8_t * remainder, uint32_t *remainderLen)
 {
     uint32_t remLen;
-    uint32_t quoLen = 1;
+    uint32_t quoLen = dividendLen;
 
     uint8_t *tmpQuo1 = calloc(1, dividendLen);
     uint8_t *tmpRem1 = calloc(1, dividendLen);
     uint8_t *tmpQuo2 = calloc(1, dividendLen);
     uint8_t *tmpRem2 = calloc(1, dividendLen);
     uint8_t *tmpDivd = calloc(1, dividendLen);
-    memcpy(tmpDivd, dividend, divisorLen);
+    memcpy(tmpDivd, dividend, dividendLen);
     uint8_t *tmpDivr = calloc(1, divisorLen);
     memcpy(tmpDivr, divisor, divisorLen);
 
@@ -272,6 +273,17 @@ void rsa_divide(const uint8_t *dividend, uint32_t dividendLen, const uint8_t *di
     remLen = rsa_subtract(tmpDivd, divisorLen, tmpDivr, divisorLen, tmpRem1);
     /* set the initial quotient - quotient has to be right aligned */
     tmpQuo1[dividendLen-1] = 0x01;
+    uint32_t tmpIdx;
+    printf("Initial remainder:\n");
+    for(tmpIdx = 0 ; tmpIdx < remLen; tmpIdx++){
+        printf("%x", tmpRem1[tmpIdx]);
+    }
+    printf("\n");
+    printf("Initial quotient:\n");
+    for(tmpIdx = 0 ; tmpIdx < quoLen; tmpIdx++){
+        printf("%x", tmpQuo1[tmpIdx]);
+    }
+    printf("\n");
 
     //uint32_t nBitsYetToCover = (dividendLen - divisorLen) * 8U;
     uint32_t idx = 0;
@@ -280,20 +292,37 @@ void rsa_divide(const uint8_t *dividend, uint32_t dividendLen, const uint8_t *di
     /* Step 2 - loop and further do subtraction bitwise on the remainder */
     for(idx = divisorLen; idx < dividendLen; idx++){
         
-        for(subIdx = 7; subIdx > 0; subIdx--){
+        for(subIdx = 8; subIdx > 0; subIdx--){
             remLen = rsa_left_shift(tmpRem1, remLen, 1, tmpRem2);
+            printf("Left-shifted remainder:\n");
+            for(tmpIdx = 0 ; tmpIdx < remLen; tmpIdx++){
+                printf("%x", tmpRem2[tmpIdx]);
+            }
+            printf("\n");
             quoLen = rsa_left_shift(tmpQuo1, quoLen, 1, tmpQuo2);
-            tmpRem2[0] |= (tmpDivd[idx] >> subIdx) & 0x01U;
+            printf("Left-shifted quotient with length %x:\n", quoLen);
+            for(tmpIdx = 0 ; tmpIdx < quoLen; tmpIdx++){
+                printf("(%x)%x", tmpIdx, tmpQuo2[tmpIdx]);
+            }
+            printf("\n");
+            tmpRem2[remLen-1] |= (tmpDivd[idx] >> (subIdx - 1)) & 0x01U;
+            printf("New remainder with %x's %x-th bit is:\n",tmpDivd[idx], (subIdx - 1));
+            for(tmpIdx = 0 ; tmpIdx < remLen; tmpIdx++){
+                printf("%x", tmpRem2[tmpIdx]);
+            }
+            printf("\n");
 
             if(rsa_is_greater_than(tmpRem2, remLen, tmpDivr, divisorLen) >= RSA_EQUAL_TO){
                 remLen = rsa_subtract(tmpRem2, remLen, tmpDivr, divisorLen, tmpRem1);
-                tmpQuo2[0] |= 0x01U;
+                tmpQuo2[dividendLen-1] |= 0x01U;
             }
             else{
-                memcpy(tmpRem1, tmpRem2, dividendLen);
+                //memcpy(tmpRem1, tmpRem2, dividendLen);
             }
+            memcpy(tmpRem1, tmpRem2, dividendLen);
+            memcpy(tmpQuo1, tmpQuo2, dividendLen);
         }
-        memcpy(tmpQuo1, tmpQuo2, dividendLen);
+        //memcpy(tmpQuo1, tmpQuo2, dividendLen);
     }
     memcpy(quotient, tmpQuo1, dividendLen);
     memcpy(remainder, tmpRem1, remLen);
@@ -303,7 +332,7 @@ void rsa_divide(const uint8_t *dividend, uint32_t dividendLen, const uint8_t *di
     free(tmpRem2);
     free(tmpDivd);
     free(tmpDivr);
-    *quotientLen = dividendLen;//quoLen;
+    *quotientLen = quoLen;
     *remainderLen = remLen;
 }
 
