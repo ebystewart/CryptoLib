@@ -351,6 +351,7 @@ void rsa_multiply(const uint8_t *multiplicant, uint32_t multiplicantLen, const u
     bool val2 = 0;
     bool val3 = 0;
     uint8_t val4 = 0;
+    uint8_t val5 = 0;
     uint32_t newLen = m1Len;
 
     bool carry = 0;
@@ -365,9 +366,11 @@ void rsa_multiply(const uint8_t *multiplicant, uint32_t multiplicantLen, const u
     printf("\n");
     uint8_t *shift_holder = calloc(1, len);
     uint8_t *temp3 = calloc(1, len);
+    memset(temp3, 0, len);
 
     for (idx2 = m2Len; idx2 > 0; idx2--)
-    {printf("%x\n",multiplier[idx2-1]);
+    {
+        printf("%x\n",multiplier[idx2-1]);
         for (subIdx2 = 0; subIdx2 < 8; subIdx2++)
         {
             val2 = (multiplier[idx2-1] >> subIdx2) & 0x01U;
@@ -377,32 +380,44 @@ void rsa_multiply(const uint8_t *multiplicant, uint32_t multiplicantLen, const u
                 for(idx1 = len; idx1 > 0; idx1--)
                 {
                     printf("%x\n", temp1[idx1-1]);
+                    val5 = 0x00U;
                     for(subIdx1 = 0; subIdx1 < 8; subIdx1++){
                         val1 = (temp1[idx1-1] >> subIdx1) & 0x01U;
                         val3 = (temp3[idx1-1] >> subIdx1) & 0x01U;
-                        val4 = val1 | val3 | carry;
-
-                        temp3[idx1] |= (val4 << subIdx2);
+                        /* Do modulo addition */
+                        val4 = val1 ^ val3 ^ carry;
+                        printf("XOR of Val1: %x, val3: %x and carry: %x is val4 : %x\n",val1, val3, carry, val4);
+                        val5 |= (val4 << subIdx1);
+                         //temp3[idx1-1] = val5;
 
                         if(val1 == 1 && val3 == 1 && carry == 1){
+                            printf("carry is set\n");
                             carry = 1;
                         }
-                        else if((val1 == 1 || val3 == 1) && carry == 1){
+                        else if(((val1 | val3) == 1) && carry == 1){
+                            printf("carry is set\n");
+                            carry = 1;
+                        }
+                        else if(val1 == 1 && val3 == 1){
+                            printf("carry is set\n");
                             carry = 1;
                         }
                         else{
                             carry = 0;
                         }
                     }
-                    printf("%x\n", temp3[idx1-1]);
+                    temp3[idx1-1] = val5;
+                    printf("sum-->%x\n", temp3[idx1-1]);
                 }
             }
-            newLen = rsa_left_shift((temp1 + (len - newLen)), newLen, 1, shift_holder);
+            //newLen = rsa_left_shift((temp1 + (len - newLen)), newLen, 1, shift_holder);
+            newLen = rsa_left_shift(temp1, len, 1, shift_holder);
             for (idxx= 0; idxx < len; idxx++){
                 printf("%x", shift_holder[idxx]);
             }
             printf("\n");
-            memcpy((temp1 + (len - newLen)), shift_holder, newLen);
+            //memcpy((temp1 + (len - newLen)), shift_holder, newLen);
+            memcpy(temp1, shift_holder, len);
         }
     }
     *productLen = len;
