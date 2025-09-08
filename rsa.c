@@ -141,7 +141,7 @@ static uint32_t rsa_multiply_by_two(const uint8_t *dIn, uint32_t dInLen, uint8_t
     bool carry_for_lsb_next = false;
 
     /* Multiply the array by 2 
-       This is equivalent to a left-shift by one position ny all the array elements */
+       This is equivalent to a left-shift by one position of all the array elements */
     for(idx = (dInLen - 1); idx >= 0; idx--){
         if(dIn[idx] & 0x80 == 0x80){
           carry_for_lsb_next = true;
@@ -208,6 +208,48 @@ uint32_t rsa_subtract(const uint8_t *dIn1, uint32_t dInLen1, const uint8_t *dIn2
     }
     free(temp);
     return compLen;
+}
+
+//static 
+uint32_t rsa_right_shift(const uint8_t *dIn, uint32_t dInLen, uint32_t shiftPos, uint8_t *dOut)
+{
+    uint32_t idx;
+    uint32_t subIdx;
+    uint8_t carry = 0;
+    uint32_t shiftPosCopy = shiftPos;
+
+    /* calculate the output length in Bytes */
+    uint32_t dOutLen = dInLen;
+    uint8_t *tmp1 = calloc(1, dOutLen);
+    uint8_t *tmp2 = calloc(1, dOutLen);
+    memcpy(tmp1, dIn, dInLen);
+
+    while(shiftPosCopy > 0){
+        /*  */
+        for (idx = dOutLen; idx > 0; idx--)
+        {
+            if(idx > 1){
+                if ((tmp1[idx - 2] & 0x01) > 0)
+                {
+                    carry = 0x80U;
+                }
+                else{
+                    carry = 0;
+                }
+            }
+            else{
+                carry = 0;
+            }
+            tmp2[idx-1] = (tmp1[idx-1] >> 1) | carry;
+            printf("%x->%x\n", (idx-1), tmp2[idx-1]);
+        }
+        memcpy(tmp1, tmp2, dOutLen);
+        shiftPosCopy--;
+    }
+    memcpy(dOut, tmp1, dOutLen);
+    free(tmp1);
+    free(tmp2);
+    return dOutLen;
 }
 
 //static 
@@ -390,11 +432,7 @@ void rsa_multiply(const uint8_t *multiplicant, uint32_t multiplicantLen, const u
                         val5 |= (val4 << subIdx1);
                          //temp3[idx1-1] = val5;
 
-                        if(val1 == 1 && val3 == 1 && carry == 1){
-                            printf("carry is set\n");
-                            carry = 1;
-                        }
-                        else if(((val1 | val3) == 1) && carry == 1){
+                        if((val1 == 1 || val3 == 1) && carry == 1){
                             printf("carry is set\n");
                             carry = 1;
                         }
@@ -451,7 +489,8 @@ uint8_t rsa_find_exponent(const uint8_t *base, uint32_t baseLen, const uint8_t *
           odd_power = true;
       }
       while(intPowLen > 0){
-          intBaseLen = rsa_multiply_by_two(temp3, intBaseLen, temp4);
+          //intBaseLen = rsa_multiply_by_two(temp3, intBaseLen, temp4);
+          rsa_multiply(temp3, sizeof(temp3), temp3, sizeof(temp3), temp4, &intBaseLen);
           memcpy(temp4, temp3, intBaseLen);
           intPowLen = rsa_decrement_by_two(temp, intPowLen, temp2);
           memcpy(temp2, temp, intPowLen);
