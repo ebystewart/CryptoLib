@@ -62,6 +62,23 @@ bool rsa_is_equal_zero(const uint8_t *dIn, uint8_t dInLen)
     return true;
 }
 
+//static
+bool rsa_is_equal_one(const uint8_t *dIn, uint8_t dInLen)
+{
+    uint32_t idx = 0;
+    if(dIn[dInLen - 1] == 1){
+        for (idx = 0; idx < (dInLen -1); idx++)
+        {
+            if (dIn[idx] != 0)
+                return false;
+        }
+        return true;
+    }
+    else{
+        return false;
+    }
+}
+
 /* An approximate algorithm (weighted downward scaling). Need to test its accuracy */
 /* This method may work for numbers with relatively larger differences */
 //static
@@ -465,38 +482,69 @@ void rsa_multiply(const uint8_t *multiplicant, uint32_t multiplicantLen, const u
     free(shift_holder);
 }
 
-uint8_t rsa_find_exponent(const uint8_t *base, uint32_t baseLen, const uint8_t *power, uint32_t powerLen, uint8_t *out)
+uint8_t rsa_calculate_exponent(const uint8_t *base, uint32_t baseLen, const uint8_t *power, uint32_t powerLen, uint8_t *out)
 {
+    uint32_t idxx;
     uint8_t outLen = 0;
     uint8_t intPowLen = powerLen;
-    uint32_t intBaseLen = baseLen * 4;
+    uint32_t intBaseLen = baseLen * powerLen;
     bool odd_power = false;
     assert(baseLen != 0 && powerLen != 0);
 
     uint8_t *temp = calloc(1, powerLen);
     memcpy(temp, power, powerLen);
+    printf("The power value is:\n");
+    for (idxx= 0; idxx < powerLen; idxx++){
+        printf("%x", temp[idxx]);
+    }
+    printf("\n");
     uint8_t *temp2 = calloc(1, powerLen);
     memset(temp2, 0, powerLen);
+
     uint8_t *temp3 = calloc(1, intBaseLen);
-    memcpy(temp3, base, baseLen);
+    /* data has to be right- aligned */
+    memcpy((temp3 + intBaseLen - baseLen), base, baseLen);
+    printf("The base value is:\n");
+    for (idxx= 0; idxx < intBaseLen; idxx++){
+        printf("%x", temp3[idxx]);
+    }
+    printf("\n");
     uint8_t *temp4 = calloc(1, intBaseLen);
-    memset(temp4, 0, baseLen);
+    /* data has to be right- aligned */
+    memset((temp4 + intBaseLen - baseLen), 0, intBaseLen);
 
-    if(baseLen == 1 && powerLen == 1){
+    if(baseLen >= 1 && powerLen >= 1){
 
-      if(power[0] & 0x01 == 1)
+      if(power[powerLen - 1] & 0x01 == 1)
       {
           odd_power = true;
       }
-      while(intPowLen > 0){
+      while(!rsa_is_equal_zero(temp2, intPowLen) && !rsa_is_equal_one(temp2, intPowLen)){
           //intBaseLen = rsa_multiply_by_two(temp3, intBaseLen, temp4);
-          rsa_multiply(temp3, sizeof(temp3), temp3, sizeof(temp3), temp4, &intBaseLen);
-          memcpy(temp4, temp3, intBaseLen);
-          intPowLen = rsa_decrement_by_two(temp, intPowLen, temp2);
-          memcpy(temp2, temp, intPowLen);
+          rsa_multiply((temp3 + intBaseLen - baseLen), baseLen, (temp3 + intBaseLen - baseLen), baseLen, temp4, &intBaseLen);
+          memcpy(temp3, temp4, intBaseLen);    
+          printf("The exponent value is:\n");
+          for (idxx= 0; idxx < intBaseLen; idxx++){
+              printf("%x", temp4[idxx]);
+          }
+          printf("\n");
+
+          //intPowLen = rsa_decrement_by_two(temp, intPowLen, temp2);
+          rsa_right_shift(temp, intPowLen, 1, temp2);
+          memcpy(temp, temp2, intPowLen);
+          printf("The decremented power value is:\n");
+          for (idxx= 0; idxx < intPowLen; idxx++){
+              printf("%x", temp2[idxx]);
+          }
+          printf("\n");
       }
-      memcpy(temp4, out, intPowLen);
+      /* handle odd exponent */
+      if(odd_power){
+          rsa_multiply(temp3, sizeof(temp3), base, sizeof(base), temp4, &intBaseLen);
+      }
+      memcpy(out, temp4, intBaseLen);
     }
+    outLen = intBaseLen;
 
     free(temp);
     free(temp2);
