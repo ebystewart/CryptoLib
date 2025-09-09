@@ -422,7 +422,7 @@ void rsa_multiply(const uint8_t *multiplicant, uint32_t multiplicantLen, const u
     for (idxx= 0; idxx < len; idxx++){
         printf("%x", temp1[idxx]);
     }
-    printf("\n");
+    printf("\n multiplicantLen is %x and multiplierLen is %x\n",multiplicantLen, multiplierLen);
     uint8_t *shift_holder = calloc(1, len);
     uint8_t *temp3 = calloc(1, len);
     memset(temp3, 0, len);
@@ -517,6 +517,7 @@ uint8_t rsa_calculate_exponent(const uint8_t *base, uint32_t baseLen, const uint
     /* data has to be right- aligned */
     memset(temp4, 0, intBaseLen);
     temp4x = (temp4 + (2 * baseLen));
+    //temp4x = temp4 + intBaseLen - (2 * baseLen);
     if(baseLen >= 1 && powerLen >= 1){
 
       if(power[powerLen - 1] & 0x01 == 1)
@@ -524,13 +525,15 @@ uint8_t rsa_calculate_exponent(const uint8_t *base, uint32_t baseLen, const uint
           odd_power = true;
       }
       tempBaseLen = baseLen;
-      while(!rsa_is_equal_zero(temp2, intPowLen) && !rsa_is_equal_one(temp2, intPowLen)){
-          //intBaseLen = rsa_multiply_by_two(temp3, intBaseLen, temp4);
+      //printf("checkpoint_0\n");
+      while(!rsa_is_equal_zero(temp, intPowLen)){// && !rsa_is_equal_one(temp, intPowLen)){
+          //printf("checkpoint_1\n");
           /* Binary Multiplication is done on right- aligned data */
           rsa_multiply(temp3x, tempBaseLen, temp3x, tempBaseLen, temp4x, &intBaseLen);
-          temp3x = temp3x - baseLen;
+          //temp3x = temp3x - baseLen;
+          temp3x = temp3x - 2;
           memcpy(temp3x, temp4x, intBaseLen);
-          temp4x = temp4x - intBaseLen;
+          temp4x = temp4x - (2 * intBaseLen);
           tempBaseLen += baseLen;
           printf("The exponent value is:\n");
           for (idxx= 0; idxx < intBaseLen; idxx++){
@@ -548,11 +551,11 @@ uint8_t rsa_calculate_exponent(const uint8_t *base, uint32_t baseLen, const uint
           printf("\n");
       }
       /* handle odd exponent */
-      if(odd_power){
+      /*if(odd_power){
           //temp3x = temp3x - baseLen;
           //temp4x = temp4x - intBaseLen;
           rsa_multiply(temp3x, tempBaseLen, base, tempBaseLen, temp4x, &intBaseLen);
-      }
+      }*/
       memcpy(out, temp4x, intBaseLen);
     }
     outLen = intBaseLen;
