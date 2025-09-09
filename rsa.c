@@ -485,9 +485,12 @@ void rsa_multiply(const uint8_t *multiplicant, uint32_t multiplicantLen, const u
 uint8_t rsa_calculate_exponent(const uint8_t *base, uint32_t baseLen, const uint8_t *power, uint32_t powerLen, uint8_t *out)
 {
     uint32_t idxx;
+    uint8_t *temp3x;
+    uint8_t *temp4x;
     uint8_t outLen = 0;
     uint8_t intPowLen = powerLen;
-    uint32_t intBaseLen = baseLen * powerLen;
+    uint32_t intBaseLen = baseLen + 14;
+    uint32_t tempBaseLen;
     bool odd_power = false;
     assert(baseLen != 0 && powerLen != 0);
 
@@ -502,8 +505,9 @@ uint8_t rsa_calculate_exponent(const uint8_t *base, uint32_t baseLen, const uint
     memset(temp2, 0, powerLen);
 
     uint8_t *temp3 = calloc(1, intBaseLen);
+    temp3x = (temp3 + intBaseLen - baseLen);
     /* data has to be right- aligned */
-    memcpy((temp3 + intBaseLen - baseLen), base, baseLen);
+    memcpy(temp3x, base, baseLen);
     printf("The base value is:\n");
     for (idxx= 0; idxx < intBaseLen; idxx++){
         printf("%x", temp3[idxx]);
@@ -511,21 +515,26 @@ uint8_t rsa_calculate_exponent(const uint8_t *base, uint32_t baseLen, const uint
     printf("\n");
     uint8_t *temp4 = calloc(1, intBaseLen);
     /* data has to be right- aligned */
-    memset((temp4 + intBaseLen - baseLen), 0, intBaseLen);
-
+    memset(temp4, 0, intBaseLen);
+    temp4x = (temp4 + (2 * baseLen));
     if(baseLen >= 1 && powerLen >= 1){
 
       if(power[powerLen - 1] & 0x01 == 1)
       {
           odd_power = true;
       }
+      tempBaseLen = baseLen;
       while(!rsa_is_equal_zero(temp2, intPowLen) && !rsa_is_equal_one(temp2, intPowLen)){
           //intBaseLen = rsa_multiply_by_two(temp3, intBaseLen, temp4);
-          rsa_multiply((temp3 + intBaseLen - baseLen), baseLen, (temp3 + intBaseLen - baseLen), baseLen, temp4, &intBaseLen);
-          memcpy(temp3, temp4, intBaseLen);    
+          /* Binary Multiplication is done on right- aligned data */
+          rsa_multiply(temp3x, tempBaseLen, temp3x, tempBaseLen, temp4x, &intBaseLen);
+          temp3x = temp3x - baseLen;
+          memcpy(temp3x, temp4x, intBaseLen);
+          temp4x = temp4x - intBaseLen;
+          tempBaseLen += baseLen;
           printf("The exponent value is:\n");
           for (idxx= 0; idxx < intBaseLen; idxx++){
-              printf("%x", temp4[idxx]);
+              printf("%x", temp3x[idxx]);
           }
           printf("\n");
 
@@ -540,9 +549,11 @@ uint8_t rsa_calculate_exponent(const uint8_t *base, uint32_t baseLen, const uint
       }
       /* handle odd exponent */
       if(odd_power){
-          rsa_multiply(temp3, sizeof(temp3), base, sizeof(base), temp4, &intBaseLen);
+          //temp3x = temp3x - baseLen;
+          //temp4x = temp4x - intBaseLen;
+          rsa_multiply(temp3x, tempBaseLen, base, tempBaseLen, temp4x, &intBaseLen);
       }
-      memcpy(out, temp4, intBaseLen);
+      memcpy(out, temp4x, intBaseLen);
     }
     outLen = intBaseLen;
 
