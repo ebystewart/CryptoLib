@@ -18,6 +18,6 @@ typedef enum{
 }rsa_comparison_e;
 
 int rsa_generate_prime(rsa_keyLen_e keyLen, uint8_t *prime);
-uint8_t rsa_find_exponent(const uint8_t *base, uint32_t baseLen, const uint8_t *power, uint32_t powerLen, uint8_t *out);
+uint8_t rsa_calculate_exponent(const uint8_t *base, uint32_t baseLen, const uint8_t *power, uint32_t powerLen, uint8_t *out);
 
 #endif

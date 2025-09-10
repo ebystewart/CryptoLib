@@ -494,26 +494,26 @@ uint8_t rsa_calculate_exponent(const uint8_t *base, uint32_t baseLen, const uint
     bool odd_power = false;
     assert(baseLen != 0 && powerLen != 0);
 
-    uint8_t *temp = calloc(1, powerLen);
+    const uint8_t *temp = calloc(1, powerLen);
     memcpy(temp, power, powerLen);
     printf("The power value is:\n");
     for (idxx= 0; idxx < powerLen; idxx++){
         printf("%x", temp[idxx]);
     }
     printf("\n");
-    uint8_t *temp2 = calloc(1, powerLen);
+    const uint8_t *temp2 = calloc(1, powerLen);
     memset(temp2, 0, powerLen);
 
-    uint8_t *temp3 = calloc(1, intBaseLen);
+    const uint8_t *temp3 = calloc(1, intBaseLen);
     temp3x = (temp3 + intBaseLen - baseLen);
     /* data has to be right- aligned */
     memcpy(temp3x, base, baseLen);
     printf("The base value is:\n");
     for (idxx= 0; idxx < intBaseLen; idxx++){
-        printf("%x", temp3[idxx]);
+        printf("%x", temp3x[idxx]);
     }
     printf("\n");
-    uint8_t *temp4 = calloc(1, intBaseLen);
+    const uint8_t *temp4 = calloc(1, intBaseLen);
     /* data has to be right- aligned */
     memset(temp4, 0, intBaseLen);
     temp4x = (temp4 + (2 * baseLen));
@@ -531,10 +531,10 @@ uint8_t rsa_calculate_exponent(const uint8_t *base, uint32_t baseLen, const uint
           /* Binary Multiplication is done on right- aligned data */
           rsa_multiply(temp3x, tempBaseLen, temp3x, tempBaseLen, temp4x, &intBaseLen);
           //temp3x = temp3x - baseLen;
-          temp3x = temp3x - 2;
+          temp3x = temp3x - baseLen;
           memcpy(temp3x, temp4x, intBaseLen);
           temp4x = temp4x - (2 * intBaseLen);
-          tempBaseLen += baseLen;
+          tempBaseLen = intBaseLen;
           printf("The exponent value is:\n");
           for (idxx= 0; idxx < intBaseLen; idxx++){
               printf("%x", temp3x[idxx]);
@@ -556,7 +556,7 @@ uint8_t rsa_calculate_exponent(const uint8_t *base, uint32_t baseLen, const uint
           //temp4x = temp4x - intBaseLen;
           rsa_multiply(temp3x, tempBaseLen, base, tempBaseLen, temp4x, &intBaseLen);
       }*/
-      memcpy(out, temp4x, intBaseLen);
+      memcpy(out, temp3x, intBaseLen);
     }
     outLen = intBaseLen;
 
