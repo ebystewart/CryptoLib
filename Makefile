@@ -4,7 +4,9 @@ LIBS=
 OBJS= aes.o	\
 	rand.o \
 	rsa.o \
-	test.o	
+	test.o \
+	sha.o \
+	math.o	
 
 CryptoLib.bin:${OBJS}
 	${CC} ${CFLAGS} ${OBJS} -o CryptoLib.bin
@@ -20,6 +22,12 @@ rand.o:rand.c
 
 test.o:test.c
 	${CC} ${CFLAGS} -c test.c -I . -o test.o
+
+sha.o:sha.c
+	${CC} ${CFLAGS} -c sha.c -I . -o sha.o
+
+math.o:math.c
+	${CC} ${CFLAGS} -c math.c -I . -o math.o
 
 
 all:

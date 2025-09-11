@@ -1,10 +1,10 @@
 #include <stdio.h>
-#include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
 #include <stdlib.h>
 #include <string.h>
 #include "sha.h"
+#include "math.h"
 
     /* Initialize hash values:
         (first 32 bits of the fractional parts of the square roots of the first 8 primes 2..19)
@@ -37,23 +37,38 @@ uint32_t k[64] =
 };
 
 
-void sha_compute_hash(void)
+void sha_compute_hash(uint8_t *message, uint32_t messageLen, sha_type_e sha_type, uint32_t *digest)
 {
-
     uint32_t w[64]; /* Schedule array */
     uint32_t working_var[8];
     uint32_t hash[8];
     uint32_t s0;
     uint32_t s1;
     uint8_t idx;
-    uint32_t digest;
+    uint8_t paddingLen;
+    uint32_t remainingLen = messageLen + paddingLen;
+    uint8_t chunkIdx = 0;
+
+    /* Do the padding here if message length is not a multiple of 64 Bytes (512 Bits) */
+    if(!(messageLen % 64)){
+        /* Step #1: append a single '1' bit */
+
+        /* append K '0' bits, where K is the minimum number >= 0 such that (L + 1 + K + 64) is a multiple of 512 */
+
+        /* append L as a 64-bit big-endian integer, making the total post-processed length a multiple of 512 bits
+           such that the bits in the message are: <original message of length L> 1 <K zeros> <L as 64 bit integer>, 
+           (the number of bits will be a multiple of 512)
+        */
+    }
 
     uint32_t *messageChunk = calloc(1, 64);
 
     /* break messages in to 512 bits chunk */
+    while(remainingLen > 0)
     {
         /* copy the chunk to the first 64 bytes of schedule array */
         memcpy(w, messageChunk, 64);
+        remainingLen -= 64;
 
         /* Extend the first 16 words into the remaining 48 words w[16..63] of the message schedule array */
         for(idx = 0; idx < 64; idx++){
@@ -65,14 +80,16 @@ void sha_compute_hash(void)
         /* Initialize working variables to current hash value */
         memcpy(working_var, h, sizeof(h));
 
+        uint32_t S1, ch, temp1, S0, maj,temp2;
         /* Compression function main loop */
         for(idx = 0; idx < 64; idx++){
-            uint32_t S1 = (ROTR(e,6)) ^ (ROTR(e,1)) ^ (ROTR(e,25));
-            uint32_t ch = (e & f) ^ ((!e) & g)
-            uint32_t temp1 = h + S1 + ch + k[idx] + w[idx];
-            uint32_t S0 = (a rightrotate 2) xor (a rightrotate 13) xor (a rightrotate 22)
-            uint32_t maj = (a & b) ^ (a & c) ^ (b & c);
-            uint32_t temp2 = S0 + maj;
+
+            S1 = (ROTR(working_var[4],6)) ^ (ROTR(working_var[4],1)) ^ (ROTR(working_var[4],25));
+            ch = (working_var[4] & working_var[5]) ^ ((!working_var[4]) & working_var[5]);
+            temp1 = h + S1 + ch + k[idx] + w[idx];
+            S0 = (ROTR(working_var[0],2)) ^ (ROTR(working_var[0],13)) ^ (ROTR(working_var[0],22));
+            maj = (working_var[0] & working_var[1]) ^ (working_var[0] & working_var[2]) ^ (working_var[1] & working_var[3]);
+            temp2 = S0 + maj;
      
             working_var[7] = working_var[6];
             working_var[6] = working_var[5];
@@ -85,19 +102,18 @@ void sha_compute_hash(void)
         }
     
         /* Add the compressed chunk to the current hash value */
-        #if 0
-        h0 := h0 + a
-        h1 := h1 + b
-        h2 := h2 + c
-        h3 := h3 + d
-        h4 := h4 + e
-        h5 := h5 + f
-        h6 := h6 + g
-        h7 := h7 + h
+        memcpy(hash, h, sizeof(h));
+        hash[0] = hash[0] + working_var[0];
+        hash[1] = hash[1] + working_var[1];
+        hash[2] = hash[2] + working_var[2];
+        hash[3] = hash[3] + working_var[3];
+        hash[4] = hash[4] + working_var[4];
+        hash[5] = hash[5] + working_var[5];
+        hash[6] = hash[6] + working_var[6];
+        hash[7] = hash[7] + working_var[7];
     
         /* Produce the final hash value (big-endian) */
-        digest := hash := h0 append h1 append h2 append h3 append h4 append h5 append h6 append h7
-        #endif
+        memcpy(digest, hash, sizeof(hash));
     }
 
     
