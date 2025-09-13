@@ -5,6 +5,7 @@
 #include <stdbool.h>
 #include "aes.h"
 #include "rsa.h"
+#include "sha.h"
 
 uint8_t in[16] = {0x63, 0x2F, 0xAF, 0xA2,
                0xEB, 0x93, 0xC7, 0x20,
@@ -483,6 +484,19 @@ int main(int arc, char ** argv)
     uint8_t outLen;
     outLen = rsa_calculate_exponent(dIn1, 2, dIn2, 1, dOut);
     for (idx = 0; idx < outLen; idx++)
+    {
+        printf("%x", dOut[idx]);
+    }
+    printf("\n");
+#endif
+
+#if 1
+    uint8_t digest[16];
+    uint8_t dIn[10] = {0x01, 0x0B, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
+
+    sha_compute_hash(dIn, sizeof(dIn), SHA_256, digest);
+    printf("The hash is:\n");
+    for (idx = 0; idx < 16; idx++)
     {
         printf("%x", dOut[idx]);
     }

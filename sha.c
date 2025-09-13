@@ -45,32 +45,42 @@ void sha_compute_hash(uint8_t *message, uint32_t messageLen, sha_type_e sha_type
     uint32_t s0;
     uint32_t s1;
     uint8_t idx;
+    uint8_t offset = 0;
+
     uint8_t paddingLen = 64 - (messageLen % 64);
-    uint32_t remainingLen = messageLen + paddingLen;
+    if((paddingLen % 64) > 55)
+        offset = 64 ; // round off to 64
+
+    uint32_t remainingLen = messageLen + paddingLen + offset; /* in Bytes */
     uint8_t chunkIdx = 0;
 
-    uint8_t *temp_msg = calloc(1, (remainingLen + 1));
+    uint8_t *temp_msg = calloc(1, remainingLen);
     memcpy(temp_msg, message, messageLen);
 
-    uint32_t start_to_padd = messageLen + paddingLen/8;
-
     /* Do the padding here if message length is not a multiple of 64 Bytes (512 Bits) */
-    if(paddingLen > 0){
-        /* Step #1: append a single '1' bit */
-        temp_msg[0] = 0x80;
-
+    if((paddingLen > 0) && (offset > 0)) {
         /* append K '0' bits, where K is the minimum number >= 0 such that (L + 1 + K + 64) is a multiple of 512 */
-
-        /* append L as a 64-bit big-endian integer, making the total post-processed length a multiple of 512 bits
-           such that the bits in the message are: <original message of length L> 1 <K zeros> <L as 64 bit integer>, 
-           (the number of bits will be a multiple of 512)
-        */
-       start_to_padd++;
+        memset(temp_msg[messageLen], 0, paddingLen);
+        /* Step #1: append a single '1' bit */
+        temp_msg[messageLen] = 0x80;
     }
     else{
-
-
+        /* append K '0' bits, where K is the minimum number >= 0 such that (L + 1 + K + 64) is a multiple of 512 */
+        memset(temp_msg[messageLen], 0, 56);
+        temp_msg[messageLen] = 0x80U;
     }
+    /*  append L as a 64-bit big-endian integer, making the total post-processed length a multiple of 512 bits
+        such that the bits in the message are: <original message of length L> 1 <K zeros> <L as 64 bit integer>, 
+        (the number of bits will be a multiple of 512)
+    */
+    // temp_msg[remainingLen-7] = 0x00U;
+    // temp_msg[remainingLen-6] = 0x00U;
+    // temp_msg[remainingLen-5] = 0x00U;
+    // temp_msg[remainingLen-4] = 0x00U;
+    temp_msg[remainingLen-3] = (uint8_t)((messageLen >> 24) & 0xFFU);
+    temp_msg[remainingLen-2] = (uint8_t)((messageLen >> 16) & 0xFFU);
+    temp_msg[remainingLen-1] = (uint8_t)((messageLen >> 8) & 0xFFU);
+    temp_msg[remainingLen] = (uint8_t)(messageLen & 0xFFU);
 
     uint32_t *messageChunk = calloc(1, 64);
 
