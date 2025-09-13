@@ -45,13 +45,19 @@ void sha_compute_hash(uint8_t *message, uint32_t messageLen, sha_type_e sha_type
     uint32_t s0;
     uint32_t s1;
     uint8_t idx;
-    uint8_t paddingLen;
+    uint8_t paddingLen = 64 - (messageLen % 64);
     uint32_t remainingLen = messageLen + paddingLen;
     uint8_t chunkIdx = 0;
 
+    uint8_t *temp_msg = calloc(1, (remainingLen + 1));
+    memcpy(temp_msg, message, messageLen);
+
+    uint32_t start_to_padd = messageLen + paddingLen/8;
+
     /* Do the padding here if message length is not a multiple of 64 Bytes (512 Bits) */
-    if(!(messageLen % 64)){
+    if(paddingLen > 0){
         /* Step #1: append a single '1' bit */
+        temp_msg[0] = 0x80;
 
         /* append K '0' bits, where K is the minimum number >= 0 such that (L + 1 + K + 64) is a multiple of 512 */
 
@@ -59,6 +65,11 @@ void sha_compute_hash(uint8_t *message, uint32_t messageLen, sha_type_e sha_type
            such that the bits in the message are: <original message of length L> 1 <K zeros> <L as 64 bit integer>, 
            (the number of bits will be a multiple of 512)
         */
+       start_to_padd++;
+    }
+    else{
+
+
     }
 
     uint32_t *messageChunk = calloc(1, 64);
@@ -66,6 +77,8 @@ void sha_compute_hash(uint8_t *message, uint32_t messageLen, sha_type_e sha_type
     /* break messages in to 512 bits chunk */
     while(remainingLen > 0)
     {
+        memcpy(messageChunk, (temp_msg + (chunkIdx * 64)), 64);
+
         /* copy the chunk to the first 64 bytes of schedule array */
         memcpy(w, messageChunk, 64);
         remainingLen -= 64;
@@ -111,10 +124,9 @@ void sha_compute_hash(uint8_t *message, uint32_t messageLen, sha_type_e sha_type
         hash[5] = hash[5] + working_var[5];
         hash[6] = hash[6] + working_var[6];
         hash[7] = hash[7] + working_var[7];
-    
-        /* Produce the final hash value (big-endian) */
-        memcpy(digest, hash, sizeof(hash));
-    }
 
-    
+        chunkIdx++;
+    }
+    /* Produce the final hash value (big-endian) */
+    memcpy(digest, hash, sizeof(hash));
 }
