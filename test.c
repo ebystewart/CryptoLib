@@ -494,7 +494,7 @@ int main(int arc, char ** argv)
     uint8_t digest[16];
     uint8_t dIn[10] = {0x01, 0x0B, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
-    sha_compute_hash(dIn, sizeof(dIn), SHA_256, digest);
+    sha256_compute_hash(dIn, sizeof(dIn), digest);
     printf("The hash is:\n");
     for (idx = 0; idx < 16; idx++)
     {
