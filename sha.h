@@ -13,6 +13,10 @@ typedef enum {
     SHA_512_256 = 6
 }sha_type_e; 
 
+/* SHA2 
+   ref: https://en.wikipedia.org/wiki/SHA-2
+*/
+
 void sha224_compute_hash(uint8_t *message, uint32_t messageLen, uint32_t *digest);
 void sha256_compute_hash(uint8_t *message, uint32_t messageLen, uint32_t *digest);
 void sha384_compute_hash(uint8_t *message, uint32_t messageLen, uint32_t *digest);
