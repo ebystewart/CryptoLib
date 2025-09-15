@@ -101,22 +101,27 @@ uint64_t k_512[80] =
     0x431d67c49c100d4c, 0x4cc5d4becb3e42b6, 0x597f299cfc657e2a, 0x5fcb6fab3ad6faec, 0x6c44198c4a475817
 };
 
-void sha256_compute_hash(uint8_t *message, uint32_t messageLen, uint32_t *digest)
+void sha256_compute_hash(uint8_t *message, uint32_t messageLen, uint8_t *digest)
 {
-    uint32_t w[64]; /* Schedule array */
-    uint32_t working_var[8];
-    uint32_t hash[8];
+    
     uint32_t s0;
     uint32_t s1;
     uint8_t idx;
     uint8_t offset = 0;
 
+    assert(messageLen > 0);
+    printf("reached\n");
     uint8_t paddingLen = 64 - (messageLen % 64);
     if((paddingLen % 64) > 55)
         offset = 64 ; // round off to 64
 
     uint32_t remainingLen = messageLen + paddingLen + offset; /* in Bytes */
     uint8_t chunkIdx = 0;
+    printf("Received: %u, padding: %u, offset: %u, Total: %u\n", messageLen, paddingLen, offset, remainingLen);
+
+    uint32_t *w = calloc(1, (64*4)); /* Schedule array */
+    uint32_t *working_var = calloc(1, 8*4);
+    uint32_t *hash = calloc(1, 8*4);
 
     uint8_t *temp_msg = calloc(1, remainingLen);
     memcpy(temp_msg, message, messageLen);
@@ -124,13 +129,13 @@ void sha256_compute_hash(uint8_t *message, uint32_t messageLen, uint32_t *digest
     /* Do the padding here if message length is not a multiple of 64 Bytes (512 Bits) */
     if((paddingLen > 0) && (offset > 0)) {
         /* append K '0' bits, where K is the minimum number >= 0 such that (L + 1 + K + 64) is a multiple of 512 */
-        memset(temp_msg[messageLen], 0, paddingLen);
+        memset(&temp_msg[messageLen], 0, paddingLen);
         /* Step #1: append a single '1' bit */
         temp_msg[messageLen] = 0x80;
     }
     else{
         /* append K '0' bits, where K is the minimum number >= 0 such that (L + 1 + K + 64) is a multiple of 512 */
-        memset(temp_msg[messageLen], 0, 56);
+        memset(&temp_msg[messageLen], 0, 56);
         temp_msg[messageLen] = 0x80U;
     }
     /*  append L as a 64-bit big-endian integer, making the total post-processed length a multiple of 512 bits
@@ -203,6 +208,10 @@ void sha256_compute_hash(uint8_t *message, uint32_t messageLen, uint32_t *digest
     }
     /* Produce the final hash value (big-endian) */
     memcpy(digest, hash, sizeof(hash));
+    free(w);
+    free(hash);
+    free(working_var);
+    free(temp_msg);
 }
 
 void sha224_compute_hash(uint8_t *message, uint32_t messageLen, uint32_t *digest)
