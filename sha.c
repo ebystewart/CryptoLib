@@ -112,14 +112,18 @@ void sha256_compute_hash(uint8_t *message, uint32_t messageLen, uint8_t *digest)
     assert(messageLen > 0);
     printf("reached\n");
     uint8_t paddingLen = 64 - (messageLen % 64);
-    if((paddingLen % 64) > 55)
+    if((messageLen % 64) > 55)
         offset = 64 ; // round off to 64
 
     uint32_t remainingLen = messageLen + paddingLen + offset; /* in Bytes */
     uint8_t chunkIdx = 0;
     printf("Received: %u, padding: %u, offset: %u, Total: %u\n", messageLen, paddingLen, offset, remainingLen);
-
-    uint32_t *w = calloc(1, (64*4)); /* Schedule array */
+    printf("The received message of length %u inlcuding padding is:\n", messageLen);
+    for(idx = 0; idx < messageLen; idx++){
+        printf("%x", message[idx]);
+    }
+    printf("\n");
+    uint32_t *w = calloc(1, (16 *4)); /* Schedule array */
     uint32_t *working_var = calloc(1, 8*4);
     uint32_t *hash = calloc(1, 8*4);
 
@@ -129,13 +133,13 @@ void sha256_compute_hash(uint8_t *message, uint32_t messageLen, uint8_t *digest)
     /* Do the padding here if message length is not a multiple of 64 Bytes (512 Bits) */
     if((paddingLen > 0) && (offset > 0)) {
         /* append K '0' bits, where K is the minimum number >= 0 such that (L + 1 + K + 64) is a multiple of 512 */
-        memset(&temp_msg[messageLen], 0, paddingLen);
+        memset(&temp_msg[messageLen], 0, (paddingLen + offset));
         /* Step #1: append a single '1' bit */
-        temp_msg[messageLen] = 0x80;
+        temp_msg[messageLen] = 0x80U;
     }
     else{
         /* append K '0' bits, where K is the minimum number >= 0 such that (L + 1 + K + 64) is a multiple of 512 */
-        memset(&temp_msg[messageLen], 0, 56);
+        memset(&temp_msg[messageLen], 0, paddingLen);
         temp_msg[messageLen] = 0x80U;
     }
     /*  append L as a 64-bit big-endian integer, making the total post-processed length a multiple of 512 bits
@@ -146,10 +150,16 @@ void sha256_compute_hash(uint8_t *message, uint32_t messageLen, uint8_t *digest)
     // temp_msg[remainingLen-6] = 0x00U;
     // temp_msg[remainingLen-5] = 0x00U;
     // temp_msg[remainingLen-4] = 0x00U;
-    temp_msg[remainingLen-3] = (uint8_t)((messageLen >> 24) & 0xFFU);
-    temp_msg[remainingLen-2] = (uint8_t)((messageLen >> 16) & 0xFFU);
-    temp_msg[remainingLen-1] = (uint8_t)((messageLen >> 8) & 0xFFU);
-    temp_msg[remainingLen] = (uint8_t)(messageLen & 0xFFU);
+    temp_msg[remainingLen-4] = (uint8_t)((messageLen >> 24) & 0xFFU);
+    temp_msg[remainingLen-3] = (uint8_t)((messageLen >> 16) & 0xFFU);
+    temp_msg[remainingLen-2] = (uint8_t)((messageLen >> 8) & 0xFFU);
+    temp_msg[remainingLen-1] = (uint8_t)(messageLen & 0xFFU);
+
+    printf("The total message of length %u inlcuding padding is:\n", remainingLen);
+    for(idx = 0; idx < remainingLen; idx++){
+        printf("%x", temp_msg[idx]);
+    }
+    printf("\n");
 
     uint32_t *messageChunk = calloc(1, 64);
 
@@ -158,12 +168,17 @@ void sha256_compute_hash(uint8_t *message, uint32_t messageLen, uint8_t *digest)
     {
         memcpy(messageChunk, (temp_msg + (chunkIdx * 64)), 64);
 
+        printf("The chunk %u is:\n", chunkIdx);
+        for(idx = 0; idx < 16; idx++){
+            printf("%x", messageChunk[idx]);
+        }
+        printf("\n");
         /* copy the chunk to the first 64 bytes of schedule array */
         memcpy(w, messageChunk, 64);
         remainingLen -= 64;
 
         /* Extend the first 16 words into the remaining 48 words w[16..63] of the message schedule array */
-        for(idx = 0; idx < 64; idx++){
+        for(idx = 0; idx < 16; idx++){
             s0 = (ROTR(w[idx-15],7)) ^ (ROTR(w[idx-15],18)) ^ (w[idx-15] >> 3);
             s1 = (ROTR(w[idx-2],17)) ^ (ROTR(w[idx-2],19)) ^ (w[idx-2] >> 10);
             w[idx] = w[idx-16] + s0 + w[idx-7] + s1;
@@ -174,7 +189,7 @@ void sha256_compute_hash(uint8_t *message, uint32_t messageLen, uint8_t *digest)
 
         uint32_t S1, ch, temp1, S0, maj,temp2;
         /* Compression function main loop */
-        for(idx = 0; idx < 64; idx++){
+        for(idx = 0; idx < 16; idx++){
 
             S1 = (ROTR(working_var[4],6)) ^ (ROTR(working_var[4],1)) ^ (ROTR(working_var[4],25));
             ch = (working_var[4] & working_var[5]) ^ ((!working_var[4]) & working_var[5]);
