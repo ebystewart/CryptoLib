@@ -511,10 +511,11 @@ int main(int arc, char ** argv)
     */
     uint8_t idx;
     uint8_t *digest = calloc(1, 32);
-    uint8_t *dIn = "";
+    //uint8_t *dIn = "The quick brown fox jumps over the lazy dog";
+    uint8_t *dIn = "hello world";
     //uint8_t dIn[10] = {0x01, 0x0B, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
-    sha256_compute_hash(dIn, sizeof(dIn), digest);
+    sha256_compute_hash(dIn, strlen(dIn), digest);
     printf("The SHA256 hash is:\n");
     for (idx = 0; idx < 32; idx++)
     {
