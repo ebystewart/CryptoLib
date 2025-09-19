@@ -184,7 +184,13 @@ void sha256_compute_hash(uint8_t *message, uint32_t messageLen, uint8_t *digest)
         }
         printf("\n");
         convert32_endianess(w, w, 16);
-        printf("%x\n", w[0]);
+        //printf("%x\n", w[0]);
+        //printf("%x\n", w[15]);
+        printf("w after endianess change (with message chunk) of length %u is:\n", 64);
+        for(idx = 0; idx < 16; idx++){
+            printf("%x", w[idx]);
+        }
+        printf("\n");
 
         /* Extend the first 16 words into the remaining 48 words w[16..63] of the message schedule array */
         for(idx = 16; idx < 64; idx++){

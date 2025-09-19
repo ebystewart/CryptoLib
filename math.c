@@ -71,6 +71,7 @@ void convert32_endianess(uint32_t *dIn, uint32_t *dOut, uint32_t dataLen)
     for(idx = 0; idx < dataLen; idx++){
 
         temp[idx] = ((dIn[idx] >> 24) & 0xFF) | (((dIn[idx] >> 16) & 0xFF) << 8)| (((dIn[idx] >> 8) & 0xFF) << 16) | ((dIn[idx] & 0xFF) << 24);
+        printf("in: %x, op: %x\n", dIn[idx], temp[idx]);
     }
     memcpy(dOut, temp, dataLen);
     free(temp);
