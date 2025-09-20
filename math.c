@@ -81,10 +81,10 @@ void convert8_endianess(uint8_t *dIn, uint8_t *dOut, uint8_t dataLen)
         temp[idx+1] = dIn[idx+2];
         temp[idx+2] = dIn[idx+1];
         temp[idx+3] = dIn[idx];
-        printf("in: %x, op: %x\n", dIn[idx], temp[idx]);
-        printf("in: %x, op: %x\n", dIn[idx+1], temp[idx+1]);
-        printf("in: %x, op: %x\n", dIn[idx+2], temp[idx+2]);
-        printf("in: %x, op: %x\n", dIn[idx+3], temp[idx+3]);
+        //printf("in: %x, op: %x\n", dIn[idx], temp[idx]);
+        //printf("in: %x, op: %x\n", dIn[idx+1], temp[idx+1]);
+        //printf("in: %x, op: %x\n", dIn[idx+2], temp[idx+2]);
+        //printf("in: %x, op: %x\n", dIn[idx+3], temp[idx+3]);
         idx += 4;
     }
     memcpy(dOut, temp, dataLen);
@@ -96,9 +96,9 @@ void convert32_endianess(uint32_t *dIn, uint32_t *dOut, uint32_t dataLen)
     uint8_t idx;
     uint32_t *temp = calloc(1, dataLen);
     
-    for(idx = 0; idx < dataLen; idx++){
+    for(idx = 0; idx < dataLen/4; idx++){
 
-        temp[idx] = ((dIn[idx] >> 24) & 0xFF) | (((dIn[idx] >> 16) & 0xFF) << 8)| (((dIn[idx] >> 8) & 0xFF) << 16) | ((dIn[idx] & 0xFF) << 24);
+        temp[idx] = (uint32_t)((dIn[idx] >> 24) & 0xFF) | (((dIn[idx] >> 16) & 0xFF) << 8)| (((dIn[idx] >> 8) & 0xFF) << 16) | ((dIn[idx] & 0xFF) << 24);
         //printf("in: %x, op: %x\n", dIn[idx], temp[idx]);
     }
     memcpy(dOut, temp, dataLen);

@@ -178,11 +178,13 @@ void sha256_compute_hash(uint8_t *message, uint32_t messageLen, uint8_t *digest)
         /* copy the chunk to the first 64 bytes of schedule array */
         memcpy((uint8_t *)w, messageChunk, 64);
         remainingLen -= 64;
+        #if 0
         printf("w (with message chunk) of length %u is:\n", 64);
         for(idx = 0; idx < 16; idx++){
             printf("%x", w[idx]);
         }
         printf("\n");
+        #endif
         convert32_endianess(w, w, 64);
         //printf("%x\n", w[0]);
         //printf("%x\n", w[15]);
@@ -247,11 +249,13 @@ void sha256_compute_hash(uint8_t *message, uint32_t messageLen, uint8_t *digest)
             working_var[1] = working_var[0];
             working_var[0] = modulo32_add(temp1, temp2);
 
+            #if 0
             printf("working var after %d iteration of length %u is:\n", idx, sizeof(h_256));
             for(int idx1 = 0; idx1 < sizeof(h_256)/4; idx1++){
                 printf("%x", working_var[idx1]);
             }
             printf("\n");
+            #endif
         }
     
         /* Add the compressed chunk to the current hash value */
@@ -269,7 +273,7 @@ void sha256_compute_hash(uint8_t *message, uint32_t messageLen, uint8_t *digest)
     }
     /* Produce the final hash value (big-endian) */
     memcpy(digest, hash, sizeof(hash));
-    //convert8_endianess(digest, digest, 32);
+    convert8_endianess(digest, digest, 32);
     free(w);
     free(temp_msg);
     free(messageChunk);
