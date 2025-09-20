@@ -495,6 +495,9 @@ int main(int arc, char ** argv)
 
 #if 1
     /*
+        Ref: https://blog.boot.dev/cryptography/how-sha-2-works-step-by-step-sha-256/
+        Ref: https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Standards-and-Guidelines/documents/examples/SHA512.pdf
+        Ref: https://csrc.nist.gov/CSRC/media/Projects/Cryptographic-Standards-and-Guidelines/documents/examples/SHA256.pdf
         ## Verified test cases ##
         SHA256("")
         0x e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
@@ -515,14 +518,18 @@ int main(int arc, char ** argv)
         0x 619cba8e8e05826e9b8c519c0a5c68f4fb653e8a3d8aa04bb2c8cd4c
         after omitting h7 -> 0x619cba8e8e5826e9b8c519ca5c68f4fb653e8a3d8aa04b
 
-        SHA512("hello workd")
-        -> 0xe5e4f6c7c73c53f1deec4879ef077edc628425e6e59586f97587dbde813032908c7c6ef2a15a594b48f78c735ff75c7cc77b2ffc6d43f6e33cfc2524ed98
+        SHA512("abc")
+        O/P: 0xddaf35a193617abacc417349ae20413112e6fa4e89a97ea2a9eeee64b55d39a2192992a274fc1a836ba3c23a3feebbd454d4423643ce8e2a9ac94fa54ca49f
+
+        SHA512("hello world")
+        O/P: 0x309ecc489c12d6eb4cc40f50c902f2b4d0ed77ee511a7c7a9bcd3ca86d4cd86f989dd35bc5ff499670da34255b45b0cfd830e81f605dcf7dc5542e93ae9cd76f
+
+        SHA512("")
+        0x cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e
 
         ## Yet to be Verified test cases ##
         SHA384("")
         0x 38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b
-        SHA512("")
-        0x cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e
         SHA512/224("")
         0x 6ed0dd02806fa89e25de060c19d3ac86cabb87d6a0ddd05c333b84f4
         SHA512/256("")
@@ -535,6 +542,7 @@ int main(int arc, char ** argv)
     //uint8_t *dIn = "The quick brown fox jumps over the lazy dog";
     //uint8_t *dIn = "hello world";
     uint8_t *dIn = "";
+    //uint8_t *dIn = "abc";
     //uint8_t *dIn = "The quick brown fox jumps over the lazy dog.";
     //uint8_t dIn[10] = {0x01, 0x0B, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
@@ -542,7 +550,7 @@ int main(int arc, char ** argv)
     //sha224_compute_hash(dIn, strlen(dIn), digest);
     sha512_compute_hash(dIn, strlen(dIn), digest);
     //convert8_endianess(digest, digest2, 32);
-    printf("The SHA256 hash is:\n");
+    printf("The SHA512 hash is:\n");
     for (idx = 0; idx < 64; idx++)
     {
         printf("%x", digest[idx]);

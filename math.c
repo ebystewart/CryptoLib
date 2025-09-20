@@ -21,7 +21,7 @@ uint64_t ROTR64(uint64_t var, uint8_t pos)
     uint8_t idx;
     uint64_t retVal = var;
     for(idx = 0; idx < pos; idx++){
-        retVal = (retVal >> 1) | ((retVal & 0x01) << 31);
+        retVal = (retVal >> 1) | ((retVal & 0x01) << 63);
     }
     return retVal;
 }
@@ -64,8 +64,8 @@ uint64_t modulo64_add(uint64_t arg1, uint64_t arg2)
     bool carry = 0;
     for (idx = 0; idx < 64; idx++)
     {
-        ls = (bool)((arg1 >> idx) & 0x01);
-        rs = (bool)((arg2 >> idx) & 0x01);
+        ls = (bool)((arg1 >> idx) & 1UL);
+        rs = (bool)((arg2 >> idx) & 1UL);
         sum = ls ^ rs ^ carry;
         if (ls == 1 && rs == 1)
             carry = 1;
