@@ -16,6 +16,16 @@ uint32_t ROTR(uint32_t var, uint8_t pos)
     return retVal;
 }
 
+uint64_t ROTR64(uint64_t var, uint8_t pos)
+{
+    uint8_t idx;
+    uint64_t retVal = var;
+    for(idx = 0; idx < pos; idx++){
+        retVal = (retVal >> 1) | ((retVal & 0x01) << 31);
+    }
+    return retVal;
+}
+
 uint32_t modulo32_add(uint32_t arg1, uint32_t arg2)
 {
     uint8_t idx;
@@ -54,10 +64,10 @@ uint64_t modulo64_add(uint64_t arg1, uint64_t arg2)
     bool carry = 0;
     for (idx = 0; idx < 64; idx++)
     {
-        ls = (arg1 >> idx) & 0x01;
-        rs = (arg2 >> idx) & 0x01;
+        ls = (bool)((arg1 >> idx) & 0x01);
+        rs = (bool)((arg2 >> idx) & 0x01);
         sum = ls ^ rs ^ carry;
-        if (ls == 1 && rs == 1 && carry == 1)
+        if (ls == 1 && rs == 1)
             carry = 1;
         else if ((ls == 1 || rs == 1) && carry == 1)
             carry = 1;
@@ -98,7 +108,28 @@ void convert32_endianess(uint32_t *dIn, uint32_t *dOut, uint32_t dataLen)
     
     for(idx = 0; idx < dataLen/4; idx++){
 
-        temp[idx] = (uint32_t)((dIn[idx] >> 24) & 0xFF) | (((dIn[idx] >> 16) & 0xFF) << 8)| (((dIn[idx] >> 8) & 0xFF) << 16) | ((dIn[idx] & 0xFF) << 24);
+        temp[idx] = (uint32_t)(((dIn[idx] >> 24) & 0xFF) | (((dIn[idx] >> 16) & 0xFF) << 8)| (((dIn[idx] >> 8) & 0xFF) << 16) | ((dIn[idx] & 0xFF) << 24));
+        //printf("in: %x, op: %x\n", dIn[idx], temp[idx]);
+    }
+    memcpy(dOut, temp, dataLen);
+    free(temp);
+}
+
+void convert64_endianess(uint64_t *dIn, uint64_t *dOut, uint64_t dataLen)
+{
+    uint32_t idx;
+    uint64_t *temp = calloc(1, dataLen);
+    
+    for(idx = 0; idx < dataLen/8; idx++){
+
+        temp[idx] = (uint64_t)(((dIn[idx] >> 56) & 0xFF) | 
+                                (((dIn[idx] >> 48) & 0xFF) << 8) |
+                                (((dIn[idx] >> 40) & 0xFF) << 16) | 
+                                (((dIn[idx] >> 32) & 0xFF) << 24) | 
+                                (((dIn[idx] >> 24) & 0xFF) << 32) | 
+                                (((dIn[idx] >> 16) & 0xFF) << 40)| 
+                                (((dIn[idx] >> 8) & 0xFF) << 48) | 
+                                ((dIn[idx] & 0xFF) << 56));
         //printf("in: %x, op: %x\n", dIn[idx], temp[idx]);
     }
     memcpy(dOut, temp, dataLen);

@@ -515,6 +515,9 @@ int main(int arc, char ** argv)
         0x 619cba8e8e05826e9b8c519c0a5c68f4fb653e8a3d8aa04bb2c8cd4c
         after omitting h7 -> 0x619cba8e8e5826e9b8c519ca5c68f4fb653e8a3d8aa04b
 
+        SHA512("hello workd")
+        -> 0xe5e4f6c7c73c53f1deec4879ef077edc628425e6e59586f97587dbde813032908c7c6ef2a15a594b48f78c735ff75c7cc77b2ffc6d43f6e33cfc2524ed98
+
         ## Yet to be Verified test cases ##
         SHA384("")
         0x 38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b
@@ -526,20 +529,21 @@ int main(int arc, char ** argv)
         0x c672b8d1ef56ed28ab87c3622c5114069bdd3ad7b8f9737498d0c01ecef0967a
     */
     uint8_t idx;
-    uint8_t *digest = calloc(1, 24);
+    uint8_t *digest = calloc(1, 64);
     /*uint8_t digest2[] = {0xb9,0x27,0x4d,0xb9, 0x83, 0xe4, 0xd9, 0x3d, 75, 0x22, 0xea, 0x5f, 0xaa, 0xb7, 0xdd,
                          0xae, 0x3e, 0xf8, 0x4c, 0x4e, 0xe8, 0x05, 0x37, 0xaa, 0xcf, 0x78, 0x89, 0x0e, 0x9c, 0xde, 0xfe, 0x2};//calloc(1, 32); */
     //uint8_t *dIn = "The quick brown fox jumps over the lazy dog";
     //uint8_t *dIn = "hello world";
-    //uint8_t *dIn = "";
-    uint8_t *dIn = "The quick brown fox jumps over the lazy dog.";
+    uint8_t *dIn = "";
+    //uint8_t *dIn = "The quick brown fox jumps over the lazy dog.";
     //uint8_t dIn[10] = {0x01, 0x0B, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
     //sha256_compute_hash(dIn, strlen(dIn), digest);
-    sha224_compute_hash(dIn, strlen(dIn), digest);
+    //sha224_compute_hash(dIn, strlen(dIn), digest);
+    sha512_compute_hash(dIn, strlen(dIn), digest);
     //convert8_endianess(digest, digest2, 32);
     printf("The SHA256 hash is:\n");
-    for (idx = 0; idx < 24; idx++)
+    for (idx = 0; idx < 64; idx++)
     {
         printf("%x", digest[idx]);
     }

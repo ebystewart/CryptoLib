@@ -17,10 +17,10 @@ typedef enum {
    ref: https://en.wikipedia.org/wiki/SHA-2
 */
 
-void sha224_compute_hash(uint8_t *message, uint32_t messageLen, uint32_t *digest);
+void sha224_compute_hash(uint8_t *message, uint32_t messageLen, uint8_t *digest);
 void sha256_compute_hash(uint8_t *message, uint32_t messageLen, uint8_t *digest);
-void sha384_compute_hash(uint8_t *message, uint32_t messageLen, uint32_t *digest);
-void sha512_compute_hash(uint8_t *message, uint32_t messageLen, uint32_t *digest);
+void sha384_compute_hash(uint8_t *message, uint64_t messageLen, uint8_t *digest);
+void sha512_compute_hash(uint8_t *message, uint64_t messageLen, uint8_t *digest);
 
 /* SHA3 
    Ref: 
