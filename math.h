@@ -10,6 +10,8 @@ uint32_t modulo32_add(uint32_t arg1, uint32_t arg2);
 
 uint64_t modulo64_add(uint64_t arg1, uint64_t arg2);
 
+void convert8_endianess(uint8_t *dIn, uint8_t *dOut, uint8_t dataLen);
+
 void convert32_endianess(uint32_t *dIn, uint32_t *dOut, uint32_t dataLen);
 
 #endif

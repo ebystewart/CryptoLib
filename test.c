@@ -6,6 +6,7 @@
 #include "aes.h"
 #include "rsa.h"
 #include "sha.h"
+#include "math.h"
 
 uint8_t in[16] = {0x63, 0x2F, 0xAF, 0xA2,
                0xEB, 0x93, 0xC7, 0x20,
@@ -496,6 +497,8 @@ int main(int arc, char ** argv)
         0x d14a028c2a3a2bc9476102bb288234c415a2b01f828ea62ac5b3e42f
         SHA256("")
         0x e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855
+        SHA256("hello world")
+        big-endian --> 0xb9274db983e4d93d7522ea5faab7ddae3ef84c4ee80537aacf78890e9cdefe2
         SHA384("")
         0x 38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b
         SHA512("")
@@ -511,11 +514,13 @@ int main(int arc, char ** argv)
     */
     uint8_t idx;
     uint8_t *digest = calloc(1, 32);
+    uint8_t *digest2 = calloc(1, 32);
     //uint8_t *dIn = "The quick brown fox jumps over the lazy dog";
     uint8_t *dIn = "hello world";
     //uint8_t dIn[10] = {0x01, 0x0B, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
     sha256_compute_hash(dIn, strlen(dIn), digest);
+    //convert8_endianess(digest, digest2, 32);
     printf("The SHA256 hash is:\n");
     for (idx = 0; idx < 32; idx++)
     {
@@ -523,6 +528,8 @@ int main(int arc, char ** argv)
     }
     printf("\n");
     free(digest);
+    //free(digest2);
+    //printf("%x\n",modulo32_add(0x68656c6c, 0xcee195cb));
 #endif
 
     return 0;
