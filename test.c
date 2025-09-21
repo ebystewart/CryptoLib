@@ -527,6 +527,8 @@ int main(int arc, char ** argv)
         SHA512("")
         0x cf83e1357eefb8bdf1542850d66d8007d620e4050b5715dc83f4a921d36ce9ce47d0d13c5d85f2b0ff8318d2877eec2f63b931bd47417a81a538327af927da3e
 
+        SHA512("abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu")
+
         ## Yet to be Verified test cases ##
         SHA384("")
         0x 38b060a751ac96384cd9327eb1b1e36a21fdb71114be07434c0cc7bf63f6e1da274edebfe76f65fbd51ad2f14898b95b
@@ -536,22 +538,24 @@ int main(int arc, char ** argv)
         0x c672b8d1ef56ed28ab87c3622c5114069bdd3ad7b8f9737498d0c01ecef0967a
     */
     uint8_t idx;
-    uint8_t *digest = calloc(1, 64);
+    uint8_t *digest = calloc(1, 32);
     /*uint8_t digest2[] = {0xb9,0x27,0x4d,0xb9, 0x83, 0xe4, 0xd9, 0x3d, 75, 0x22, 0xea, 0x5f, 0xaa, 0xb7, 0xdd,
                          0xae, 0x3e, 0xf8, 0x4c, 0x4e, 0xe8, 0x05, 0x37, 0xaa, 0xcf, 0x78, 0x89, 0x0e, 0x9c, 0xde, 0xfe, 0x2};//calloc(1, 32); */
     //uint8_t *dIn = "The quick brown fox jumps over the lazy dog";
     //uint8_t *dIn = "hello world";
-    uint8_t *dIn = "";
+    //uint8_t *dIn = "";
+    uint8_t *dIn = "abcdbcdecdefdefgefghfghighijhijkijkljklmklmnlmnomnopnopq";
+    //uint8_t *dIn = "abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu";
     //uint8_t *dIn = "abc";
     //uint8_t *dIn = "The quick brown fox jumps over the lazy dog.";
     //uint8_t dIn[10] = {0x01, 0x0B, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
 
-    //sha256_compute_hash(dIn, strlen(dIn), digest);
+    sha256_compute_hash(dIn, strlen(dIn), digest);
     //sha224_compute_hash(dIn, strlen(dIn), digest);
-    sha512_compute_hash(dIn, strlen(dIn), digest);
+    //sha512_compute_hash(dIn, strlen(dIn), digest);
     //convert8_endianess(digest, digest2, 32);
-    printf("The SHA512 hash is:\n");
-    for (idx = 0; idx < 64; idx++)
+    printf("The SHA256 hash is:\n");
+    for (idx = 0; idx < 32; idx++)
     {
         printf("%x", digest[idx]);
     }
