@@ -389,7 +389,7 @@ void sha224_compute_hash(uint8_t *message, uint32_t messageLen, uint8_t *digest)
     free(messageChunk);
 }
 
-void sha512_compute_hash(uint8_t *message, uint64_t messageLen, uint8_t *digest)
+void sha512t_compute_hash(uint8_t *message, uint64_t messageLen, sha_type_e type, uint8_t *digest)
 {
     uint64_t working_var[8];
     uint64_t hash[8];
@@ -442,7 +442,16 @@ void sha512_compute_hash(uint8_t *message, uint64_t messageLen, uint8_t *digest)
 
     uint8_t *messageChunk = calloc(1, 128);
     /* Initialize working variables to current hash value */
-    memcpy(hash, h_512, sizeof(h_512));
+    if(type == SHA_512)
+        memcpy(hash, h_512, sizeof(h_512));
+    else if (type == SHA_512_256)
+        memcpy(hash, h_512_256, sizeof(h_512_256));
+    else if (type == SHA_512_224)
+        memcpy(hash, h_512_224, sizeof(h_512_224));
+    else if (type == SHA_384)
+        memcpy(hash, h_384, sizeof(h_384));
+    else
+        assert(0);
 
     printf("The total message of length %lu inlcuding padding is:\n", remainingLen);
     for(idx = 0; idx < remainingLen; idx++){
@@ -535,162 +544,36 @@ void sha512_compute_hash(uint8_t *message, uint64_t messageLen, uint8_t *digest)
         chunkIdx++;
     }
     /* Produce the final hash value (big-endian) */
-    memcpy(digest, hash, sizeof(hash));
-    convert64_endianess(digest, digest, 64);
+    if(type == SHA_512){
+        memcpy(digest, hash, sizeof(hash));
+        convert64_endianess(digest, digest, 64);
+    }
+    else if(type == SHA_384){
+        memcpy(digest, hash, (sizeof(hash) - 16));
+        convert64_endianess(digest, digest, 48);
+    }
+    else if(type == SHA_512_256){
+        memcpy(digest, hash, (sizeof(hash) - 32));
+        convert64_endianess(digest, digest, 32);
+    }
+    else if(type == SHA_512_224){
+        memcpy(digest, hash, (sizeof(hash) - 40));
+        convert64_endianess(digest, digest, 28);
+    }
+    else{
+        assert(0);
+    }
     free(w);
     free(temp_msg);
     free(messageChunk);
 }
 
+void sha512_compute_hash(uint8_t *message, uint64_t messageLen, uint8_t *digest)
+{
+    sha512t_compute_hash(message, messageLen, SHA_512, digest);
+}
+
 void sha384_compute_hash(uint8_t *message, uint64_t messageLen, uint8_t *digest)
 {
-    uint64_t working_var[8];
-    uint64_t hash[8];
-    uint64_t s0;
-    uint64_t s1;
-    uint64_t idx;
-    uint64_t offset = 0;
-
-    uint64_t paddingLen = 128 - (messageLen % 128);
-    if((messageLen % 128) > 111)
-        offset = 128 ; // round off to 128 Bytes
-
-    uint64_t remainingLen = messageLen + paddingLen + offset; /* in Bytes */
-    uint32_t chunkIdx = 0;
-    printf("Received: %lu, padding: %lu, offset: %lu, Total: %lu\n", messageLen, paddingLen, offset, remainingLen);
-    printf("The received message of length %lu inlcuding padding is:\n", messageLen);
-    for(idx = 0; idx < messageLen; idx++){
-        printf("%lx", message[idx]);
-    }
-    printf("\n");
-    uint64_t *w = (uint64_t *)calloc(1, (80 *8)); /* Schedule array */
-    uint8_t *temp_msg = calloc(1, remainingLen);
-    memcpy(temp_msg, message, messageLen);
-
-    /* Do the padding here if message length is not a multiple of 64 Bytes (512 Bits) */
-    if((paddingLen > 0) && (offset > 0)) {
-        /* append K '0' bits, where K is the minimum number >= 0 such that (L + 1 + K + 64) is a multiple of 512 */
-        memset(&temp_msg[messageLen], 0, (paddingLen + offset));
-        /* Step #1: append a single '1' bit */
-        temp_msg[messageLen] = 0x80U;
-    }
-    else{
-        /* append K '0' bits, where K is the minimum number >= 0 such that (L + 1 + K + 64) is a multiple of 512 */
-        memset(&temp_msg[messageLen], 0, paddingLen);
-        temp_msg[messageLen] = 0x80U;
-    }
-    /*  append L as a 64-bit big-endian integer, making the total post-processed length a multiple of 512 bits
-        such that the bits in the message are: <original message of length L> 1 <K zeros> <L as 64 bit integer>, 
-        (the number of bits will be a multiple of 512)
-    */
-    uint64_t msgLen_in_bits = messageLen * 8;
-    temp_msg[remainingLen-8] = (uint8_t)((msgLen_in_bits >> 56) & 0xFFU);
-    temp_msg[remainingLen-7] = (uint8_t)((msgLen_in_bits >> 48) & 0xFFU);
-    temp_msg[remainingLen-6] = (uint8_t)((msgLen_in_bits >> 40) & 0xFFU);
-    temp_msg[remainingLen-5] = (uint8_t)((msgLen_in_bits >> 32) & 0xFFU);
-    temp_msg[remainingLen-4] = (uint8_t)((msgLen_in_bits >> 24) & 0xFFU);
-    temp_msg[remainingLen-3] = (uint8_t)((msgLen_in_bits >> 16) & 0xFFU);
-    temp_msg[remainingLen-2] = (uint8_t)((msgLen_in_bits >> 8) & 0xFFU);
-    temp_msg[remainingLen-1] = (uint8_t)(msgLen_in_bits & 0xFFU);
-
-    uint8_t *messageChunk = calloc(1, 128);
-    /* Initialize working variables to current hash value */
-    memcpy(hash, h_512, sizeof(h_512));
-
-    printf("The total message of length %lu inlcuding padding is:\n", remainingLen);
-    for(idx = 0; idx < remainingLen; idx++){
-        printf("%lx", temp_msg[idx]);
-    }
-    printf("\n");
-
-    /* break messages in to 512 bits chunk */
-    while(remainingLen > 0)
-    {
-        memcpy(messageChunk, (temp_msg + (chunkIdx * 128)), 128);
-
-        printf("The chunk %lu is:\n", chunkIdx);
-        for(idx = 0; idx < 128; idx++){
-            printf("%lx", messageChunk[idx]);
-        }
-        printf("\n");
-
-        /* copy the chunk to the first 64 bytes of schedule array */
-        memcpy((uint8_t *)w, messageChunk, 128);
-        remainingLen -= 128;
-
-        printf("w (with message chunk) of length %u is:\n", 128);
-        for(idx = 0; idx < 32; idx++){
-            printf("%lx", w[idx]);
-        }
-        printf("\n");
-        convert64_endianess(w, w, 128);
-
-        printf("w after endianess change (with message chunk) of length %lu is:\n", 128);
-        for(idx = 0; idx < 32; idx++){
-            printf("%lx", w[idx]);
-        }
-        printf("\n");
-
-        /* Extend the first 16 words into the remaining 48 words w[16..80] of the message schedule array */
-        for(idx = 16; idx < 80; idx++){
-            s0 = (ROTR64(w[idx-15],1)) ^ (ROTR64(w[idx-15],8)) ^ (w[idx-15] >> 7);
-            s1 = (ROTR64(w[idx-2],19)) ^ (ROTR64(w[idx-2],61)) ^ (w[idx-2] >> 6);
-            w[idx] = modulo64_add(modulo64_add(w[idx-16], s0), modulo64_add(w[idx-7], s1));
-        }
-
-        /* Initialize working variables of the iteration to current hash value */
-        memcpy(working_var, hash, sizeof(hash));
-        printf("working var of length %lu is:\n", sizeof(h_512));
-        for(idx = 0; idx < sizeof(h_512)/8; idx++){
-            printf("%lx", working_var[idx]);
-        }
-        printf("\n");
-
-        uint64_t S1, ch, temp1, S0, maj,temp2;
-        /* Compression function main loop */
-        for(idx = 0; idx < 80; idx++){
-
-            S1 = (ROTR64(working_var[4],14)) ^ (ROTR64(working_var[4],18)) ^ (ROTR64(working_var[4],41));
-            ch = (working_var[4] & working_var[5]) ^ ((~working_var[4]) & working_var[6]);
-            temp1 = modulo64_add(working_var[7], modulo64_add(S1, modulo64_add(ch, modulo64_add(k_512[idx], w[idx]))));
-            printf("[idx:%d] temp1 (%lx + %lx + %lx + %lx)is %lx\n", idx, working_var[7], S1, ch, k_512[idx], w[idx], temp1);
-            S0 = (ROTR64(working_var[0],28)) ^ (ROTR64(working_var[0],34)) ^ (ROTR64(working_var[0],39));
-            maj = (working_var[0] & working_var[1]) ^ (working_var[0] & working_var[2]) ^ (working_var[1] & working_var[2]);
-            temp2 = modulo64_add(S0, maj);
-            printf("[idx:%d] temp2 (%lx + %lx) is %lx\n", idx, S0, maj, temp2);
-     
-            working_var[7] = working_var[6]; /* h = g */
-            working_var[6] = working_var[5]; /* g = f*/
-            working_var[5] = working_var[4]; /* f */
-            working_var[4] = modulo64_add(working_var[3], temp1); /* e */
-            working_var[3] = working_var[2]; /* d */
-            working_var[2] = working_var[1]; /* c */
-            working_var[1] = working_var[0]; /* b */
-            working_var[0] = modulo64_add(temp1, temp2); /* a */
-
-            printf("working var after %d iteration of length %u is:\n", idx, sizeof(h_512));
-            for(int idx1 = 0; idx1 < sizeof(h_512)/8; idx1++){
-                printf("%lx", working_var[idx1]);
-            }
-            printf("\n");
-        }
-    
-        /* Add the compressed chunk to the current hash value */
-        hash[0] = modulo64_add(hash[0], working_var[0]);
-        hash[1] = modulo64_add(hash[1], working_var[1]);
-        hash[2] = modulo64_add(hash[2], working_var[2]);
-        hash[3] = modulo64_add(hash[3], working_var[3]);
-        hash[4] = modulo64_add(hash[4], working_var[4]);
-        hash[5] = modulo64_add(hash[5], working_var[5]);
-        hash[6] = modulo64_add(hash[6], working_var[6]);
-        hash[7] = modulo64_add(hash[7], working_var[7]);
-
-        chunkIdx++;
-    }
-    /* Produce the final hash value (big-endian) */
-    memcpy(digest, hash, (sizeof(hash) - 16));
-    convert64_endianess(digest, digest, 48);
-    free(w);
-    free(temp_msg);
-    free(messageChunk);
+    sha512t_compute_hash(message, messageLen, SHA_384, digest);
 }
