@@ -389,7 +389,7 @@ void sha224_compute_hash(uint8_t *message, uint32_t messageLen, uint8_t *digest)
     free(messageChunk);
 }
 
-void sha512t_compute_hash(uint8_t *message, uint64_t messageLen, sha_type_e type, uint8_t *digest)
+void sha512t_compute_hash(uint8_t *message, uint64_t messageLen, sha2_type_e type, uint8_t *digest)
 {
     uint64_t working_var[8];
     uint64_t hash[8];
