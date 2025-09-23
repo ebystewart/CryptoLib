@@ -36,9 +36,9 @@ void sha512t_compute_hash(uint8_t *message, uint64_t messageLen, sha2_type_e typ
 
 /* SHA3 
    Ref: https://en.wikipedia.org/wiki/SHA-3
+   Ref: https://chemejon.wordpress.com/2021/12/06/sha-3-explained-in-plain-english/
+   Ref: https://ijettjournal.org/assets/Volume-69/Issue-6/IJETT-V69I6P210.pdf
 */
-
-/* Common */
 
 void sha3_compute_hash(uint8_t *message, uint64_t messageLen, sha3_type_e sha_type, uint8_t *digest);
 

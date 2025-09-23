@@ -135,3 +135,12 @@ void convert64_endianess(uint64_t *dIn, uint64_t *dOut, uint64_t dataLen)
     memcpy(dOut, temp, dataLen);
     free(temp);
 }
+
+void xor(uint8_t *dOut, uint8_t *dIn, uint32_t dataLen)
+{
+    uint32_t idx;
+    for (idx = 0; idx < dataLen; idx++){
+
+        dOut[idx] ^= dIn[idx];
+    }
+}
