@@ -18,4 +18,6 @@ void convert32_endianess(uint32_t *dIn, uint32_t *dOut, uint32_t dataLen);
 
 void convert64_endianess(uint64_t *dIn, uint64_t *dOut, uint64_t dataLen);
 
+void xor(uint8_t *dOut, uint8_t *dIn, uint32_t dataLen);
+
 #endif
