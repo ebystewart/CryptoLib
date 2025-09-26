@@ -16,6 +16,13 @@ n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
 G = (Gx, Gy)
 */
 
+typedef struct {
+    uint8_t *x;
+    uint32_t xLen;
+    uint8_t *y;
+    uint32_t yLen;
+}ecc_point_t;
+
 void ecc_generate_keypair(uint8_t **basePoint, uint8_t *range, uint8_t *p);
 
 #endif

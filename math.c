@@ -144,3 +144,47 @@ void xor(uint8_t *dOut, uint8_t *dIn, uint32_t dataLen)
         dOut[idx] ^= dIn[idx];
     }
 }
+
+void not(const uint8_t *dIn, uint8_t *dOut, uint32_t dataLen)
+{
+    uint32_t idx;
+    for (idx = 0; idx < dataLen; idx++){
+
+        dOut[idx] = ~dIn[idx];
+    } 
+}
+
+bool is_equal(const uint8_t *dIn1, uint32_t dIn1Len, const uint8_t *dIn2, uint32_t dIn2Len)
+{
+    bool retVal = true;
+    uint32_t idx;
+    uint32_t dataLen;
+
+    if(dIn1Len == dIn2Len)
+    {
+        dataLen = dIn1Len;
+    }
+    else{
+        return false;
+    }
+    
+    for (idx = dataLen; idx > 0; idx--)
+    {
+        if(dIn1[idx-1] != dIn2[idx-1])
+        {
+            retVal = false;
+            return retVal;
+        }
+    }
+    return retVal;
+}
+
+void multiply(const uint8_t *dIn1, uint32_t dInLen1, const uint8_t *dIn2, uint32_t dInLen2, uint8_t *dOut, uint32_t *dOutLen)
+{
+
+}
+
+void divide(const uint8_t *dIn1, uint32_t dInLen1, const uint8_t *dIn2, uint32_t dInLen2, uint8_t *dOut, uint32_t *dOutLen)
+{
+
+}
