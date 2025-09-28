@@ -2,6 +2,7 @@
 #define _MATH_H_
 
 #include <stdint.h>
+#include <stdbool.h>
 
 /* Rotate Right API */
 uint32_t ROTR(uint32_t var, uint8_t pos);
@@ -27,5 +28,9 @@ bool is_equal(const uint8_t *dIn1, uint32_t dIn1Len, const uint8_t *dIn2, uint32
 void multiply(const uint8_t *dIn1, uint32_t dInLen1, const uint8_t *dIn2, uint32_t dInLen2, uint8_t *dOut, uint32_t *dOutLen);
 
 void divide(const uint8_t *dIn1, uint32_t dInLen1, const uint8_t *dIn2, uint32_t dInLen2, uint8_t *dOut, uint32_t *dOutLen);
+
+void add(const uint8_t *dIn1, uint32_t dInLen1, const uint8_t *dIn2, uint32_t dInLen2, uint8_t *dOut, uint32_t *dOutLen);
+
+void subtract(const uint8_t *dIn1, uint32_t dInLen1, const uint8_t *dIn2, uint32_t dInLen2, uint8_t *dOut, uint32_t *dOutLen);
 
 #endif

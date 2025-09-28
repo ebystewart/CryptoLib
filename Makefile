@@ -6,7 +6,8 @@ OBJS= aes.o	\
 	rsa.o \
 	test.o \
 	sha2.o \
-	math.o	
+	math.o \
+	ecc.o
 
 CryptoLib.bin:${OBJS}
 	${CC} ${CFLAGS} ${OBJS} -o CryptoLib.bin
@@ -31,6 +32,9 @@ sha3.o:sha3.c
 
 math.o:math.c
 	${CC} ${CFLAGS} -c math.c -I . -o math.o
+
+ecc.o:ecc.c
+	${CC} ${CFLAGS} -c ecc.c -I . -o ecc.o
 
 
 all:

@@ -9,7 +9,7 @@
 */
 
 static void point_multiplication(const ecc_point_t *dIn1, const ecc_point_t *dIn2, ecc_point_t *dOut);
-static void point_addition(const ecc_point_t *dIn1, const ecc_point_t *dIn2, ecc_point_t *dOut);
+static void point_addition(const ecc_point_t *dIn1, const ecc_point_t *dIn2,  uint8_t *a_param, ecc_point_t *dOut);
 static bool is_point_at_infinity(const ecc_point_t *dIn1, const ecc_point_t *dIn2);
 static bool are_points_equal(const ecc_point_t *dIn1, const ecc_point_t *dIn2);
 
@@ -29,12 +29,22 @@ static bool are_points_equal(const ecc_point_t *dIn1, const ecc_point_t *dIn2)
 
 }
 
-static void point_addition(const ecc_point_t *dIn1, const ecc_point_t *dIn2, ecc_point_t *dOut)
+static void point_addition(const ecc_point_t *dIn1, const ecc_point_t *dIn2, uint8_t *a_param, ecc_point_t *dOut)
 {
     bool status = false;
     ecc_point_t *temp;
+    uint32_t dOutLen1;
+    uint32_t dOutLen2;
+    uint32_t r_xLen;
+    uint32_t r_yLen;
+    uint8_t two[] = {0x02};
+    uint8_t three[] = {0x03};
 
     temp = calloc(1, (sizeof(dIn1) + dIn1->xLen + dIn2->yLen));
+    uint8_t *lambda1 = calloc(1, (dIn1->xLen + dIn2->yLen));
+    uint8_t *lambda2 = calloc(1, (dIn1->xLen + dIn2->yLen));
+    uint8_t *r_x = calloc(1, (dIn1->xLen + dIn2->yLen));
+    uint8_t *r_y = calloc(1, (dIn1->xLen + dIn2->yLen));
     /* Case 1: P or Q is the point at infinity */
 
     /* Case 2: P = -Q (result is point at infinity) */
@@ -46,18 +56,43 @@ static void point_addition(const ecc_point_t *dIn1, const ecc_point_t *dIn2, ecc
     /* Case 3: P = Q (point doubling) */
     status = are_points_equal(dIn1, dIn2);
     if(status == true){
-        /* lambda = (3 * p.x * p.x + A_PARAM) / (2 * p.y); */
+        /* lambda = (3 * P.x * P.x + A_PARAM) / (2 * P.y); */
+        multiply(dIn1->x, dIn1->xLen, dIn1->x, dIn1->xLen, lambda1, &dOutLen1);
+        multiply(&three, sizeof(three), lambda1, dOutLen1, lambda1, &dOutLen1);
+        add(a_param, sizeof(a_param), lambda1, dOutLen1, lambda1, &dOutLen1);
 
+        multiply(&two, sizeof(two), dIn2->y, dIn2->yLen, lambda2, &dOutLen2);
+        divide(lambda1, dOutLen1, lambda2, dOutLen2, lambda2, &dOutLen2);
     }
     /* Case 4: P != Q (distinct point addition) */
     else{
-        /* lambda = (q.y - p.y) / (q.x - p.x); */
+        /* lambda = (Q.y - P.y) / (Q.x - P.x); */
+        subtract(dIn2->y, dIn2->yLen, dIn1->y, dIn2->yLen, lambda1, &dOutLen1);
+        subtract(dIn2->x, dIn2->xLen, dIn1->x, dIn2->xLen, lambda2, &dOutLen2);
+        divide(lambda1, dOutLen1, lambda2, dOutLen2, lambda2, &dOutLen2);
     }
 
-    /*  r.x = lambda * lambda - p.x - q.x;
+    /*  r.x = lambda * lambda - P.x - Q.x;
         r.y = lambda * (p.x - r.x) - p.y;
     */
-    memcpy(dOut, temp, sizeof(temp));
+    multiply(lambda2, dOutLen2, lambda2, dOutLen2, lambda1, &dOutLen1);
+    subtract(lambda1, dOutLen1, dIn1->x, dIn1->xLen, r_x, &r_xLen);
+    subtract(r_x, r_xLen, dIn2->x, dIn2->xLen, r_x, &r_xLen);
+
+    subtract(dIn1->x, dIn1->xLen, r_x, r_xLen, lambda1, &dOutLen1);
+    multiply(lambda2, dOutLen2, lambda1, dOutLen1, r_y, &r_yLen);
+    subtract(r_y, r_yLen, &dIn2->y, dIn2->yLen, r_y, &r_yLen);
+
+    memcpy(dOut->x, r_x, r_xLen);
+    dOut->xLen = r_xLen;
+    memcpy(dOut->y, r_y, r_yLen);
+    dOut->yLen = r_yLen;
+
+    free(temp);
+    free(lambda1);
+    free(lambda2);
+    free(r_x);
+    free(r_y);
 }
 
 

@@ -188,3 +188,13 @@ void divide(const uint8_t *dIn1, uint32_t dInLen1, const uint8_t *dIn2, uint32_t
 {
 
 }
+
+void add(const uint8_t *dIn1, uint32_t dInLen1, const uint8_t *dIn2, uint32_t dInLen2, uint8_t *dOut, uint32_t *dOutLen)
+{
+
+}
+
+void subtract(const uint8_t *dIn1, uint32_t dInLen1, const uint8_t *dIn2, uint32_t dInLen2, uint8_t *dOut, uint32_t *dOutLen)
+{
+    
+}
