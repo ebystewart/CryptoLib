@@ -25,4 +25,8 @@ typedef struct {
 
 void ecc_generate_keypair(uint8_t **basePoint, uint8_t *range, uint8_t *p);
 
+void ecc_encrypt(const uint8_t *dIn, const uint8_t *key, uint8_t *dOut);
+
+void ecc_decrypt(const uint8_t *dIn, const uint8_t *key, uint8_t *dOut);
+
 #endif
