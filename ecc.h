@@ -23,7 +23,13 @@ typedef struct {
     uint32_t yLen;
 }ecc_point_t;
 
-void ecc_generate_keypair(uint8_t **basePoint, uint8_t *range, uint8_t *p);
+typedef struct {
+    ecc_point_t *pubKey;
+    ecc_point_t *privKey;
+}ecc_keypair_t;
+
+
+void ecc_generate_keypair(const ecc_point_t *genPoint, uint8_t *aNum, uint32_t aNumLen, uint8_t *bNum, uint32_t bNumLen, ecc_keypair_t *pair1, ecc_keypair_t *pair2);
 
 void ecc_encrypt(const uint8_t *dIn, const uint8_t *key, uint8_t *dOut);
 

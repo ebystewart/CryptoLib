@@ -25,9 +25,21 @@ void not(const uint8_t *dIn, uint8_t *dOut, uint32_t dataLen);
 
 bool is_equal(const uint8_t *dIn1, uint32_t dIn1Len, const uint8_t *dIn2, uint32_t dIn2Len);
 
-void multiply(const uint8_t *dIn1, uint32_t dInLen1, const uint8_t *dIn2, uint32_t dInLen2, uint8_t *dOut, uint32_t *dOutLen);
+bool is_equal_zero(const uint8_t *dIn, uint8_t dInLen);
 
-void divide(const uint8_t *dIn1, uint32_t dInLen1, const uint8_t *dIn2, uint32_t dInLen2, uint8_t *dOut, uint32_t *dOutLen);
+bool is_equal_one(const uint8_t *dIn, uint8_t dInLen);
+
+uint32_t is_greater_than(const uint8_t *dIn1, uint32_t dInLen1, const uint8_t *dIn2, uint32_t dInLen2);
+
+uint32_t right_shift(const uint8_t *dIn, uint32_t dInLen, uint32_t shiftPos, uint8_t *dOut);
+
+uint32_t left_shift(const uint8_t *dIn, uint32_t dInLen, uint32_t shiftPos, uint8_t *dOut);
+
+void multiply(const uint8_t *multiplicant, uint32_t multiplicantLen, const uint8_t *multiplier, 
+                    uint32_t multiplierLen, uint8_t *product, uint32_t *productLen);
+
+void divide(const uint8_t *dividend, uint32_t dividendLen, const uint8_t *divisor, uint32_t divisorLen, uint8_t *quotient, uint32_t *quotientLen,
+                        uint8_t * remainder, uint32_t *remainderLen);
 
 void add(const uint8_t *dIn1, uint32_t dInLen1, const uint8_t *dIn2, uint32_t dInLen2, uint8_t *dOut, uint32_t *dOutLen);
 

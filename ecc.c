@@ -64,14 +64,14 @@ static void point_addition(const ecc_point_t *dIn1, const ecc_point_t *dIn2, uin
         add(a_param, sizeof(a_param), lambda1, dOutLen1, lambda1, &dOutLen1);
 
         multiply(two, sizeof(two), dIn2->y, dIn2->yLen, lambda2, &dOutLen2);
-        divide(lambda1, dOutLen1, lambda2, dOutLen2, lambda2, &dOutLen2);
+        divide(lambda1, dOutLen1, lambda2, dOutLen2, lambda2, &dOutLen2, NULL, 0);
     }
     /* Case 4: P != Q (distinct point addition) */
     else{
         /* lambda = (Q.y - P.y) / (Q.x - P.x); */
         subtract(dIn2->y, dIn2->yLen, dIn1->y, dIn2->yLen, lambda1, &dOutLen1);
         subtract(dIn2->x, dIn2->xLen, dIn1->x, dIn2->xLen, lambda2, &dOutLen2);
-        divide(lambda1, dOutLen1, lambda2, dOutLen2, lambda2, &dOutLen2);
+        divide(lambda1, dOutLen1, lambda2, dOutLen2, lambda2, &dOutLen2, NULL, 0);
     }
 
     /*  r.x = lambda * lambda - P.x - Q.x;
@@ -101,17 +101,75 @@ static void point_multiplication(const ecc_point_t *dIn, uint8_t *num, uint32_t 
 {
     uint32_t tNumLen = 0;
     uint8_t idx;
+    ecc_point_t temp;
+    memcpy(&temp, dIn, sizeof(dIn));
     while(tNumLen < numLen)
     {
         for(idx = 8; idx > 0; idx++){
 
             /* Point doubling */
-            point_addition(dIn, dIn, a_param, dOut);
+            point_addition(&temp, &temp, a_param, dOut);
+
             if((num[tNumLen] >> (idx - 1)) == 1){
                 /* point addition */
                 point_addition(dOut, dIn, a_param, dOut);
             }
+            memcpy(&temp, dOut, sizeof(dOut));
         }
         tNumLen++;
     }
+}
+#define aParam 0x54321
+void ecc_generate_keypair(const ecc_point_t *genPoint, uint8_t *aNum, uint32_t aNumLen, uint8_t *bNum, uint32_t bNumLen, ecc_keypair_t *pair1, ecc_keypair_t *pair2)
+{
+    ecc_point_t temp1;
+    ecc_point_t temp2;
+    ecc_point_t temp3;
+    ecc_point_t temp4;
+
+    temp1.x = calloc(1, genPoint->xLen);
+    temp2.x = calloc(1, genPoint->xLen);
+    temp3.x = calloc(1, genPoint->xLen);
+    temp4.x = calloc(1, genPoint->xLen);
+    temp1.y = calloc(1, genPoint->yLen);
+    temp2.y = calloc(1, genPoint->yLen);
+    temp3.y = calloc(1, genPoint->yLen);
+    temp4.y = calloc(1, genPoint->yLen);
+
+
+    /* Pair #1: Public Key*/
+    point_multiplication(genPoint, aNum, aNumLen, aParam, &temp1);
+
+    /* Pair #2: Public Key*/
+    point_multiplication(genPoint, bNum, bNumLen, aParam, &temp2);
+
+    /* Pair #1: Private Key*/
+    point_multiplication(&temp2, aNum, aNumLen, aParam, &temp3);
+
+    /* Pair #2: Private Key*/
+    point_multiplication(&temp1, bNum, bNumLen, aParam, &temp4);
+
+    memcpy(pair1->pubKey, &temp1, sizeof(temp1));
+    memcpy(pair1->privKey, &temp3, sizeof(temp3));
+    memcpy(pair2->pubKey, &temp2, sizeof(temp2));
+    memcpy(pair2->privKey, &temp4, sizeof(temp4));
+
+    free(&temp1.x);
+    free(&temp2.x);
+    free(&temp3.x);
+    free(&temp4.x);
+    free(&temp1.y);
+    free(&temp2.y);
+    free(&temp3.y);
+    free(&temp4.y);
+}
+
+void ecc_encrypt(const uint8_t *dIn, const uint8_t *key, uint8_t *dOut)
+{
+
+}
+
+void ecc_decrypt(const uint8_t *dIn, const uint8_t *key, uint8_t *dOut)
+{
+    
 }
