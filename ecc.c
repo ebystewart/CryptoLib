@@ -120,48 +120,65 @@ static void point_multiplication(const ecc_point_t *dIn, uint8_t *num, uint32_t 
     }
 }
 #define aParam 0x54321
-void ecc_generate_keypair(const ecc_point_t *genPoint, uint8_t *aNum, uint32_t aNumLen, uint8_t *bNum, uint32_t bNumLen, ecc_keypair_t *pair1, ecc_keypair_t *pair2)
+void ecc_generate_keypair(const ecc_point_t *genPoint, ecc_keypair_t *keyPair)
 {
-    ecc_point_t temp1;
-    ecc_point_t temp2;
-    ecc_point_t temp3;
-    ecc_point_t temp4;
+    ecc_point_t temp;
+    uint32_t privKeyLen = genPoint->xLen;
 
-    temp1.x = calloc(1, genPoint->xLen);
-    temp2.x = calloc(1, genPoint->xLen);
-    temp3.x = calloc(1, genPoint->xLen);
-    temp4.x = calloc(1, genPoint->xLen);
-    temp1.y = calloc(1, genPoint->yLen);
-    temp2.y = calloc(1, genPoint->yLen);
-    temp3.y = calloc(1, genPoint->yLen);
-    temp4.y = calloc(1, genPoint->yLen);
+    uint8_t *privKey = {1,2,3,4,};// a randon number of length aNumLen (in actuals)
 
+    temp.x = calloc(1, genPoint->xLen);
+    temp.y = calloc(1, genPoint->yLen);
 
-    /* Pair #1: Public Key*/
-    point_multiplication(genPoint, aNum, aNumLen, aParam, &temp1);
+    /* Public Key - used to be a point on the elliptic curve */
+    point_multiplication(genPoint, privKey, privKeyLen, aParam,  &temp);
 
-    /* Pair #2: Public Key*/
-    point_multiplication(genPoint, bNum, bNumLen, aParam, &temp2);
+    memcpy(keyPair->pubKey, &temp, sizeof(temp));
+    memcpy(keyPair->privKey, privKey, privKeyLen);
+    keyPair->privKeyLen = privKeyLen;
 
-    /* Pair #1: Private Key*/
-    point_multiplication(&temp2, aNum, aNumLen, aParam, &temp3);
+    free(&temp.x);
+    free(&temp.y);
+}
 
-    /* Pair #2: Private Key*/
-    point_multiplication(&temp1, bNum, bNumLen, aParam, &temp4);
+void ecc_exchange_init(const ecc_point_t *genPoint, ecc_keypair_t *keyPair){
 
-    memcpy(pair1->pubKey, &temp1, sizeof(temp1));
-    memcpy(pair1->privKey, &temp3, sizeof(temp3));
-    memcpy(pair2->pubKey, &temp2, sizeof(temp2));
-    memcpy(pair2->privKey, &temp4, sizeof(temp4));
+    ecc_keypair_t *key;
+    key = calloc(1, ((3* genPoint->xLen) + (3* sizeof(uint32_t))));
+    key->privKeyLen = genPoint->xLen;
+    key->pubKey->xLen = genPoint->xLen;
+    key->pubKey->yLen = genPoint->xLen;
 
-    free(&temp1.x);
-    free(&temp2.x);
-    free(&temp3.x);
-    free(&temp4.x);
-    free(&temp1.y);
-    free(&temp2.y);
-    free(&temp3.y);
-    free(&temp4.y);
+    ecc_generate_keypair(genPoint, keyPair);
+    free(key);
+}
+
+void ecc_exchange_update(const ecc_keypair_t *keyPair, ecc_point_t *dataForExchange)
+{
+    ecc_point_t *temp;
+
+    uint32_t privKeyLen = keyPair->privKeyLen;
+
+    temp->x = calloc(1, keyPair->pubKey->xLen);
+    temp->y = calloc(1, keyPair->pubKey->yLen);
+
+    /* We get the public key of other party and do point multiplication with its own private key */
+    point_multiplication(keyPair->pubKey, keyPair->privKey, keyPair->privKeyLen, aParam, temp);
+
+    // Is this sufficient?
+    memcpy(dataForExchange, temp, sizeof(temp));
+    memcpy(dataForExchange->x, temp->x, temp->xLen);
+    memcpy(dataForExchange->y, temp->y, temp->yLen);
+
+    free(temp->x); 
+    free(temp->y);
+}
+
+void ecc_extract_Secret(const ecc_point_t *exchangedData, const ecc_keypair_t *keyPair, uint8_t *secret)
+{
+    /* a Kb = b Ka */
+    /* a b R = b a R */
+    /* The received point PK should be divided by private key (a/b) and the Generator point R */
 }
 
 void ecc_encrypt(const uint8_t *dIn, const uint8_t *key, uint8_t *dOut)

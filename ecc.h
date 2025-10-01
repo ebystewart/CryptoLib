@@ -2,6 +2,7 @@
 #define _ECC_H_
 
 #include <stdio.h>
+#include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
 
@@ -25,11 +26,18 @@ typedef struct {
 
 typedef struct {
     ecc_point_t *pubKey;
-    ecc_point_t *privKey;
+    uint8_t *privKey;
+    uint32_t privKeyLen;
 }ecc_keypair_t;
 
 
-void ecc_generate_keypair(const ecc_point_t *genPoint, uint8_t *aNum, uint32_t aNumLen, uint8_t *bNum, uint32_t bNumLen, ecc_keypair_t *pair1, ecc_keypair_t *pair2);
+void ecc_generate_keypair(const ecc_point_t *genPoint, ecc_keypair_t *keyPair);
+
+void ecc_exchange_init(const ecc_point_t *genPoint, ecc_keypair_t *keyPair);
+
+void ecc_exchange_update(const ecc_keypair_t *keyPair, ecc_point_t *dataForExchange);
+
+void ecc_extract_Secret(const ecc_point_t *exchangedData, const ecc_keypair_t *keyPair, uint8_t *secret);
 
 void ecc_encrypt(const uint8_t *dIn, const uint8_t *key, uint8_t *dOut);
 
