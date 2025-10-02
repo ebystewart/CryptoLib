@@ -174,20 +174,15 @@ void ecc_exchange_update(const ecc_keypair_t *keyPair, ecc_point_t *dataForExcha
     free(temp->y);
 }
 
-#if 0
-void ecc_extract_Secret(const ecc_point_t *genPoint, const ecc_point_t *exchangedData, const ecc_keypair_t *keyPair, uint8_t *secret)
+bool ecc_validate_Secret(const ecc_point_t *exchangedData, const ecc_keypair_t *keyPair, const ecc_point_t *receivedPubKey)
 {
     uint8_t *inverse;
     ecc_point_t *temp;
-    ecc_point_t *genInverse;
+    int status;
+    bool retVal = false;
 
     temp->x = calloc(1, exchangedData->xLen);
     temp->y = calloc(1, exchangedData->yLen);
-    genInverse->x = calloc(1, genPoint->xLen);
-    genInverse->y = calloc(1, genPoint->yLen);
-
-    memcpy(genInverse->x, genPoint->x, genPoint->xLen);
-    //memcpy(genInverse->y, genPoint->y, genPoint->yLen);
 
     /* (exchangeData on both sides) a Kb = b Ka */
     /* a b R = b a R */
@@ -201,13 +196,15 @@ void ecc_extract_Secret(const ecc_point_t *genPoint, const ecc_point_t *exchange
     /* Do point multiplication - this gives a R [OR] b R */
     point_multiplication(exchangedData, privInverse, keyPair->privKeyLen, aParam, temp);
 
-    /* find inverse of genPoint R - this is done by flipping y axis alone */
-    negative_of(genPoint->y, genInverse->y, genPoint->yLen);
+    /* Temp should match with the public key of the other party */
+    status = memcmp(receivedPubKey->x, temp->x, temp->xLen);
+    status |= memcmp(receivedPubKey->y, temp->y, temp->yLen);
+    
+    if(status == 0)
+        retVal = true;
 
-    /* Do point multiplication to get private key */
-    point_multiplication(temp, genInverse, genInverse->xLen, aParam, temp);
+    return retVal;
 }
-#endif
 
 void ecc_encrypt(const uint8_t *dIn, const uint8_t *key, uint8_t *dOut)
 {
