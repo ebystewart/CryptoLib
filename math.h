@@ -23,6 +23,8 @@ void xor(uint8_t *dOut, uint8_t *dIn, uint32_t dataLen);
 
 void not(const uint8_t *dIn, uint8_t *dOut, uint32_t dataLen);
 
+void negative_of(const uint8_t *dIn, uint8_t *dOut, uint32_t dataLen);
+
 bool is_equal(const uint8_t *dIn1, uint32_t dIn1Len, const uint8_t *dIn2, uint32_t dIn2Len);
 
 bool is_equal_zero(const uint8_t *dIn, uint8_t dInLen);

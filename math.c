@@ -154,6 +154,14 @@ void not(const uint8_t *dIn, uint8_t *dOut, uint32_t dataLen)
     } 
 }
 
+void negative_of(const uint8_t *dIn, uint8_t *dOut, uint32_t dataLen)
+{
+    uint32_t idx;
+    uint8_t incr = 0x01;
+    not(dIn, dOut, dataLen);
+    add(dOut, dataLen, &incr, 1, dOut, &dataLen);
+}
+
 bool is_equal(const uint8_t *dIn1, uint32_t dIn1Len, const uint8_t *dIn2, uint32_t dIn2Len)
 {
     bool retVal = true;
