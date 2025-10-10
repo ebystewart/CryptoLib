@@ -37,7 +37,7 @@ void ecc_exchange_init(const ecc_point_t *genPoint, ecc_keypair_t *keyPair);
 
 void ecc_exchange_update(const ecc_keypair_t *keyPair, ecc_point_t *dataForExchange);
 
-void ecc_validate_Secret(const ecc_point_t *genPoint, const ecc_point_t *exchangedData, const ecc_keypair_t *keyPair, uint8_t *secret);
+bool ecc_validate_Secret(const ecc_point_t *exchangedData, const ecc_keypair_t *keyPair, const ecc_point_t *receivedPubKey);
 
 void ecc_encrypt(const uint8_t *dIn, const uint8_t *key, uint8_t *dOut);
 

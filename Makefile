@@ -9,7 +9,10 @@ OBJS= aes.o	\
 	math.o \
 	ecc.o 	\
 	ecdh.o 	\
-	ecdsa.o
+	ecdsa.o	\
+	chacha20.o	\
+	poly1305.o	\
+	aead.o
 
 CryptoLib.bin:${OBJS}
 	${CC} ${CFLAGS} ${OBJS} -o CryptoLib.bin
@@ -44,6 +47,14 @@ ecdh.o:ecdh.c
 ecdsa.o:ecdsa.c
 	${CC} ${CFLAGS} -c ecdsa.c -I . -o ecdsa.o
 
+chach20.o:chacha20.c
+	${CC} ${CFLAGS} -c chacha20.c -I . -o chacha20.o
+
+poly1305.o:poly1305.c
+	${CC} ${CFLAGS} -c poly1305.c -I . -o poly1305.o
+
+aead.o:aead.c
+	${CC} ${CFLAGS} -c aead.c -I . -o aead.o
 
 all:
 	make
