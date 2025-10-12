@@ -145,6 +145,15 @@ void xor(uint8_t *dOut, uint8_t *dIn, uint32_t dataLen)
     }
 }
 
+void xor2(uint8_t *dIn1, uint8_t *dIn2, uint32_t dLen, uint8_t *dOut)
+{
+    uint32_t idx;
+    for (idx = 0; idx < dLen; idx++){
+
+        dOut[idx] = dIn1[idx] ^ dIn2[idx];
+    }
+}
+
 void not(const uint8_t *dIn, uint8_t *dOut, uint32_t dataLen)
 {
     uint32_t idx;

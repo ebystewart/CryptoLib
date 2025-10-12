@@ -3,7 +3,9 @@
 
 #include "stdint.h"
 
-/* Ref: https://muens.io/poly1305/ */
+/* Ref: https://muens.io/poly1305/ 
+   Ref: https://muens.io/poly1305/#:~:text=How%20it%20works,a%20corresponding%20MAC%20via%20Poly1305.
+*/
 
 /* Poly1305 MAC APIs */
 

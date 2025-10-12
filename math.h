@@ -21,6 +21,8 @@ void convert64_endianess(uint64_t *dIn, uint64_t *dOut, uint64_t dataLen);
 
 void xor(uint8_t *dOut, uint8_t *dIn, uint32_t dataLen);
 
+void xor2(uint8_t *dIn1, uint8_t *dIn2, uint32_t dLen, uint8_t *dOut);
+
 void not(const uint8_t *dIn, uint8_t *dOut, uint32_t dataLen);
 
 void negative_of(const uint8_t *dIn, uint8_t *dOut, uint32_t dataLen);
