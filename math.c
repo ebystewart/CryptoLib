@@ -409,16 +409,20 @@ void divide(const uint8_t *dividend, uint32_t dividendLen, const uint8_t *diviso
         }
         //memcpy(tmpQuo1, tmpQuo2, dividendLen);
     }
-    memcpy(quotient, tmpQuo1, dividendLen);
-    memcpy(remainder, tmpRem1, remLen);
+    if(quotient != NULL && quotientLen != NULL){
+        memcpy(quotient, tmpQuo1, dividendLen);
+        *quotientLen = quoLen;
+    }
+    if(remainder != NULL && remainderLen != NULL){
+        memcpy(remainder, tmpRem1, remLen);
+        *remainderLen = remLen;
+    }
     free(tmpQuo1);
     free(tmpRem1);
     free(tmpQuo2);
     free(tmpRem2);
     free(tmpDivd);
     free(tmpDivr);
-    *quotientLen = quoLen;
-    *remainderLen = remLen;
 }
 
 /* Ref: https://www.cuemath.com/numbers/binary-multiplication/ */
