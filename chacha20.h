@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 /* Ref: https://loup-vaillant.fr/tutorials/chacha20-design
+   Ref: https://muens.io/chacha20/
 */
 
 /* Key length is 256 bits (32 Bytes) 
