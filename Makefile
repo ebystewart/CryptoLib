@@ -12,7 +12,9 @@ OBJS= aes.o	\
 	ecdsa.o	\
 	chacha20.o	\
 	poly1305.o	\
-	aead.o
+	aead.o	\
+	tls12.o	\
+	tls13.o
 
 CryptoLib.bin:${OBJS}
 	${CC} ${CFLAGS} ${OBJS} -o CryptoLib.bin
@@ -55,6 +57,12 @@ poly1305.o:poly1305.c
 
 aead.o:aead.c
 	${CC} ${CFLAGS} -c aead.c -I . -o aead.o
+
+tls12.o:tls12.c
+	${CC} ${CFLAGS} -c tls12.c -I . -o tls12.o
+
+tls13.o:tls13.c
+	${CC} ${CFLAGS} -c tls13.c -I . -o tls13.o
 
 all:
 	make
