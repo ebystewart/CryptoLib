@@ -9,9 +9,9 @@
    Sample Data: https://tls12.xargs.org/#open-all
 */
 
-#define N_CIPHER_SUITE_SUPPORTED 10
+#define N_CIPHER_SUITE_SUPPORTED
 #define N_COMPRESSION_METHOD_SUPPORTED 0
-#define N_EXTENSION_SUPPORTED 3
+#define N_EXTENSION_SUPPORTED 
 
 typedef struct{
    /* 0x16 -> handshake record; 
