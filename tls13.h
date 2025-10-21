@@ -1,6 +1,25 @@
 #ifndef _TLS13_H_
 #define _TLS13_H_
 
+/*
+   Ref: https://tls13.xargs.org/
+   Ref: https://www.youtube.com/watch?v=JA0vaIb4158
+   ________                                                      __________
+   |Client|                                                      | Server |
+   --------                                                      ----------
+      |                                                               | ----------------------------------------------------------------------------------------
+      |-----Client Hello ------------------------------------------->>|                                                                                       |
+      |                                                               |                                                                                       |
+      |<<------------------------------------------Server Hello-------| (ext, cert, cert verify, finished, certificate request (if mutual auth is required))  |
+      |                                                               |                                                                                       |
+      |<<----------------## Server can send encrypted data here ##----|                                                                                       |
+      |                                                               | Only one round trip                                                        TLS 1.3 Handshake
+      |--- Finished ----------------------------------------------->>>| cert, cert verify (if client cert is requested)                                       |
+      |                                                               | ----------------------------------------------------------------------------------------
+      |<<<<------------------ Encrypted Data ---------------------->>>|
+      |                                                               |
+*/
+
 #include <stdint.h>
 #include <stdbool.h>
 #include "tls13_extensions.h"
@@ -96,6 +115,55 @@ typedef struct{
     tls13_serverExtensions_t    serverExt;
 } tls13_serverHello_t;
 
-#pragma pack(pop)
+/* server change cipher spec - for compatability */
+typedef struct{
+   tls13_recordHdr_t recordHeader;
+   uint8_t           payload;       /* 1 Byte payload usually 0x01 */
+}tls12_serverChangeCipherSpec_t;
+
+typedef struct {
+   uint32_t     certLen : 24;
+   uint8_t      cert[0];
+   uint16_t     certExtension;
+}tls13_cert_t;
+
+typedef struct {
+   tls13_handshakeHdr_t handshakeHdr;     /*  type 0x0B (certificate) */
+   uint8_t              requestContext;
+   uint32_t             payloadLen : 24;
+   tls13_cert_t         cert[0];
+}tls13_serverCert_t;
+
+typedef struct {
+   uint16_t    signType;
+   uint16_t    signLen;
+   uint8_t     sugn[0];
+}tls13_signature_t;
+
+typedef struct {
+   tls13_handshakeHdr_t handshakeHdr;    /* 0x0f (certificate verify) */
+   tls13_signature_t    sign;
+}tls13_serverCertVerify_t;
+
+typedef struct {
+   tls13_handshakeHdr_t handshakeHdr; /*  0x04 (new session ticket */
+   uint32_t             ticketLifetime;
+   uint32_t             ticketAgeAdd;
+   uint8_t              nounceLen;
+   uint8_t              nounce[0];
+   uint16_t             sessionTicketLen;
+   uint8_t              sessionTicket[0];
+   uint16_t             ticketExtensionLen;
+}tls13_serverNewSessionTicket_t;
+
+typedef struct {
+   tls13_recordHdr_t recordHeader;     /* 0x17 (application data) */
+   uint8_t           encryptedData[0]; /* Data encrypted with the server handshake key */
+   uint8_t           authTag[16];      /* AEAD authentication tag */
+   uint8_t           encryExt[0];      /* could be Server Certificate  (tls13_serverCert_t) [or] server cert verify [or]  server finished [or] client finished */
+   uint8_t           recordType;       /* 0x16 (handshake record); 0x17 (application data)*/
+}tls13_wrappedRecord_t;
+
+#pragma pop
 
 #endif

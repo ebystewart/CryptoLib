@@ -7,6 +7,32 @@
 /* Ref: https://cabulous.medium.com/tls-1-2-andtls-1-3-handshake-walkthrough-4cfd0a798164
    Ref: https://www.ibm.com/docs/en/sdk-java-technology/8?topic=handshake-tls-12-protocol
    Sample Data: https://tls12.xargs.org/#open-all
+
+   ________                                                      __________
+   |Client|                                                      | Server |
+   --------                                                      ----------
+      |                                                               |-------------------------------------------------
+      |-----Client Hello ------------------------------------------->>|                                            |
+      |                                                               |                                            |
+      |<<------------------------------------------Server Hello-------|                                            |
+      |                                                               |                                            |
+      |<<----------------------------------------- Certificate--------|                                            |
+      |                                                               |                                            |
+      |<<----------------------------------------- Server Hello Done--| First Round trip of handshake ends         |
+      |                                                               |                                            |
+      |--- Client Key Exchange (pre-Master Secret)------------------>>|                                            |
+      |                                                               |                                 TLS 1.2 Handshake 
+      |--- Change Cipher Spec -------------------------------------->>|                                            |
+      |                                                               |                                            |
+      |--- Finished (Encrypted verification)------------------------>>|                                            |
+      |                                                               |                                            |
+      |<<----------------------- Change Cipher Spec ------------------|                                            |
+      |                                                               |                                            |
+      |<<----------------------- Finished (Encrypted verification)----| Second round trip handshake ends           |
+      |                                                               |--------------------------------------------------
+      |                                                               |
+      |<<<<------------------ Encrypted Data ---------------------->>>|
+      |                                                               |
 */
 
 #define N_CIPHER_SUITE_SUPPORTED

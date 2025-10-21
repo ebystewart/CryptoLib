@@ -6,6 +6,10 @@
 #include <stdlib.h>
 #include <stdbool.h>
 
+/* 
+    Ref: https://x25519.xargs.org/
+*/
+
 /*
 # Elliptic curve parameters for secp256k1 (used in Bitcoin and Ethereum)
 a = 0
