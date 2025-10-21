@@ -24,6 +24,35 @@
 #include <stdbool.h>
 #include "tls13_extensions.h"
 
+
+#define TLS13_SESSION_ID_LEN 16
+#define TLS13_CIPHERSUITE_LEN 3
+#define TLS13_PROTO_VERSION 0x0301
+
+typedef enum {
+   TLS13_ALERT_RECORD     = 0x15,
+   TLS13_HANDSHAKE_RECORD = 0x16,
+   TLS13_APPDATA_RECORD   = 0x17
+}tls13_recordType_e;
+
+typedef enum {
+   TLS13_HST_CLIENT_HELLO       = 0x01,
+   TLS13_HST_SERVER_HELLO       = 0x02,
+   TLS13_HST_CERTIFICATE        = 0x0B,
+   TLS13_HST_SERVER_KEY_XCHNGE  = 0x0C,
+   TLS13_HST_SERVER_HELLO_DONE  = 0x0E,
+   TLS13_HST_CERTIFICATE_VERIFY = 0x0F,
+   TLS13_HST_CLIENT_KEY_XCHNGE  = 0x10,
+   TLS13_HST_FINISHED           = 0x14 
+}tls13_handshakeType_e;
+
+typedef enum {
+   TLS13_EMPTY_RENEGOTIATION_INFO_SCSV = 0x00FF,
+   TLS13_AES_128_GCM_SHA256            = 0x1301,
+   TLS13_AES_256_GCM_SHA384            = 0x1302,
+   TLS13_CHACHA20_POLY1305_SHA256      = 0x1303
+}tls13_cipherSuite_e;
+
 #pragma pack(push, 1)
 
 typedef struct{
@@ -55,16 +84,12 @@ typedef struct{
    13 01 - assigned value for TLS_AES_128_GCM_SHA256
    00 ff - assigned value for TLS_EMPTY_RENEGOTIATION_INFO_SCSV
 */
-typedef struct{
-   uint16_t cipherSuiteCode;
-}tls13_cipherSuiteData_t;
+typedef uint16_t tls13_cipherSuiteData_t;
 
 /*
    00 - assigned value for "null" compression
 */
-typedef struct{
-   uint8_t compRessionMethodCode;
-}tls13_compressionMethods_t;
+typedef uint8_t tls13_compressionMethods_t;
 
 /* Client Hello Extensions */
 typedef struct{
@@ -165,5 +190,17 @@ typedef struct {
 }tls13_wrappedRecord_t;
 
 #pragma pop
+
+/* Macros for pointer access */
+#define GET_CLIENTHELLO_CIPHERSUITELIST_PTR(clientHelloPtr, sessionIdLen)         \
+               ((tls13_cipherSuiteData_t *)((((tls13_clientHello_t *)0)->cipherSuiteLen) + sessionIdLen))
+
+#define GET_CLIENTHELLO_CMPMTHDLIST_PTR(clientHelloPtr, sessionIdLen, cipherSuiteLen)      \
+               ((tls13_compressionMethods_t *)((((tls13_clientHello_t *)0)->compressionMethodList) + sessionIdLen + cipherSuiteLen))
+
+#define GET_CLIENTHELLO_CLIENTEXT_PTR(clientHelloPtr, sessionIdLen, cipherSuiteLen, cmpMthdLen)      \
+               ((tls13_clientExtensions_t *)((((tls13_clientHello_t *)0)->clientExt) + sessionIdLen + cipherSuiteLen + cmpMthdLen))
+
+void tls13_prepareClientHello(tls13_clientHello_t *clientHello);
 
 #endif
