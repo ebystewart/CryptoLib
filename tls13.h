@@ -28,6 +28,7 @@
 #define TLS13_SESSION_ID_LEN 16
 #define TLS13_CIPHERSUITE_LEN 3
 #define TLS13_PROTO_VERSION 0x0301
+#define TLS13_RANDOM_LEN 32
 
 typedef enum {
    TLS13_ALERT_RECORD     = 0x15,
@@ -115,7 +116,7 @@ typedef struct{
    uint8_t                    sessionId[0];             /* Session Id - usually fake */
    uint16_t                   cipherSuiteLen;
    tls13_cipherSuiteData_t    cipherSuiteList[0];       /* N_CIPHER_SUITE_SUPPORTED  */
-   uint8_t                    compressionMethodLength;
+   uint8_t                    compressionMethodLen;
    tls13_compressionMethods_t compressionMethodList[0]; /* N_COMPRESSION_METHOD_SUPPORTED         */
    uint16_t                   extLen;
    tls13_clientExtensions_t   clientExt;
@@ -191,15 +192,25 @@ typedef struct {
 
 #pragma pop
 
-/* Macros for pointer access */
+/* Macros for Structure element access */
+
+#define CLIENTHELLO_CIPHERSUITE_LEN(clientHelloPtr, sessionIdLen)         \
+               (*(uint16_t *)((((tls13_clientHello_t *)clientHelloPtr)->cipherSuiteLen) + sessionIdLen))
+
 #define GET_CLIENTHELLO_CIPHERSUITELIST_PTR(clientHelloPtr, sessionIdLen)         \
-               ((tls13_cipherSuiteData_t *)((((tls13_clientHello_t *)0)->cipherSuiteLen) + sessionIdLen))
+               ((tls13_cipherSuiteData_t *)(&(((tls13_clientHello_t *)clientHelloPtr)->cipherSuiteList) + sessionIdLen))
+
+#define CLIENTHELLO_CMPMTHDLIST_LEN(clientHelloPtr, sessionIdLen, cipherSuiteLen)      \
+               (*(uint8_t *)((((tls13_clientHello_t *)clientHelloPtr)->compressionMethodLen) + sessionIdLen + cipherSuiteLen))
 
 #define GET_CLIENTHELLO_CMPMTHDLIST_PTR(clientHelloPtr, sessionIdLen, cipherSuiteLen)      \
-               ((tls13_compressionMethods_t *)((((tls13_clientHello_t *)0)->compressionMethodList) + sessionIdLen + cipherSuiteLen))
+               ((tls13_compressionMethods_t *)(&(((tls13_clientHello_t *)clientHelloPtr)->compressionMethodList) + sessionIdLen + cipherSuiteLen))
+
+#define CLIENTHELLO_CLIENTEXT_LEN(clientHelloPtr, sessionIdLen, cipherSuiteLen, cmpMthdLen)      \
+               (*(uint16_t *)((((tls13_clientHello_t *)clientHelloPtr)->extLen) + sessionIdLen + cipherSuiteLen + cmpMthdLen))
 
 #define GET_CLIENTHELLO_CLIENTEXT_PTR(clientHelloPtr, sessionIdLen, cipherSuiteLen, cmpMthdLen)      \
-               ((tls13_clientExtensions_t *)((((tls13_clientHello_t *)0)->clientExt) + sessionIdLen + cipherSuiteLen + cmpMthdLen))
+               ((tls13_clientExtensions_t *)(&(((tls13_clientHello_t *)clientHelloPtr)->clientExt) + sessionIdLen + cipherSuiteLen + cmpMthdLen))
 
 void tls13_prepareClientHello(tls13_clientHello_t *clientHello);
 

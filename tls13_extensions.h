@@ -10,13 +10,46 @@
    0xff 0x01 - Renegotiation info
    0x00 0x12 - Signed Certificate Timestamp
 */
+typedef enum {
+   TLS13_EXT_SERVER_NAME          = 0x0000,
+   TLS13_EXT_STATUS_REQUEST       = 0x0005,
+   TLS13_EXT_SUPPORTED_GROUPS     = 0x000A,
+   TLS13_EXT_EC_POINTS_FORMAT     = 0x000B,
+   TLS13_EXT_SIGN_AGLORITHM       = 0x000D,
+   TLS13_EXT_SIGN_CERT_TIMESTAMP  = 0x0012,
+   TLS13_EXT_ENCRYPT_THEN_MAC     = 0x0016,
+   TLS13_EXT_EXT_MASTER_SECRET    = 0x0017,   
+   TLS13_EXT_PSK_KEYXCHANGE_MODES = 0x002D,
+   TLS13_EXT_SUPPORTED_VERSIONS   = 0x002B,
+   TLS13_EXT_SESSION_TICKET       = 0x0023,
+   TLS13_EXT_KEY_SHARE            = 0x0033,
+   TLS13_EXT_RENOGO_INFO          = 0xFF01
+}tls13_extTyep_e;
 
 /* Supported Groups
    00 1d - assigned value for the curve "x25519"
    00 17 - assigned value for the curve "secp256r1"
-   00 18 - assigned value for the curve "secp384r1"
+   00 1e - assigned value for the curve "x448"
    00 19 - assigned value for the curve "secp521r1"
+   00 18 - assigned value for the curve "secp384r1"
+   01 00 - assigned value for the curve "ffdhe2048"
+   01 01 - assigned value for the curve "ffdhe3072"
+   01 02 - assigned value for the curve "ffdhe4096"
+   01 03 - assigned value for the curve "ffdhe6144"
+   01 04 - assigned value for the curve "ffdhe8192"
 */
+typedef enum {
+   TLS13_SUPPGRP_X25519    = 0x001D,
+   TLS13_SUPPGRP_SECP256R1 = 0x0017,
+   TLS13_SUPPGRP_X448      = 0x001E,
+   TLS13_SUPPGRP_SECP521R1 = 0x0019,
+   TLS13_SUPPGRP_SECP384R1 = 0x0018,
+   TLS13_SUPPGRP_FFDHE2048 = 0x0100,
+   TLS13_SUPPGRP_FFDHE3072 = 0x0101,
+   TLS13_SUPPGRP_FFDHE4096 = 0x0102,
+   TLS13_SUPPGRP_FFDHE6144 = 0x0103,
+   TLS13_SUPPGRP_FFDHE8192 = 0x0104
+}tls13_supGroups_e;
 
 /* Signature Algorithms
    04 03 - assigned value for ECDSA-SECP256r1-SHA256
@@ -34,6 +67,36 @@
    05 01 - assigned value for RSA-PKCS1-SHA384
    06 01 - assigned value for RSA-PKCS1-SHA512
 */
+typedef enum {
+   TLS13_SIGNALGOS_ECDSA_SECP256r1_SHA256 = 0x0403,
+   TLS13_SIGNALGOS_ECDSA_SECP384r1_SHA384 = 0x0503,
+   TLS13_SIGNALGOS_ECDSA_SECP521r1_SHA512 = 0x0603,
+   TLS13_SIGNALGOS_ED25519                = 0x0807,
+   TLS13_SIGNALGOS_ED448                  = 0x0808,
+   TLS13_SIGNALGOS_RSA_PSS_PSS_SHA256     = 0x0809,
+   TLS13_SIGNALGOS_RSA_PSS_PSS_SHA384     = 0x080A,
+   TLS13_SIGNALGOS_RSA_PSS_PSS_SHA512     = 0x080B,
+   TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA256    = 0x0804,
+   TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA384    = 0x0805,
+   TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA512    = 0x0806,
+   TLS13_SIGNALGOS_RSA_PKCS1_SHA256       = 0x0401,
+   TLS13_SIGNALGOS_RSA_PKCS1_SHA384       = 0x0501,
+   TLS13_SIGNALGOS_RSA_PKCS1_SHA512       = 0x0601
+}tls13_signAlgos_e;
+
+/* EC Point formats
+   00 - assigned value for format "uncompressed"
+   01 - assigned value for format "ansiX962_compressed_prime"
+   02 - assigned value for format "ansiX962_compressed_char2"
+*/
+typedef enum {
+   TLS13_EC_POINT_UNCOMPRESSED = 0,
+   TLS13_EC_POINT_ANSIX962_COMPRESSED_PRIME = 1,
+   TLS13_EC_POINT_ANSIX962_COMPRESSED_CHAR2 = 2
+}tls13_ecPointFormat_e;
+
+/* Structures */
+
 typedef struct{
    uint16_t extType;
    uint16_t extDataLen;
@@ -94,7 +157,7 @@ typedef struct{
 typedef struct{
    uint16_t  extType;
    uint16_t  extDataLen;
-   uint16_t  keyShareTypeLen;
+   uint16_t  keyShareLen;
    uint16_t  keyShareType;
    uint16_t  pubKeyLen;
    uint8_t   pubKey[0];
