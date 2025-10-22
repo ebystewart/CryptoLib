@@ -137,7 +137,7 @@ typedef struct{
     uint8_t                     sessionId[0];             /* usually fake */
     uint16_t                    cipherSuiteSelect;
     uint8_t                     compressionMethodSelect;
-    uint16_t                    extensionLen;
+    uint16_t                    extLen;
     tls13_serverExtensions_t    serverExt;
 } tls13_serverHello_t;
 
@@ -272,7 +272,18 @@ typedef struct {
 #define GET_CLIENTHELLO_CLIENTEXT_PTR(clientHelloPtr, sessionIdLen, cipherSuiteLen, cmpMthdLen)      \
                ((tls13_clientExtensions_t *)(&(((tls13_clientHello_t *)clientHelloPtr)->clientExt) + sessionIdLen + cipherSuiteLen + cmpMthdLen))
 
-            
+#define SERVERHELLO_CIPHERSUITE_SELECT(serverHelloPtr, sessionIdLen)         \
+               (*(uint16_t *)(&(((tls13_serverHello_t *)serverHelloPtr)->cipherSuiteSelect) + (sessionIdLen - 1)))           
+
+#define SERVERHELLO_COMPRESSION_METHOD_SELECT(serverHelloPtr, sessionIdLen)         \
+               (*(uint16_t *)(&(((tls13_serverHello_t *)serverHelloPtr)->compressionMethodSelect) + (sessionIdLen - 1)))
+               
+#define GET_SERVERHELLO_SERVEREXT_PTR(serverHelloPtr, sessionIdLen)         \
+               ((tls13_serverExtensions_t *)(&(((tls13_serverHello_t *)serverHelloPtr)->serverExt) + (sessionIdLen - 1)))
+
+#define SERVERHELLO_SERVEREXT_LEN(serverHelloPtr, sessionIdLen)         \
+               (*(uint16_t *)(&(((tls13_serverHello_t *)serverHelloPtr)->extLen) + (sessionIdLen - 1)))
+
 /* Prepare pkts to be sent  */
 uint16_t tls13_prepareClientHello(tls13_clientHello_t *clientHello);
 

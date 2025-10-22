@@ -184,7 +184,66 @@ uint16_t tls13_prepareClientHello(tls13_clientHello_t *clientHello)
 
 uint16_t tls13_prepareServerHello(tls13_serverHellowCompat_t *serverHello)
 {
+    tls13_serverHellowCompat_t *serverHelloTmp = calloc(1, sizeof(tls13_serverHellowCompat_t) + 200);
 
+    /* Record header update */
+    serverHelloTmp->serverHello.recordHeader.recordType   = TLS13_HANDSHAKE_RECORD;
+    serverHelloTmp->serverHello.recordHeader.protoVersion = TLS13_PROTO_VERSION;
+
+    /* handshake header update */
+    serverHelloTmp->serverHello.handshakeHeader.handshakeType = TLS13_HST_SERVER_HELLO;
+
+    serverHelloTmp->serverHello.serverVersion = TLS13_PROTO_VERSION;
+    /* get a 32 Byte random value */
+    memset(&serverHelloTmp->serverHello.serverRandom, 0x55, TLS13_RANDOM_LEN);
+    serverHelloTmp->serverHello.sessionIdLen = TLS13_SESSION_ID_LEN;
+    /* Get a 16 Byte Session Id */
+    memset(&serverHelloTmp->serverHello.sessionId, 0xAA, TLS13_SESSION_ID_LEN);
+
+    /* copy the Ciphersuite selected */
+    serverHelloTmp->serverHello.cipherSuiteSelect = TLS13_AES_128_GCM_SHA256;
+
+    /* copy the compression methods */
+    SERVERHELLO_CIPHERSUITE_SELECT(&serverHelloTmp->serverHello, TLS13_SESSION_ID_LEN) = 0x00;
+
+    SERVERHELLO_COMPRESSION_METHOD_SELECT(&serverHelloTmp->serverHello, TLS13_SESSION_ID_LEN) = 0;
+
+    uint16_t extLen = 0;
+
+    /* Server Hello Extensions */
+    {
+        tls13_serverExtensions_t *serverExts = GET_SERVERHELLO_SERVEREXT_PTR(&serverHelloTmp->serverHello, TLS13_SESSION_ID_LEN);
+        {
+            tls13_extension222_t  *eSV = &serverHelloTmp->serverHello.serverExt.extSupportedVers;
+            eSV->extType = TLS13_EXT_SUPPORTED_VERSIONS;
+            eSV->extData = TLS13_PROTO_VERSION;
+            eSV->extDataLen = 2;
+            extLen += eSV->extDataLen + 1;
+        }
+        {
+            tls13_extensionKeyShare_t  *eKS = &serverHelloTmp->serverHello.serverExt.extkeyShare;
+            eKS->extType = TLS13_EXT_KEY_SHARE;
+            eKS->keyShareType = 0x001D; /* assigned value for x25519 (key exchange via curve25519) */
+            memset(eKS->pubKey, 0xAB, 32);
+            eKS->keyShareLen = 2; /* 2 Bytes of key share Type code */
+            eKS->pubKeyLen = 32;  /* 32  Bytes of public key */
+            eKS->extDataLen = eKS->keyShareLen + eKS->pubKeyLen + sizeof(eKS->keyShareLen);
+            extLen += eKS->extDataLen + 1;
+        }
+    }
+    SERVERHELLO_SERVEREXT_LEN(&serverHelloTmp->serverHello, TLS13_SESSION_ID_LEN) = extLen;
+        serverHelloTmp->serverHello.handshakeHeader.handshakeMsgLen = sizeof(serverHelloTmp->serverHello.serverVersion) + \
+                                                        sizeof(serverHelloTmp->serverHello.serverRandom) + \
+                                                        TLS13_SESSION_ID_LEN + 1 + \
+                                                        2 + 1 + \
+                                                        serverHelloTmp->serverHello.extLen;
+    serverHelloTmp->serverHello.recordHeader.recordLen = serverHelloTmp->serverHello.handshakeHeader.handshakeMsgLen + sizeof(tls13_handshakeHdr_t);
+
+    /* Finally do a memcopy */
+    memcpy((uint8_t *)serverHello, (uint8_t *)serverHelloTmp, (serverHelloTmp->serverHello.recordHeader.recordLen + 1));
+    free(serverHelloTmp);
+
+    return (serverHelloTmp->serverHello.recordHeader.recordLen + 1);
 }
 
 uint16_t tls13_prepareServerWrappedRecord(tls13_serverWrappedRecord_t *serverWrappedRecord)
@@ -199,5 +258,5 @@ uint16_t tls13_prepareClientWrappedRecord(tls13_clientWrappedRecord_t *clientWra
 
 uint16_t tls13_prepareServerSessionTicketRecord(tls13_serverNewSessionTicket_t *sessionTicket)
 {
-    
+
 }
