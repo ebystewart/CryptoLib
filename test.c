@@ -7,6 +7,7 @@
 #include "rsa.h"
 #include "sha.h"
 #include "math.h"
+#include "tls13.h"
 
 #if 0
 uint8_t in[16] = {0x63, 0x2F, 0xAF, 0xA2,
@@ -589,6 +590,17 @@ SHAKE128("The quick brown fox jumps over the lazy dof", 256)
 853f4538be0db9621a6cea659a06c1107b1f83f02b13d18297bd39d7411cf10c
 */
 
+#endif
+
+#if 1
+    tls13_clientHello_t *ch = calloc(1, (sizeof(tls13_clientHello_t) + 200));
+    uint16_t size = tls13_prepareClientHello(ch);
+    uint8_t *disp;
+    disp = (uint8_t *)ch;
+    for(int idx = 0; idx < size; idx++){
+        printf("%x", disp[idx]);
+    }
+    printf("\n");
 #endif
 
     return 0;

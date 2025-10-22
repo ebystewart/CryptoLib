@@ -4,7 +4,7 @@
 #include "math.h"
 
 
-void tls13_prepareClientHello(tls13_clientHello_t *clientHello)
+uint16_t tls13_prepareClientHello(tls13_clientHello_t *clientHello)
 {
     tls13_clientHello_t *clientHelloTmp = calloc(1, sizeof(tls13_clientHello_t) + 200);
 
@@ -37,6 +37,7 @@ void tls13_prepareClientHello(tls13_clientHello_t *clientHello)
     cmpMthd[0] = 0x00;
 
     clientHelloTmp->extLen = 0;
+
     /* Set up the extensions */
     tls13_clientExtensions_t *cExts = GET_CLIENTHELLO_CLIENTEXT_PTR(clientHelloTmp, TLS13_SESSION_ID_LEN, TLS13_CIPHERSUITE_LEN, 1);
     {
@@ -55,7 +56,7 @@ void tls13_prepareClientHello(tls13_clientHello_t *clientHello)
         }
         {
             /* Set the EC Point Formats extension data */
-            tls13_extension2211_t *ecPF = &cExts->extECP;
+            tls13_extension2211_t *ecPF = &cExts->extECP + clientHelloTmp->extLen;
             ecPF->extType = TLS13_EXT_EC_POINTS_FORMAT;
             uint8_t *ecPFList = &ecPF->list;
             ecPFList[0] = TLS13_EC_POINT_UNCOMPRESSED;
@@ -177,4 +178,26 @@ void tls13_prepareClientHello(tls13_clientHello_t *clientHello)
     /* Finally do a memcopy */
     memcpy((uint8_t *)clientHello, (uint8_t *)clientHelloTmp, (clientHelloTmp->recordHeader.recordLen + 1));
     free(clientHelloTmp);
+
+    return (clientHello->recordHeader.recordLen + 1);
+}
+
+uint16_t tls13_prepareServerHello(tls13_serverHellowCompat_t *serverHello)
+{
+
+}
+
+uint16_t tls13_prepareServerWrappedRecord(tls13_serverWrappedRecord_t *serverWrappedRecord)
+{
+
+}
+
+uint16_t tls13_prepareClientWrappedRecord(tls13_clientWrappedRecord_t *clientWrappedRecord)
+{
+
+}
+
+uint16_t tls13_prepareServerSessionTicketRecord(tls13_serverNewSessionTicket_t *sessionTicket)
+{
+    
 }

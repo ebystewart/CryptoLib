@@ -1,9 +1,14 @@
 #ifndef _TLS13_H_
 #define _TLS13_H_
 
+#include <stdint.h>
+#include <stdbool.h>
+#include "tls13_extensions.h"
+
 /*
    Ref: https://tls13.xargs.org/
    Ref: https://www.youtube.com/watch?v=JA0vaIb4158
+   Ref: https://www.youtube.com/watch?v=Cq6yj9se9M4 -> TLS 1.3 visualization in wireshark
    ________                                                      __________
    |Client|                                                      | Server |
    --------                                                      ----------
@@ -12,18 +17,13 @@
       |                                                               |                                                                                       |
       |<<------------------------------------------Server Hello-------| (ext, cert, cert verify, finished, certificate request (if mutual auth is required))  |
       |                                                               |                                                                                       |
-      |<<----------------## Server can send encrypted data here ##----|                                                                                       |
+      |<<----------------## Server can send encrypted data here ##----| change cipher spec, app data                                                                                      |
       |                                                               | Only one round trip                                                        TLS 1.3 Handshake
       |--- Finished ----------------------------------------------->>>| cert, cert verify (if client cert is requested)                                       |
       |                                                               | ----------------------------------------------------------------------------------------
       |<<<<------------------ Encrypted Data ---------------------->>>|
       |                                                               |
 */
-
-#include <stdint.h>
-#include <stdbool.h>
-#include "tls13_extensions.h"
-
 
 #define TLS13_SESSION_ID_LEN 16
 #define TLS13_CIPHERSUITE_LEN 3
@@ -141,11 +141,26 @@ typedef struct{
     tls13_serverExtensions_t    serverExt;
 } tls13_serverHello_t;
 
+typedef struct {
+   tls13_recordHdr_t recordHeader;     /* 0x17 (application data) */
+   uint8_t           encryptedData[0]; /* Data encrypted with the server handshake key */
+   uint8_t           authTag[16];      /* AEAD authentication tag */
+   uint8_t           encryExt[0];      /* could be Server Certificate  (tls13_serverCert_t) [or] server cert verify [or]  server finished [or] client finished */
+   uint8_t           recordType;       /* 0x16 (handshake record); 0x17 (application data)*/
+}tls13_wrappedRecord_t;
+
 /* server change cipher spec - for compatability */
 typedef struct{
    tls13_recordHdr_t recordHeader;
    uint8_t           payload;       /* 1 Byte payload usually 0x01 */
 }tls12_serverChangeCipherSpec_t;
+
+/* This structure includes change cipher Spec and encrypted data */
+typedef struct {
+   tls13_serverHello_t             serverHello;
+   tls12_serverChangeCipherSpec_t  serverCCS;
+   tls13_wrappedRecord_t           record1;
+}tls13_serverHellowCompat_t;
 
 typedef struct {
    uint32_t     certLen : 24;
@@ -160,16 +175,69 @@ typedef struct {
    tls13_cert_t         cert[0];
 }tls13_serverCert_t;
 
+/* Certificate record */
+typedef struct {
+   tls13_recordHdr_t    recordHeader;     /* 0x17 (application data) */
+   uint8_t              encryptedData[0]; /* Data encrypted with the server handshake key */
+   uint8_t              authTag[16];      /* AEAD authentication tag */
+   tls13_serverCert_t   certificate;      /* could be Server Certificate  (tls13_serverCert_t) */
+   uint8_t              recordType;       /* 0x16 (handshake record) */
+}tls13_certRecord_t;
+
 typedef struct {
    uint16_t    signType;
    uint16_t    signLen;
-   uint8_t     sugn[0];
+   uint8_t     sign[0];
 }tls13_signature_t;
 
 typedef struct {
    tls13_handshakeHdr_t handshakeHdr;    /* 0x0f (certificate verify) */
    tls13_signature_t    sign;
 }tls13_serverCertVerify_t;
+
+/* Certificate verify record */
+typedef struct {   
+   tls13_recordHdr_t          recordHeader;     /* 0x17 (application data) */
+   uint8_t                    encryptedData[0]; /* Data encrypted with the server handshake key */
+   uint8_t                    authTag[16];      /* AEAD authentication tag */
+   tls13_serverCertVerify_t   certVerify;       /* server cert verify */
+   uint8_t                    recordType;       /* 0x16 (handshake record) */ 
+}tls13_certVerifyRecord_t;
+
+typedef struct {
+   tls13_handshakeHdr_t handshakeHdr;    /* handshake message type 0x14 (finished) */
+   uint8_t              verifyData[0];
+}tls13_finished_t;
+
+/* Finished record */
+typedef struct {
+   tls13_recordHdr_t          recordHeader;     /* 0x17 (application data) */
+   uint8_t                    encryptedData[0]; /* Data encrypted with the server handshake key */
+   uint8_t                    authTag[16];      /* AEAD authentication tag */
+   tls13_finished_t           finished;         /* server finished  */
+   uint8_t                    recordType;       /* 0x16 (handshake record) */
+}tls13_finishedRecord_t;
+
+/* Application data */
+typedef struct {
+   tls13_recordHdr_t          recordHeader;     /* 0x17 (application data) */
+   uint8_t                    encryptedData[0]; /* Data encrypted with the server handshake key */
+   uint8_t                    authTag[16];      /* AEAD authentication tag */
+   uint8_t                    appData[0];       /* client app data  */
+   uint8_t                    recordType;       /* 0x17 (app data) */
+}tls13_appDataRecord_t;
+
+typedef struct {
+   tls13_certRecord_t       certRecord;
+   tls13_certVerifyRecord_t certVerifyRecord; 
+   tls13_finishedRecord_t   finishedRecord;
+}tls13_serverWrappedRecord_t;
+
+typedef struct {
+   tls12_serverChangeCipherSpec_t  clientCCS;
+   tls13_finishedRecord_t          finishedRecord;
+   tls13_appDataRecord_t           appDataRecord;
+}tls13_clientWrappedRecord_t;
 
 typedef struct {
    tls13_handshakeHdr_t handshakeHdr; /*  0x04 (new session ticket */
@@ -182,36 +250,40 @@ typedef struct {
    uint16_t             ticketExtensionLen;
 }tls13_serverNewSessionTicket_t;
 
-typedef struct {
-   tls13_recordHdr_t recordHeader;     /* 0x17 (application data) */
-   uint8_t           encryptedData[0]; /* Data encrypted with the server handshake key */
-   uint8_t           authTag[16];      /* AEAD authentication tag */
-   uint8_t           encryExt[0];      /* could be Server Certificate  (tls13_serverCert_t) [or] server cert verify [or]  server finished [or] client finished */
-   uint8_t           recordType;       /* 0x16 (handshake record); 0x17 (application data)*/
-}tls13_wrappedRecord_t;
-
 #pragma pop
 
 /* Macros for Structure element access */
 
 #define CLIENTHELLO_CIPHERSUITE_LEN(clientHelloPtr, sessionIdLen)         \
-               (*(uint16_t *)((((tls13_clientHello_t *)clientHelloPtr)->cipherSuiteLen) + sessionIdLen))
+               (*(uint16_t *)((&((tls13_clientHello_t *)clientHelloPtr)->cipherSuiteLen) + sessionIdLen))
 
 #define GET_CLIENTHELLO_CIPHERSUITELIST_PTR(clientHelloPtr, sessionIdLen)         \
                ((tls13_cipherSuiteData_t *)(&(((tls13_clientHello_t *)clientHelloPtr)->cipherSuiteList) + sessionIdLen))
 
 #define CLIENTHELLO_CMPMTHDLIST_LEN(clientHelloPtr, sessionIdLen, cipherSuiteLen)      \
-               (*(uint8_t *)((((tls13_clientHello_t *)clientHelloPtr)->compressionMethodLen) + sessionIdLen + cipherSuiteLen))
+               (*(uint8_t *)((&((tls13_clientHello_t *)clientHelloPtr)->compressionMethodLen) + sessionIdLen + cipherSuiteLen))
 
 #define GET_CLIENTHELLO_CMPMTHDLIST_PTR(clientHelloPtr, sessionIdLen, cipherSuiteLen)      \
                ((tls13_compressionMethods_t *)(&(((tls13_clientHello_t *)clientHelloPtr)->compressionMethodList) + sessionIdLen + cipherSuiteLen))
 
 #define CLIENTHELLO_CLIENTEXT_LEN(clientHelloPtr, sessionIdLen, cipherSuiteLen, cmpMthdLen)      \
-               (*(uint16_t *)((((tls13_clientHello_t *)clientHelloPtr)->extLen) + sessionIdLen + cipherSuiteLen + cmpMthdLen))
+               (*(uint16_t *)((&((tls13_clientHello_t *)clientHelloPtr)->extLen) + sessionIdLen + cipherSuiteLen + cmpMthdLen))
 
 #define GET_CLIENTHELLO_CLIENTEXT_PTR(clientHelloPtr, sessionIdLen, cipherSuiteLen, cmpMthdLen)      \
                ((tls13_clientExtensions_t *)(&(((tls13_clientHello_t *)clientHelloPtr)->clientExt) + sessionIdLen + cipherSuiteLen + cmpMthdLen))
 
-void tls13_prepareClientHello(tls13_clientHello_t *clientHello);
+            
+/* Prepare pkts to be sent  */
+uint16_t tls13_prepareClientHello(tls13_clientHello_t *clientHello);
+
+uint16_t tls13_prepareServerHello(tls13_serverHellowCompat_t *serverHello);
+
+uint16_t tls13_prepareServerWrappedRecord(tls13_serverWrappedRecord_t *serverWrappedRecord);
+
+uint16_t tls13_prepareClientWrappedRecord(tls13_clientWrappedRecord_t *clientWrappedRecord);
+
+uint16_t tls13_prepareServerSessionTicketRecord(tls13_serverNewSessionTicket_t *sessionTicket);
+
+/* Deserialize and update data structures based on received pkts */
 
 #endif
