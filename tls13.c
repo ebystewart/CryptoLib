@@ -232,15 +232,42 @@ uint16_t tls13_prepareServerHello(tls13_serverHellowCompat_t *serverHello)
         }
     }
     SERVERHELLO_SERVEREXT_LEN(&serverHelloTmp->serverHello, TLS13_SESSION_ID_LEN) = extLen;
-        serverHelloTmp->serverHello.handshakeHeader.handshakeMsgLen = sizeof(serverHelloTmp->serverHello.serverVersion) + \
+    serverHelloTmp->serverHello.handshakeHeader.handshakeMsgLen = sizeof(serverHelloTmp->serverHello.serverVersion) + \
                                                         sizeof(serverHelloTmp->serverHello.serverRandom) + \
                                                         TLS13_SESSION_ID_LEN + 1 + \
                                                         2 + 1 + \
                                                         serverHelloTmp->serverHello.extLen;
     serverHelloTmp->serverHello.recordHeader.recordLen = serverHelloTmp->serverHello.handshakeHeader.handshakeMsgLen + sizeof(tls13_handshakeHdr_t);
 
-    /* Finally do a memcopy */
-    memcpy((uint8_t *)serverHello, (uint8_t *)serverHelloTmp, (serverHelloTmp->serverHello.recordHeader.recordLen + 1));
+    /* Fill and serialize the change cipher spec structure */
+    tls13_serverChangeCipherSpec_t *sCCS = &serverHelloTmp->serverCCS + serverHelloTmp->serverHello.recordHeader.recordLen;
+
+    sCCS->recordHeader.recordType   = TLS13_CHANGE_CIPHERSPEC_RECORD;
+    sCCS->recordHeader.protoVersion = 0x0303; /* Legacy TLS 1.2 */
+    sCCS->payload                   = 0x01;
+    sCCS->recordHeader.recordLen    = 0x0001;
+
+    /* Fill and serialize the first wrapped record with encrypted data */
+    tls13_wrappedRecord_t *rec = &serverHelloTmp->record1 + serverHelloTmp->serverHello.recordHeader.recordLen + sizeof(tls13_serverChangeCipherSpec_t);
+
+    rec->recordHeader.recordType = TLS13_APPDATA_RECORD;
+    rec->recordHeader.protoVersion = 0x0303; /* legacy TLS 1.2 */
+    memset(rec->encryptedData, 0xCC, 7);     /* encrypted data with server handshake key */
+    memset(rec->authTag + 6, 0xFF, 16);      /* 16 Byte auth tag */
+    rec->recordHeader.recordLen = 7 + 16;
+
+    rec->encryExt.handshakeHdr.handshakeType = TLS13_HST_ENCRYPTED_EXT;
+    // Empty rec->encryExt.extList
+    rec->encryExt.extLen = 0x0000;
+    rec->encryExt.handshakeHdr.handshakeMsgLen = 2;
+
+    rec->recordType = TLS13_HANDSHAKE_RECORD;
+
+    /* Finally do a mem copy */
+    memcpy((uint8_t *)serverHello, (uint8_t *)serverHelloTmp, (serverHelloTmp->serverHello.recordHeader.recordLen + 1 + \
+                                                                sCCS->recordHeader.recordLen + 1 + \
+                                                                rec->recordHeader.recordLen + 1 + \
+                                                                rec->encryExt.handshakeHdr.handshakeMsgLen + 1 + 1));
     free(serverHelloTmp);
 
     return (serverHelloTmp->serverHello.recordHeader.recordLen + 1);
@@ -248,7 +275,60 @@ uint16_t tls13_prepareServerHello(tls13_serverHellowCompat_t *serverHello)
 
 uint16_t tls13_prepareServerWrappedRecord(tls13_serverWrappedRecord_t *serverWrappedRecord)
 {
+    tls13_serverWrappedRecord_t *record = calloc(1, (sizeof(tls13_serverWrappedRecord_t) + 1200));
 
+    tls13_certRecord_t *certRecord = &record->certRecord;
+    {
+        certRecord->recordHeader.recordType = TLS13_APPDATA_RECORD;
+        certRecord->recordHeader.protoVersion = 0x0303; /* Legacy TLS 1.2 */
+        memset(&certRecord->encryptedData, 0xBB, 123);  // encrypted data length to be standardised. data encrypted with the server handshake key
+        memset(certRecord->authTag + 123, 0xFF, 16);
+
+        /* Certificate details */
+        certRecord->certificate.handshakeHdr.handshakeType = TLS13_HST_CERTIFICATE;
+        certRecord->certificate.requestContext = 0x00;
+        certRecord->certificate.payloadLen = 321 + 3 + sizeof(certRecord->certificate.cert->certExtension);
+        certRecord->certificate.cert->certLen = 321;
+        memset(&certRecord->certificate.cert->cert + 123, 0x9A, 321);
+        certRecord->certificate.cert->certExtension = 0x0000;
+        certRecord->certificate.handshakeHdr.handshakeMsgLen = certRecord->certificate.payloadLen + 3 + \
+                                                               sizeof(certRecord->certificate.requestContext);
+
+        certRecord->recordHeader.recordLen = certRecord->certificate.handshakeHdr.handshakeMsgLen + 1 + 123 + sizeof(certRecord->authTag) + 1;
+        certRecord->recordType = TLS13_HANDSHAKE_RECORD;
+    }
+    tls13_certVerifyRecord_t *certVerifyRecord = &record->certVerifyRecord + certRecord->recordHeader.recordLen + 1; 
+    {
+        certVerifyRecord->recordHeader.recordType = TLS13_APPDATA_RECORD;
+        certVerifyRecord->recordHeader.protoVersion = 0x0303; /* Legacy TLS 1.2 */
+        memset(&certVerifyRecord->encryptedData, 0xBB, 123);  // encrypted data length to be standardised. data encrypted with the server handshake key
+        memset(certVerifyRecord->authTag + 123, 0xFF, 16);
+
+        /* Certificate verification details */
+        certVerifyRecord->certVerify.handshakeHdr.handshakeType = TLS13_HST_CERTIFICATE_VERIFY;
+            certVerifyRecord->certVerify.sign.signType = 0x0804; /* reserved value for RSA-PSS-RSAE-SHA256 signature */
+            certVerifyRecord->certVerify.sign.signLen = 111;
+            memset(&certVerifyRecord->certVerify.sign.sign, 0xC8, 111);
+        certVerifyRecord->certVerify.handshakeHdr.handshakeMsgLen = 111 + sizeof(certVerifyRecord->certVerify.sign.signLen) + 1;
+
+        certVerifyRecord->recordHeader.recordLen = certVerifyRecord->certVerify.handshakeHdr.handshakeMsgLen + 16 + 123 + 1;
+        certVerifyRecord->recordType = TLS13_HANDSHAKE_RECORD;
+    }
+    tls13_finishedRecord_t *finishedRecord = &record->finishedRecord + certRecord->recordHeader.recordLen + 1 + certVerifyRecord->recordHeader.recordLen + 1;
+    {
+        finishedRecord->recordHeader.recordType = TLS13_APPDATA_RECORD;
+        finishedRecord->recordHeader.protoVersion = 0x0303; /* Legacy TLS 1.2 */
+        memset(&finishedRecord->encryptedData, 0xBB, 123);  // encrypted data length to be standardised. data encrypted with the server handshake key
+        memset(finishedRecord->authTag + 123, 0xFF, 16);
+
+        /* Finished record details */
+        finishedRecord->finished.handshakeHdr.handshakeType = TLS13_HST_FINISHED;
+        memset(&finishedRecord->finished.verifyData, 0xFC, 50); // length should be revisted
+        finishedRecord->finished.handshakeHdr.handshakeMsgLen = 50;
+        
+        finishedRecord->recordHeader.recordLen = finishedRecord->finished.handshakeHdr.handshakeMsgLen + 16 + 123 + 1;
+        finishedRecord->recordType = TLS13_HANDSHAKE_RECORD;        
+    }
 }
 
 uint16_t tls13_prepareClientWrappedRecord(tls13_clientWrappedRecord_t *clientWrappedRecord)

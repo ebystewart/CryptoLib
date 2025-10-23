@@ -31,14 +31,16 @@
 #define TLS13_RANDOM_LEN 32
 
 typedef enum {
-   TLS13_ALERT_RECORD     = 0x15,
-   TLS13_HANDSHAKE_RECORD = 0x16,
-   TLS13_APPDATA_RECORD   = 0x17
+   TLS13_CHANGE_CIPHERSPEC_RECORD = 0x14,
+   TLS13_ALERT_RECORD             = 0x15,
+   TLS13_HANDSHAKE_RECORD         = 0x16,
+   TLS13_APPDATA_RECORD           = 0x17
 }tls13_recordType_e;
 
 typedef enum {
    TLS13_HST_CLIENT_HELLO       = 0x01,
    TLS13_HST_SERVER_HELLO       = 0x02,
+   TLS13_HST_ENCRYPTED_EXT      = 0x05,
    TLS13_HST_CERTIFICATE        = 0x0B,
    TLS13_HST_SERVER_KEY_XCHNGE  = 0x0C,
    TLS13_HST_SERVER_HELLO_DONE  = 0x0E,
@@ -142,10 +144,16 @@ typedef struct{
 } tls13_serverHello_t;
 
 typedef struct {
+   tls13_handshakeHdr_t  handshakeHdr;
+   uint16_t extLen;
+   uint16_t extList[0]; // Need to check
+}tls13_encryExt_t;
+
+typedef struct {
    tls13_recordHdr_t recordHeader;     /* 0x17 (application data) */
    uint8_t           encryptedData[0]; /* Data encrypted with the server handshake key */
    uint8_t           authTag[16];      /* AEAD authentication tag */
-   uint8_t           encryExt[0];      /* could be Server Certificate  (tls13_serverCert_t) [or] server cert verify [or]  server finished [or] client finished */
+   tls13_encryExt_t  encryExt;         /* could be Server Certificate  (tls13_serverCert_t) [or] server cert verify [or]  server finished [or] client finished */
    uint8_t           recordType;       /* 0x16 (handshake record); 0x17 (application data)*/
 }tls13_wrappedRecord_t;
 
@@ -153,12 +161,12 @@ typedef struct {
 typedef struct{
    tls13_recordHdr_t recordHeader;
    uint8_t           payload;       /* 1 Byte payload usually 0x01 */
-}tls12_serverChangeCipherSpec_t;
+}tls13_serverChangeCipherSpec_t;
 
 /* This structure includes change cipher Spec and encrypted data */
 typedef struct {
    tls13_serverHello_t             serverHello;
-   tls12_serverChangeCipherSpec_t  serverCCS;
+   tls13_serverChangeCipherSpec_t  serverCCS;
    tls13_wrappedRecord_t           record1;
 }tls13_serverHellowCompat_t;
 
@@ -234,7 +242,7 @@ typedef struct {
 }tls13_serverWrappedRecord_t;
 
 typedef struct {
-   tls12_serverChangeCipherSpec_t  clientCCS;
+   tls13_serverChangeCipherSpec_t  clientCCS;
    tls13_finishedRecord_t          finishedRecord;
    tls13_appDataRecord_t           appDataRecord;
 }tls13_clientWrappedRecord_t;
