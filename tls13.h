@@ -157,16 +157,16 @@ typedef struct {
    uint8_t           recordType;       /* 0x16 (handshake record); 0x17 (application data)*/
 }tls13_wrappedRecord_t;
 
-/* server change cipher spec - for compatability */
+/* server & client change cipher spec - for compatability */
 typedef struct{
    tls13_recordHdr_t recordHeader;
    uint8_t           payload;       /* 1 Byte payload usually 0x01 */
-}tls13_serverChangeCipherSpec_t;
+}tls13_changeCipherSpec_t;
 
 /* This structure includes change cipher Spec and encrypted data */
 typedef struct {
    tls13_serverHello_t             serverHello;
-   tls13_serverChangeCipherSpec_t  serverCCS;
+   tls13_changeCipherSpec_t        serverCCS;
    tls13_wrappedRecord_t           record1;
 }tls13_serverHellowCompat_t;
 
@@ -242,7 +242,7 @@ typedef struct {
 }tls13_serverWrappedRecord_t;
 
 typedef struct {
-   tls13_serverChangeCipherSpec_t  clientCCS;
+   tls13_changeCipherSpec_t        clientCCS;
    tls13_finishedRecord_t          finishedRecord;
    tls13_appDataRecord_t           appDataRecord;
 }tls13_clientWrappedRecord_t;
