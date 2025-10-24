@@ -29,6 +29,7 @@
 #define TLS13_CIPHERSUITE_LEN 3
 #define TLS13_PROTO_VERSION 0x0301
 #define TLS13_RANDOM_LEN 32
+#define TLS13_RECORD_AUTHTAG_LEN 16
 
 typedef enum {
    TLS13_CHANGE_CIPHERSPEC_RECORD = 0x14,
@@ -154,9 +155,12 @@ typedef struct {
    tls13_recordHdr_t recordHeader;     /* 0x17 (application data) */
    uint8_t           encryptedData[0]; /* Data encrypted with the server handshake key */
    uint8_t           authTag[16];      /* AEAD authentication tag */
-   tls13_encryExt_t  encryExt;         /* could be Server Certificate  (tls13_serverCert_t) [or] server cert verify [or]  server finished [or] client finished */
-   uint8_t           recordType;       /* 0x16 (handshake record); 0x17 (application data)*/
 }tls13_wrappedRecord_t;
+
+typedef struct {
+   tls13_encryExt_t  encryExt;         /* could be Server Certificate  (tls13_serverCert_t) [or] server cert verify [or]  server finished [or] client finished */
+   uint8_t           recordType;       /* 0x16 (handshake record); 0x17 (application data)*/   
+}tls13_wrappedRecordDataDecrypt_t;
 
 /* server & client change cipher spec - for compatability */
 typedef struct{
@@ -189,9 +193,12 @@ typedef struct {
    tls13_recordHdr_t    recordHeader;     /* 0x17 (application data) */
    uint8_t              encryptedData[0]; /* Data encrypted with the server handshake key */
    uint8_t              authTag[16];      /* AEAD authentication tag */
-   tls13_serverCert_t   certificate;      /* could be Server Certificate  (tls13_serverCert_t) */
-   uint8_t              recordType;       /* 0x16 (handshake record) */
 }tls13_certRecord_t;
+
+typedef struct {
+   tls13_serverCert_t   certificate;      /* could be Server Certificate  (tls13_serverCert_t) */
+   uint8_t              recordType;       /* 0x16 (handshake record) */   
+}tls13_certRecordDataDecrypt_t;
 
 typedef struct {
    uint16_t    signType;
@@ -209,9 +216,12 @@ typedef struct {
    tls13_recordHdr_t          recordHeader;     /* 0x17 (application data) */
    uint8_t                    encryptedData[0]; /* Data encrypted with the server handshake key */
    uint8_t                    authTag[16];      /* AEAD authentication tag */
-   tls13_serverCertVerify_t   certVerify;       /* server cert verify */
-   uint8_t                    recordType;       /* 0x16 (handshake record) */ 
 }tls13_certVerifyRecord_t;
+
+typedef struct {
+   tls13_serverCertVerify_t   certVerify;       /* server cert verify */
+   uint8_t                    recordType;       /* 0x16 (handshake record) */    
+}tls13_certVerifyRecordDataDecrypt_t;
 
 typedef struct {
    tls13_handshakeHdr_t handshakeHdr;    /* handshake message type 0x14 (finished) */
@@ -223,18 +233,20 @@ typedef struct {
    tls13_recordHdr_t          recordHeader;     /* 0x17 (application data) */
    uint8_t                    encryptedData[0]; /* Data encrypted with the server handshake key */
    uint8_t                    authTag[16];      /* AEAD authentication tag */
+}tls13_finishedRecord_t;
+
+typedef struct {
    tls13_finished_t           finished;         /* server finished  */
    uint8_t                    recordType;       /* 0x16 (handshake record) */
-}tls13_finishedRecord_t;
+}tsl13_finishedRecordDataDecrypted_t;
 
 /* Application data */
 typedef struct {
    tls13_recordHdr_t          recordHeader;     /* 0x17 (application data) */
    uint8_t                    encryptedData[0]; /* Data encrypted with the server handshake key */
    uint8_t                    authTag[16];      /* AEAD authentication tag */
-   uint8_t                    appData[0];       /* client app data  */
-   uint8_t                    recordType;       /* 0x17 (app data) */
 }tls13_appDataRecord_t;
+
 
 typedef struct {
    tls13_certRecord_t       certRecord;
@@ -315,6 +327,8 @@ uint16_t tls13_prepareServerWrappedRecord(tls13_serverWrappedRecord_t *serverWra
 uint16_t tls13_prepareClientWrappedRecord(tls13_clientWrappedRecord_t *clientWrappedRecord);
 
 uint16_t tls13_prepareServerSessionTicketRecord(tls13_serverSesTktWrappedRecord_t *sessionTicket);
+
+uint16_t tls13_prepareAppData(uint8_t *data, uint16_t dataLen, uint8_t *authTag, tls13_appDataRecord_t *appData);
 
 /* Deserialize and update data structures based on received pkts */
 
