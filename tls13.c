@@ -338,6 +338,7 @@ uint16_t tls13_prepareServerWrappedRecord(tls13_serverWrappedRecord_t *serverWra
 
     memcpy((uint8_t *)serverWrappedRecord, (uint8_t *)record, len);
     free(record);
+    return len;
 }
 
 uint16_t tls13_prepareClientWrappedRecord(tls13_clientWrappedRecord_t *clientWrappedRecord)
@@ -388,6 +389,7 @@ uint16_t tls13_prepareClientWrappedRecord(tls13_clientWrappedRecord_t *clientWra
 
     memcpy((uint8_t *)clientWrappedRecord, (uint8_t *)record, len);
     free(record);
+    return len;
 }
 
 uint16_t tls13_prepareServerSessionTicketRecord(tls13_serverSesTktWrappedRecord_t *sessionTicket)
@@ -427,7 +429,34 @@ uint16_t tls13_prepareServerSessionTicketRecord(tls13_serverSesTktWrappedRecord_
         
     len = sNST->recordHeader.recordLen + 2 + 2 + 1;
     
-    memcpy((uint8_t *)sNST, (uint8_t *)sessionTicket, len);
+    memcpy((uint8_t *)sessionTicket, (uint8_t *)sNST, len);
 
     free(sNST);
+    return len;
+}
+
+uint16_t tls13_prepareAppData(tls13_appDataRecord_t *appData)
+{
+    uint16_t offset = 0;
+    uint16_t len = 0;
+    tls13_appDataRecord_t *app = calloc(1, (sizeof(tls13_appDataRecord_t) + 1200));
+
+    app->recordHeader.recordType = TLS13_APPDATA_RECORD;
+    app->recordHeader.protoVersion = 0x0303; /* Legacy TLS 1.2 */
+    memset(&app->encryptedData, 0xBB, 5);    // encrypted data length to be standardised. data encrypted with the server handshake key
+    offset += 5;
+    memset(&app->authTag + offset, 0xFF, 16);
+    offset += 16;
+
+    memset(&app->appData + offset, 0xEE, 800); /* 800 Bytes of application data - should come as argument */
+
+    app->recordHeader.recordLen = offset + 800;
+    app->recordType = TLS13_APPDATA_RECORD;
+        
+    len = app->recordHeader.recordLen + 2 + 2 + 1;
+    
+    memcpy((uint8_t *)appData, (uint8_t *)app, len);
+
+    free(app);
+    return len;
 }
