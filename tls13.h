@@ -40,6 +40,7 @@ typedef enum {
 typedef enum {
    TLS13_HST_CLIENT_HELLO       = 0x01,
    TLS13_HST_SERVER_HELLO       = 0x02,
+   TLS13_HST_NEW_SESSION_TICKET = 0x04,
    TLS13_HST_ENCRYPTED_EXT      = 0x05,
    TLS13_HST_CERTIFICATE        = 0x0B,
    TLS13_HST_SERVER_KEY_XCHNGE  = 0x0C,
@@ -256,7 +257,16 @@ typedef struct {
    uint16_t             sessionTicketLen;
    uint8_t              sessionTicket[0];
    uint16_t             ticketExtensionLen;
-}tls13_serverNewSessionTicket_t;
+   tls13_extension2222_t extList[0];
+}tls13_serverNewSesTkt_t;
+
+typedef struct {
+   tls13_recordHdr_t          recordHeader;     /* 0x17 (application data) */
+   uint8_t                    encryptedData[0]; /* Data encrypted with the server handshake key */
+   uint8_t                    authTag[16];      /* AEAD authentication tag */
+   tls13_serverNewSesTkt_t    sessionTicket;    /* session ticket  */
+   uint8_t                    recordType;       /* 0x16 (handshake record) */
+}tls13_serverSesTktWrappedRecord_t;
 
 #pragma pop
 
@@ -281,16 +291,19 @@ typedef struct {
                ((tls13_clientExtensions_t *)(&(((tls13_clientHello_t *)clientHelloPtr)->clientExt) + sessionIdLen + cipherSuiteLen + cmpMthdLen))
 
 #define SERVERHELLO_CIPHERSUITE_SELECT(serverHelloPtr, sessionIdLen)         \
-               (*(uint16_t *)(&(((tls13_serverHello_t *)serverHelloPtr)->cipherSuiteSelect) + (sessionIdLen - 1)))           
+               (*(uint16_t *)(&(((tls13_serverHello_t *)serverHelloPtr)->cipherSuiteSelect) + (sessionIdLen)))           
 
 #define SERVERHELLO_COMPRESSION_METHOD_SELECT(serverHelloPtr, sessionIdLen)         \
-               (*(uint16_t *)(&(((tls13_serverHello_t *)serverHelloPtr)->compressionMethodSelect) + (sessionIdLen - 1)))
+               (*(uint16_t *)(&(((tls13_serverHello_t *)serverHelloPtr)->compressionMethodSelect) + (sessionIdLen)))
                
 #define GET_SERVERHELLO_SERVEREXT_PTR(serverHelloPtr, sessionIdLen)         \
-               ((tls13_serverExtensions_t *)(&(((tls13_serverHello_t *)serverHelloPtr)->serverExt) + (sessionIdLen - 1)))
+               ((tls13_serverExtensions_t *)(&(((tls13_serverHello_t *)serverHelloPtr)->serverExt) + (sessionIdLen)))
 
 #define SERVERHELLO_SERVEREXT_LEN(serverHelloPtr, sessionIdLen)         \
-               (*(uint16_t *)(&(((tls13_serverHello_t *)serverHelloPtr)->extLen) + (sessionIdLen - 1)))
+               (*(uint16_t *)(&(((tls13_serverHello_t *)serverHelloPtr)->extLen) + (sessionIdLen)))
+
+#define REACH_ELEMENT(inPtr, inPtrType, element, offset, retType)         \
+               (*(retType *)(&(((inPtrType *)inPtr)->element) + (offset)))
 
 /* Prepare pkts to be sent  */
 uint16_t tls13_prepareClientHello(tls13_clientHello_t *clientHello);
@@ -301,7 +314,7 @@ uint16_t tls13_prepareServerWrappedRecord(tls13_serverWrappedRecord_t *serverWra
 
 uint16_t tls13_prepareClientWrappedRecord(tls13_clientWrappedRecord_t *clientWrappedRecord);
 
-uint16_t tls13_prepareServerSessionTicketRecord(tls13_serverNewSessionTicket_t *sessionTicket);
+uint16_t tls13_prepareServerSessionTicketRecord(tls13_serverSesTktWrappedRecord_t *sessionTicket);
 
 /* Deserialize and update data structures based on received pkts */
 

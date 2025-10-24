@@ -390,7 +390,44 @@ uint16_t tls13_prepareClientWrappedRecord(tls13_clientWrappedRecord_t *clientWra
     free(record);
 }
 
-uint16_t tls13_prepareServerSessionTicketRecord(tls13_serverNewSessionTicket_t *sessionTicket)
+uint16_t tls13_prepareServerSessionTicketRecord(tls13_serverSesTktWrappedRecord_t *sessionTicket)
 {
+    uint16_t offset = 0;
+    uint16_t len = 0;
+    tls13_serverSesTktWrappedRecord_t *sNST = calloc(1, (sizeof(tls13_serverSesTktWrappedRecord_t) + 1200));
 
+    sNST->recordHeader.recordType = TLS13_APPDATA_RECORD;
+    sNST->recordHeader.protoVersion = 0x0303; /* Legacy TLS 1.2 */
+    memset(&sNST->encryptedData, 0xBB, 100);    // encrypted data length to be standardised. data encrypted with the server handshake key
+    offset += 100;
+    memset(sNST->authTag + offset, 0xFF, 16);
+    offset += 16;
+    len = offset;
+
+    tls13_serverNewSesTkt_t *sesTkt = &sNST->sessionTicket + offset;
+    offset = 0; /* reusing variable */
+    sesTkt->handshakeHdr.handshakeType = TLS13_HST_NEW_SESSION_TICKET;
+
+    sesTkt->ticketLifetime = 0x012C;
+    sesTkt->ticketAgeAdd = 0x0000;
+    sesTkt->nounceLen  = 8;
+    memset(&sesTkt->nounce, 0xDD, 8); /* 8 Bytes of nounce - length should come as argument */
+    offset += 8;
+    REACH_ELEMENT(sesTkt, tls13_serverNewSesTkt_t, sessionTicketLen, offset, uint16_t)  = 192; /* This also should come as argument */
+    memset(&sesTkt->sessionTicket + offset, 0xAA, 192);
+    offset += 192;
+    REACH_ELEMENT(sesTkt, tls13_serverNewSesTkt_t, ticketExtensionLen, offset, uint16_t) = 0x0000;
+
+    sesTkt->handshakeHdr.handshakeMsgLen = sizeof(sesTkt->ticketLifetime) + sizeof(sesTkt->ticketAgeAdd) + \
+                                           sizeof(sesTkt->nounceLen) + sizeof(sesTkt->sessionTicketLen) + \
+                                           sizeof(sesTkt->ticketExtensionLen) + offset;
+
+    sNST->recordHeader.recordLen = len + sesTkt->handshakeHdr.handshakeMsgLen + 1 + 1;
+    sNST->recordType = TLS13_APPDATA_RECORD;
+        
+    len = sNST->recordHeader.recordLen + 2 + 2 + 1;
+    
+    memcpy((uint8_t *)sNST, (uint8_t *)sessionTicket, len);
+
+    free(sNST);
 }
