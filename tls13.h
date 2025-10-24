@@ -28,8 +28,10 @@
 #define TLS13_SESSION_ID_LEN 16
 #define TLS13_CIPHERSUITE_LEN 3
 #define TLS13_PROTO_VERSION 0x0301
+#define TLS12_PROTO_VERSION 0x0303
 #define TLS13_RANDOM_LEN 32
 #define TLS13_RECORD_AUTHTAG_LEN 16
+#define TLS13_RECORD_HEADER_SIZE 5
 
 typedef enum {
    TLS13_CHANGE_CIPHERSPEC_RECORD = 0x14,
@@ -276,9 +278,12 @@ typedef struct {
    tls13_recordHdr_t          recordHeader;     /* 0x17 (application data) */
    uint8_t                    encryptedData[0]; /* Data encrypted with the server handshake key */
    uint8_t                    authTag[16];      /* AEAD authentication tag */
+}tls13_serverSesTktWrappedRecord_t;
+
+typedef struct {
    tls13_serverNewSesTkt_t    sessionTicket;    /* session ticket  */
    uint8_t                    recordType;       /* 0x16 (handshake record) */
-}tls13_serverSesTktWrappedRecord_t;
+}tsl13_serverSesTktDataDecrypt_t;
 
 #pragma pop
 
@@ -326,10 +331,17 @@ uint16_t tls13_prepareServerWrappedRecord(tls13_serverWrappedRecord_t *serverWra
 
 uint16_t tls13_prepareClientWrappedRecord(tls13_clientWrappedRecord_t *clientWrappedRecord);
 
-uint16_t tls13_prepareServerSessionTicketRecord(tls13_serverSesTktWrappedRecord_t *sessionTicket);
+uint16_t tls13_prepareServerSessionTicketRecord(const uint8_t *sessionTkt, \
+                                                const uint8_t sessionTktLen, \
+                                                const uint8_t *authTag, \
+                                                tls13_serverSesTktWrappedRecord_t *sessionTicket);
 
-uint16_t tls13_prepareAppData(uint8_t *data, uint16_t dataLen, uint8_t *authTag, tls13_appDataRecord_t *appData);
+uint16_t tls13_prepareAppData(const uint8_t *data, const uint16_t dataLen, const uint8_t *authTag, tls13_appDataRecord_t *appData);
 
 /* Deserialize and update data structures based on received pkts */
+
+void tls13_extractSessionTicket(tls13_serverNewSesTkt_t *sessionTkt, uint8_t *authTag, const tls13_serverSesTktWrappedRecord_t *sessionTicketRec, const uint16_t pktSize);
+
+void tls13_extractEncryptedAppData(uint8_t *data, uint16_t *dataLen, uint8_t *authTag, const tls13_appDataRecord_t *appData, const uint16_t pktLen);
 
 #endif

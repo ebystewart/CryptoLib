@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include "tls13.h"
 #include "math.h"
 
@@ -264,12 +265,12 @@ uint16_t tls13_prepareServerHello(tls13_serverHellowCompat_t *serverHello)
     rec->recordType = TLS13_HANDSHAKE_RECORD;
 #endif
     /* Finally do a mem copy */
-    memcpy((uint8_t *)serverHello, (uint8_t *)serverHelloTmp, (serverHelloTmp->serverHello.recordHeader.recordLen + 1 + \
-                                                                sCCS->recordHeader.recordLen + 1 + \
-                                                                rec->recordHeader.recordLen + 1 + 1));
+    memcpy((uint8_t *)serverHello, (uint8_t *)serverHelloTmp, (serverHelloTmp->serverHello.recordHeader.recordLen + 5 + \
+                                                                sCCS->recordHeader.recordLen + 5 + \
+                                                                rec->recordHeader.recordLen + 5));
     free(serverHelloTmp);
 
-    return (serverHelloTmp->serverHello.recordHeader.recordLen + 1);
+    return (serverHelloTmp->serverHello.recordHeader.recordLen);
 }
 
 uint16_t tls13_prepareServerWrappedRecord(tls13_serverWrappedRecord_t *serverWrappedRecord)
@@ -389,19 +390,18 @@ uint16_t tls13_prepareClientWrappedRecord(tls13_clientWrappedRecord_t *clientWra
     return len;
 }
 
-uint16_t tls13_prepareServerSessionTicketRecord(tls13_serverSesTktWrappedRecord_t *sessionTicket)
+uint16_t tls13_prepareServerSessionTicketRecord(const uint8_t *sessionTkt, const uint8_t sessionTktLen, const uint8_t *authTag, tls13_serverSesTktWrappedRecord_t *sessionTicket)
 {
     uint16_t offset = 0;
     uint16_t len = 0;
     tls13_serverSesTktWrappedRecord_t *sNST = calloc(1, (sizeof(tls13_serverSesTktWrappedRecord_t) + 1200));
 
     sNST->recordHeader.recordType = TLS13_APPDATA_RECORD;
-    sNST->recordHeader.protoVersion = 0x0303; /* Legacy TLS 1.2 */
-    memset(&sNST->encryptedData, 0xBB, 100);    // encrypted data length to be standardised. data encrypted with the server handshake key
-    offset += 100;
-    memset(sNST->authTag + offset, 0xFF, 16);
-    offset += 16;
-    len = offset;
+    sNST->recordHeader.protoVersion = TLS12_PROTO_VERSION; /* Legacy TLS 1.2 */
+    memset(&sNST->encryptedData, sessionTkt, sessionTktLen);    // session ticket with the server handshake key
+    offset += sessionTktLen;
+    memset(sNST->authTag + offset, authTag, TLS13_RECORD_AUTHTAG_LEN);
+    offset += TLS13_RECORD_AUTHTAG_LEN;
 #if 0
     tls13_serverNewSesTkt_t *sesTkt = &sNST->sessionTicket + offset;
     offset = 0; /* reusing variable */
@@ -421,37 +421,75 @@ uint16_t tls13_prepareServerSessionTicketRecord(tls13_serverSesTktWrappedRecord_
                                            sizeof(sesTkt->nounceLen) + sizeof(sesTkt->sessionTicketLen) + \
                                            sizeof(sesTkt->ticketExtensionLen) + offset;
 #endif
-    sNST->recordHeader.recordLen = len + 1 + 1;
-    sNST->recordType = TLS13_APPDATA_RECORD;
+    sNST->recordHeader.recordLen = offset;
         
-    len = sNST->recordHeader.recordLen + 2 + 2 + 1;
-    
+    len = sNST->recordHeader.recordLen + TLS13_RECORD_HEADER_SIZE; 
     memcpy((uint8_t *)sessionTicket, (uint8_t *)sNST, len);
-
     free(sNST);
     return len;
 }
 
+void tls13_extractSessionTicket(tls13_serverNewSesTkt_t *sessionTkt, uint8_t *authTag, const tls13_serverSesTktWrappedRecord_t *sessionTicketRec, const uint16_t pktSize)
+{
+    uint16_t dataSize = 0;
+    tls13_serverSesTktWrappedRecord_t *tmp = calloc(1, pktSize);
+    memcpy((uint8_t *)tmp, (uint8_t *)sessionTicketRec, pktSize);
+    /* Some basic assertion to check for pkt deformity */
+    assert(tmp->recordHeader.recordType == TLS13_APPDATA_RECORD);
+    assert(tmp->recordHeader.protoVersion == TLS12_PROTO_VERSION || tmp->recordHeader.protoVersion == TLS13_PROTO_VERSION);
+    assert((tmp->recordHeader.recordLen + TLS13_RECORD_HEADER_SIZE) == pktSize);
+
+    dataSize = tmp->recordHeader.recordLen - TLS13_RECORD_AUTHTAG_LEN;
+    memcpy(authTag, (tmp->authTag + dataSize), TLS13_RECORD_AUTHTAG_LEN);
+
+    tsl13_serverSesTktDataDecrypt_t *tmp1 = &tmp->encryptedData;
+    /* decrypt the data */
+    assert(tmp1->recordType == TLS13_HANDSHAKE_RECORD);
+    memcpy(sessionTkt, &tmp1->sessionTicket, dataSize - 1);
+    free(tmp);
+}
+
 /* There should be a max cap to the dataLen */
-uint16_t tls13_prepareAppData(uint8_t *data, uint16_t dataLen, uint8_t *authTag, tls13_appDataRecord_t *appData)
+uint16_t tls13_prepareAppData(const uint8_t *data, const uint16_t dataLen, const uint8_t *authTag, tls13_appDataRecord_t *appData)
 {
     uint16_t offset = 0;
     uint16_t len = 0;
     tls13_appDataRecord_t *app = calloc(1, (sizeof(tls13_appDataRecord_t) + 1200));
 
-    app->recordHeader.recordType = TLS13_APPDATA_RECORD;
-    app->recordHeader.protoVersion = 0x0303;      /* Legacy TLS 1.2 */
-    memset(app->encryptedData, data, dataLen);    /* data encrypted with the server handshake key */
+    app->recordHeader.recordType   = TLS13_APPDATA_RECORD;
+    app->recordHeader.protoVersion = TLS12_PROTO_VERSION;      /* Legacy TLS 1.2 */
+
+    /* Need to encrypt data */
+    memcpy(app->encryptedData, data, dataLen);    /* data encrypted with the server handshake key */
     offset += dataLen;
-    memset(app->authTag + offset, authTag, TLS13_RECORD_AUTHTAG_LEN);
+
+    memcpy(app->authTag + offset, authTag, TLS13_RECORD_AUTHTAG_LEN);
     offset += TLS13_RECORD_AUTHTAG_LEN;
 
-    app->recordHeader.recordLen = offset;
-        
-    len = app->recordHeader.recordLen + 2 + 2 + 1;
-    
+    app->recordHeader.recordLen = offset;      
+    len = app->recordHeader.recordLen + TLS13_RECORD_HEADER_SIZE;  
     memcpy((uint8_t *)appData, (uint8_t *)app, len);
-
     free(app);
+
     return len;
+}
+
+void tls13_extractEncryptedAppData(uint8_t *data, uint16_t *dataLen, uint8_t *authTag, const tls13_appDataRecord_t *appData, const uint16_t pktLen)
+{
+    uint16_t dataSize = 0;
+    tls13_appDataRecord_t *tmp = calloc(1, pktLen);
+    memcpy((uint8_t *)tmp, (uint8_t *)appData, pktLen);
+
+    /* Some basic assertion to check for pkt deformity */
+    assert(tmp->recordHeader.recordType == TLS13_APPDATA_RECORD);
+    assert(tmp->recordHeader.protoVersion == TLS12_PROTO_VERSION || tmp->recordHeader.protoVersion == TLS13_PROTO_VERSION);
+    assert((tmp->recordHeader.recordLen + TLS13_RECORD_HEADER_SIZE) == pktLen);
+
+    dataSize = tmp->recordHeader.recordLen - TLS13_RECORD_AUTHTAG_LEN;
+    /* Need to decrypt the data before copying to buffer */
+    memcpy(data, tmp->encryptedData, dataSize);
+    *dataLen = dataSize;
+
+    memcpy(authTag, (tmp->authTag + dataSize), TLS13_RECORD_AUTHTAG_LEN);
+    free(tmp);
 }
