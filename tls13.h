@@ -50,8 +50,30 @@ typedef enum {
    TLS13_HST_SERVER_HELLO_DONE  = 0x0E,
    TLS13_HST_CERTIFICATE_VERIFY = 0x0F,
    TLS13_HST_CLIENT_KEY_XCHNGE  = 0x10,
-   TLS13_HST_FINISHED           = 0x14 
+   TLS13_HST_FINISHED           = 0x14,
+   TLS13_HST_END_OF_EARLY_DATA,
+   TLS13_HST_CERTIFICATE_REQUEST,
+   TLS13_HST_KEY_UPDATE
 }tls13_handshakeType_e;
+
+/* Handshake header declaration pseudocode in https://datatracker.ietf.org/doc/html/rfc8446#page-122
+struct {
+   tls13_handshakeType_e type;
+   uint32_t length;
+   select(tls13_handshakeHdr_t.type){
+      case TLS13_HST_CLIENT_HELLO:          ClientHello;
+      case TLS13_HST_SERVER_HELLO:          ServerHello;
+      case TLS13_HST_END_OF_EARLY_DATA:     EndOfEarlyData;
+      case TLS13_HST_ENCRYPTED_EXT:         EncryptedExtensions;
+      case TLS13_HST_CERTIFICATE_REQUEST:   CertificateRequest;
+      case TLS13_HST_CERTIFICATE:           Certificate;
+      case TLS13_HST_CERTIFICATE_VERIFY:    CertificateVerify;
+      case TLS13_HST_FINISHED:              Finished;
+      case TLS13_HST_NEW_SESSION_TICKET:    NewSessionTicket;
+      case TLS13_HST_KEY_UPDATE:            KeyUpdate;
+   };
+}tls13_handshakeHdr_t;
+*/
 
 typedef enum {
    TLS13_EMPTY_RENEGOTIATION_INFO_SCSV = 0x00FF,
@@ -135,39 +157,39 @@ typedef struct{
 }tls13_serverExtensions_t;
 
 typedef struct{
-    tls13_recordHdr_t           recordHeader;
-    tls13_handshakeHdr_t        handshakeHeader;
-    uint16_t                    serverVersion;            /* Server version - is usually the protocol version */
-    uint8_t                     serverRandom[32];         /* server random - 32Bytes */
-    uint8_t                     sessionIdLen;             /* Optional */
-    uint8_t                     sessionId[0];             /* usually fake */
-    uint16_t                    cipherSuiteSelect;
-    uint8_t                     compressionMethodSelect;
-    uint16_t                    extLen;
-    tls13_serverExtensions_t    serverExt;
+    tls13_recordHdr_t         recordHeader;
+    tls13_handshakeHdr_t      handshakeHeader;
+    uint16_t                  serverVersion;            /* Server version - is usually the protocol version */
+    uint8_t                   serverRandom[32];         /* server random - 32Bytes */
+    uint8_t                   sessionIdLen;             /* Optional */
+    uint8_t                   sessionId[0];             /* usually fake */
+    uint16_t                  cipherSuiteSelect;
+    uint8_t                   compressionMethodSelect;
+    uint16_t                  extLen;
+    tls13_serverExtensions_t  serverExt;
 } tls13_serverHello_t;
 
 typedef struct {
    tls13_handshakeHdr_t  handshakeHdr;
-   uint16_t extLen;
-   uint16_t extList[0]; // Need to check
+   uint16_t              extLen;
+   uint16_t              extList[0]; // Need to check
 }tls13_encryExt_t;
 
 typedef struct {
-   tls13_recordHdr_t recordHeader;     /* 0x17 (application data) */
-   uint8_t           encryptedData[0]; /* Data encrypted with the server handshake key */
-   uint8_t           authTag[16];      /* AEAD authentication tag */
+   tls13_recordHdr_t     recordHeader;     /* 0x17 (application data) */
+   uint8_t               encryptedData[0]; /* Data encrypted with the server handshake key */
+   uint8_t               authTag[16];      /* AEAD authentication tag */
 }tls13_wrappedRecord_t;
 
 typedef struct {
-   tls13_encryExt_t  encryExt;         /* could be Server Certificate  (tls13_serverCert_t) [or] server cert verify [or]  server finished [or] client finished */
-   uint8_t           recordType;       /* 0x16 (handshake record); 0x17 (application data)*/   
+   tls13_encryExt_t      encryExt;         /* could be Server Certificate  (tls13_serverCert_t) [or] server cert verify [or]  server finished [or] client finished */
+   uint8_t               recordType;       /* 0x16 (handshake record); 0x17 (application data)*/   
 }tls13_wrappedRecordDataDecrypt_t;
 
 /* server & client change cipher spec - for compatability */
 typedef struct{
-   tls13_recordHdr_t recordHeader;
-   uint8_t           payload;       /* 1 Byte payload usually 0x01 */
+   tls13_recordHdr_t     recordHeader;
+   uint8_t               payload;       /* 1 Byte payload usually 0x01 */
 }tls13_changeCipherSpec_t;
 
 /* This structure includes change cipher Spec and encrypted data */
@@ -209,8 +231,8 @@ typedef struct {
 }tls13_signature_t;
 
 typedef struct {
-   tls13_handshakeHdr_t handshakeHdr;    /* 0x0f (certificate verify) */
-   tls13_signature_t    sign;
+   tls13_handshakeHdr_t       handshakeHdr;    /* 0x0f (certificate verify) */
+   tls13_signature_t          sign;
 }tls13_serverCertVerify_t;
 
 /* Certificate verify record */
@@ -226,8 +248,8 @@ typedef struct {
 }tls13_certVerifyRecordDataDecrypt_t;
 
 typedef struct {
-   tls13_handshakeHdr_t handshakeHdr;    /* handshake message type 0x14 (finished) */
-   uint8_t              verifyData[0];
+   tls13_handshakeHdr_t       handshakeHdr;    /* handshake message type 0x14 (finished) */
+   uint8_t                    verifyData[0];
 }tls13_finished_t;
 
 /* Finished record */
@@ -245,38 +267,38 @@ typedef struct {
 /* Application data */
 typedef struct {
    tls13_recordHdr_t          recordHeader;     /* 0x17 (application data) */
-   uint8_t                    encryptedData[0]; /* Data encrypted with the server handshake key */
+   uint8_t                    *encryptedData;   /* Data encrypted with the server handshake key */
    uint8_t                    authTag[16];      /* AEAD authentication tag */
 }tls13_appDataRecord_t;
 
 
 typedef struct {
-   tls13_certRecord_t       certRecord;
-   tls13_certVerifyRecord_t certVerifyRecord; 
-   tls13_finishedRecord_t   finishedRecord;
+   tls13_certRecord_t         certRecord;
+   tls13_certVerifyRecord_t   certVerifyRecord; 
+   tls13_finishedRecord_t     finishedRecord;
 }tls13_serverWrappedRecord_t;
 
 typedef struct {
-   tls13_changeCipherSpec_t        clientCCS;
-   tls13_finishedRecord_t          finishedRecord;
-   tls13_appDataRecord_t           appDataRecord;
+   tls13_changeCipherSpec_t   clientCCS;
+   tls13_finishedRecord_t     finishedRecord;
+   tls13_appDataRecord_t      appDataRecord;
 }tls13_clientWrappedRecord_t;
 
 typedef struct {
-   tls13_handshakeHdr_t handshakeHdr; /*  0x04 (new session ticket */
-   uint32_t             ticketLifetime;
-   uint32_t             ticketAgeAdd;
-   uint8_t              nounceLen;
-   uint8_t              nounce[0];
-   uint16_t             sessionTicketLen;
-   uint8_t              sessionTicket[0];
-   uint16_t             ticketExtensionLen;
-   tls13_extension2222_t extList[0];
+   tls13_handshakeHdr_t       handshakeHdr; /*  0x04 (new session ticket */
+   uint32_t                   ticketLifetime;
+   uint32_t                   ticketAgeAdd;
+   uint8_t                    nounceLen;
+   uint8_t                    nounce[0];
+   uint16_t                   sessionTicketLen;
+   uint8_t                    sessionTicket[0];
+   uint16_t                   ticketExtensionLen;
+   tls13_extension2222_t      extList[0];
 }tls13_serverNewSesTkt_t;
 
 typedef struct {
    tls13_recordHdr_t          recordHeader;     /* 0x17 (application data) */
-   uint8_t                    encryptedData[0]; /* Data encrypted with the server handshake key */
+   uint8_t                    *encryptedData; /* Data encrypted with the server handshake key */
    uint8_t                    authTag[16];      /* AEAD authentication tag */
 }tls13_serverSesTktWrappedRecord_t;
 
@@ -285,7 +307,7 @@ typedef struct {
    uint8_t                    recordType;       /* 0x16 (handshake record) */
 }tsl13_serverSesTktDataDecrypt_t;
 
-#pragma pop
+#pragma pack(pop)
 
 /* Macros for Structure element access */
 
@@ -336,12 +358,12 @@ uint16_t tls13_prepareServerSessionTicketRecord(const uint8_t *sessionTkt, \
                                                 const uint8_t *authTag, \
                                                 tls13_serverSesTktWrappedRecord_t *sessionTicket);
 
-uint16_t tls13_prepareAppData(const uint8_t *data, const uint16_t dataLen, const uint8_t *authTag, tls13_appDataRecord_t *appData);
+uint16_t tls13_prepareAppData(const uint8_t *dIn, const uint16_t dInLen, const uint8_t *authTag, uint8_t *tlsPkt);
 
 /* Deserialize and update data structures based on received pkts */
 
 void tls13_extractSessionTicket(tls13_serverNewSesTkt_t *sessionTkt, uint8_t *authTag, const tls13_serverSesTktWrappedRecord_t *sessionTicketRec, const uint16_t pktSize);
 
-void tls13_extractEncryptedAppData(uint8_t *data, uint16_t *dataLen, uint8_t *authTag, const tls13_appDataRecord_t *appData, const uint16_t pktLen);
+void tls13_extractEncryptedAppData(uint8_t *dOut, uint16_t *dOutLen, uint8_t *authTag, const uint8_t *tlsPkt);
 
 #endif

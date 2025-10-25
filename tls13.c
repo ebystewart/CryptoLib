@@ -449,47 +449,48 @@ void tls13_extractSessionTicket(tls13_serverNewSesTkt_t *sessionTkt, uint8_t *au
     free(tmp);
 }
 
-/* There should be a max cap to the dataLen */
-uint16_t tls13_prepareAppData(const uint8_t *data, const uint16_t dataLen, const uint8_t *authTag, tls13_appDataRecord_t *appData)
+/* There should be a max cap to the dataLen. Data length should be inclusive of padding  */
+uint16_t tls13_prepareAppData(const uint8_t *dIn, const uint16_t dInLen, const uint8_t *authTag, uint8_t *tlsPkt)
 {
     uint16_t offset = 0;
     uint16_t len = 0;
-    tls13_appDataRecord_t *app = calloc(1, (sizeof(tls13_appDataRecord_t) + 1200));
+    tls13_appDataRecord_t *app = calloc(1, sizeof(tls13_appDataRecord_t));
 
     app->recordHeader.recordType   = TLS13_APPDATA_RECORD;
     app->recordHeader.protoVersion = TLS12_PROTO_VERSION;      /* Legacy TLS 1.2 */
 
     /* Need to encrypt data */
-    memcpy(app->encryptedData, data, dataLen);    /* data encrypted with the server handshake key */
-    offset += dataLen;
+    memcpy(app->encryptedData, dIn, dInLen);    /* data encrypted with the server handshake key */
+    offset += dInLen;
 
-    memcpy(app->authTag + offset, authTag, TLS13_RECORD_AUTHTAG_LEN);
+    memcpy(app->authTag, authTag, TLS13_RECORD_AUTHTAG_LEN);
     offset += TLS13_RECORD_AUTHTAG_LEN;
 
     app->recordHeader.recordLen = offset;      
     len = app->recordHeader.recordLen + TLS13_RECORD_HEADER_SIZE;  
-    memcpy((uint8_t *)appData, (uint8_t *)app, len);
+    memcpy(tlsPkt, (uint8_t *)app, len);
     free(app);
 
     return len;
 }
 
-void tls13_extractEncryptedAppData(uint8_t *data, uint16_t *dataLen, uint8_t *authTag, const tls13_appDataRecord_t *appData, const uint16_t pktLen)
+void tls13_extractEncryptedAppData(uint8_t *dOut, uint16_t *dOutLen, uint8_t *authTag, const uint8_t *tlsPkt)
 {
     uint16_t dataSize = 0;
+    uint16_t pktLen = ((uint16_t)tlsPkt[3] << 8 | tlsPkt[4]) + TLS13_RECORD_HEADER_SIZE;
     tls13_appDataRecord_t *tmp = calloc(1, pktLen);
-    memcpy((uint8_t *)tmp, (uint8_t *)appData, pktLen);
+    memcpy((uint8_t *)tmp, tlsPkt, pktLen);
 
     /* Some basic assertion to check for pkt deformity */
     assert(tmp->recordHeader.recordType == TLS13_APPDATA_RECORD);
     assert(tmp->recordHeader.protoVersion == TLS12_PROTO_VERSION || tmp->recordHeader.protoVersion == TLS13_PROTO_VERSION);
-    assert((tmp->recordHeader.recordLen + TLS13_RECORD_HEADER_SIZE) == pktLen);
+    //assert((tmp->recordHeader.recordLen + TLS13_RECORD_HEADER_SIZE) == pktLen);
 
     dataSize = tmp->recordHeader.recordLen - TLS13_RECORD_AUTHTAG_LEN;
     /* Need to decrypt the data before copying to buffer */
-    memcpy(data, tmp->encryptedData, dataSize);
-    *dataLen = dataSize;
+    memcpy(dOut, tmp->encryptedData, dataSize);
+    *dOutLen = dataSize;
 
-    memcpy(authTag, (tmp->authTag + dataSize), TLS13_RECORD_AUTHTAG_LEN);
+    memcpy(authTag, tmp->authTag, TLS13_RECORD_AUTHTAG_LEN);
     free(tmp);
 }
