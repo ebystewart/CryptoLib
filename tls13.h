@@ -209,7 +209,7 @@ typedef struct {
    tls13_handshakeHdr_t handshakeHdr;     /*  type 0x0B (certificate) */
    uint8_t              requestContext;
    uint32_t             payloadLen : 24;
-   tls13_cert_t         *cert;
+   tls13_cert_t         cert[0];
 }tls13_serverCert_t;
 
 /* Certificate record */
@@ -270,7 +270,6 @@ typedef struct {
    uint8_t                    encryptedData[0];   /* Data encrypted with the server handshake key */
    uint8_t                    authTag[16];      /* AEAD authentication tag */
 }tls13_appDataRecord_t;
-
 
 typedef struct {
    tls13_certRecord_t         certRecord;
@@ -349,9 +348,12 @@ uint16_t tls13_prepareClientHello(tls13_clientHello_t *clientHello);
 
 uint16_t tls13_prepareServerHello(tls13_serverHellowCompat_t *serverHello);
 
-uint16_t tls13_prepareServerWrappedRecord(tls13_serverWrappedRecord_t *serverWrappedRecord);
+uint16_t tls13_prepareServerWrappedRecord(const uint8_t *dCert, const uint16_t dCertLen, const uint8_t *authTag, 
+                                        const uint8_t *dCertVerf, const uint16_t dCertVerfLen, 
+                                        const uint8_t *dVerify, const uint16_t dVerifyLen,  uint8_t *tlsPkt);
 
-uint16_t tls13_prepareClientWrappedRecord(tls13_clientWrappedRecord_t *clientWrappedRecord);
+uint16_t tls13_prepareClientWrappedRecord(const uint8_t *dVerify, const uint16_t dVerifyLen, const uint8_t *authTag, 
+                                            const uint8_t *appData, const uint8_t appDataLen, uint8_t *tlsPkt);
 
 uint16_t tls13_prepareServerSessionTicketRecord(const uint8_t *sessionTkt, \
                                                 const uint8_t sessionTktLen, \
@@ -361,6 +363,10 @@ uint16_t tls13_prepareServerSessionTicketRecord(const uint8_t *sessionTkt, \
 uint16_t tls13_prepareAppData(const uint8_t *dIn, const uint16_t dInLen, const uint8_t *authTag, uint8_t *tlsPkt);
 
 /* Deserialize and update data structures based on received pkts */
+
+void tls13_extractServerWrappedRecord(const uint8_t *tlsPkt, tls13_cert_t *dCert, tls13_signature_t *sign, uint8_t *dVerify, uint16_t *dVerifyLen);
+
+void tls13_extractClientWrappedRecord(const uint8_t *tlsPkt, uint8_t *dVerify, uint16_t *dVerifyLen, uint8_t *appData, uint16_t *appDataLen);
 
 void tls13_extractSessionTicket(tls13_serverNewSesTkt_t *sessionTkt, uint8_t *authTag, const uint8_t *tlsPkt);
 
