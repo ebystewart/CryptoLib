@@ -40,11 +40,27 @@ Auth | {CertificateVerify*}
                  derived from [sender]_application_traffic_secret_N.
 */
 
+static uint8_t authTagGlobal[TLS13_RECORD_AUTHTAG_LEN];
+
 static bool tls13_verify_authTag(const uint8_t *authTag);
 
-static bool tls13_update_authTag(const uint8_t *authTag);
+static void tls13_update_authTag(const uint8_t *authTag);
+
+static bool tls13_verify_authTag(const uint8_t *authTag)
+{
+    bool retVal = false;
+
+    retVal = (bool)memcmp(authTagGlobal, authTag, TLS13_RECORD_AUTHTAG_LEN);
+    return retVal;
+}
+
+static void tls13_update_authTag(const uint8_t *authTag)
+{
+    memcpy(authTagGlobal, authTag, TLS13_RECORD_AUTHTAG_LEN);
+}
 
 
+/* Global Functions */
 uint16_t tls13_prepareClientHello(tls13_clientHello_t *clientHello)
 {
     tls13_clientHello_t *clientHelloTmp = calloc(1, sizeof(tls13_clientHello_t) + 200);
