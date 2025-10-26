@@ -4,6 +4,42 @@
 #include "tls13.h"
 #include "math.h"
 
+/* ref: https://www.ietf.org/archive/id/draft-ietf-tls-rfc8446bis-03.html */
+/*
+       Client                                              Server
+
+Key  ^ ClientHello
+Exch | + key_share*
+     | + signature_algorithms*
+     | + psk_key_exchange_modes*
+     v + pre_shared_key*         -------->
+                                                       ServerHello  ^ Key
+                                                      + key_share*  | Exch
+                                                 + pre_shared_key*  v
+                                             {EncryptedExtensions}  ^  Server
+                                             {CertificateRequest*}  v  Params
+                                                    {Certificate*}  ^
+                                              {CertificateVerify*}  | Auth
+                                                        {Finished}  v
+                                 <--------     [Application Data*]
+     ^ {Certificate*}
+Auth | {CertificateVerify*}
+     v {Finished}                -------->
+       [Application Data]        <------->      [Application Data]
+
+              +  Indicates noteworthy extensions sent in the
+                 previously noted message.
+
+              *  Indicates optional or situation-dependent
+                 messages/extensions that are not always sent.
+
+              {} Indicates messages protected using keys
+                 derived from a [sender]_handshake_traffic_secret.
+
+              [] Indicates messages protected using keys
+                 derived from [sender]_application_traffic_secret_N.
+*/
+
 
 uint16_t tls13_prepareClientHello(tls13_clientHello_t *clientHello)
 {
@@ -390,54 +426,40 @@ uint16_t tls13_prepareClientWrappedRecord(tls13_clientWrappedRecord_t *clientWra
     return len;
 }
 
-uint16_t tls13_prepareServerSessionTicketRecord(const uint8_t *sessionTkt, const uint8_t sessionTktLen, const uint8_t *authTag, tls13_serverSesTktWrappedRecord_t *sessionTicket)
+uint16_t tls13_prepareServerSessionTicketRecord(const uint8_t *sessionTkt, const uint8_t sessionTktLen, const uint8_t *authTag, uint8_t *tlsPkt)
 {
     uint16_t offset = 0;
     uint16_t len = 0;
     tls13_serverSesTktWrappedRecord_t *sNST = calloc(1, (sizeof(tls13_serverSesTktWrappedRecord_t) + 1200));
 
     sNST->recordHeader.recordType = TLS13_APPDATA_RECORD;
-    sNST->recordHeader.protoVersion = TLS12_PROTO_VERSION; /* Legacy TLS 1.2 */
+    sNST->recordHeader.protoVersion = TLS12_PROTO_VERSION;      /* Legacy TLS 1.2 */
     memset(&sNST->encryptedData, sessionTkt, sessionTktLen);    // session ticket with the server handshake key
     offset += sessionTktLen;
     memset(sNST->authTag + offset, authTag, TLS13_RECORD_AUTHTAG_LEN);
     offset += TLS13_RECORD_AUTHTAG_LEN;
-#if 0
-    tls13_serverNewSesTkt_t *sesTkt = &sNST->sessionTicket + offset;
-    offset = 0; /* reusing variable */
-    sesTkt->handshakeHdr.handshakeType = TLS13_HST_NEW_SESSION_TICKET;
 
-    sesTkt->ticketLifetime = 0x012C;
-    sesTkt->ticketAgeAdd = 0x0000;
-    sesTkt->nounceLen  = 8;
-    memset(&sesTkt->nounce, 0xDD, 8); /* 8 Bytes of nounce - length should come as argument */
-    offset += 8;
-    REACH_ELEMENT(sesTkt, tls13_serverNewSesTkt_t, sessionTicketLen, offset, uint16_t)  = 192; /* This also should come as argument */
-    memset(&sesTkt->sessionTicket + offset, 0xAA, 192);
-    offset += 192;
-    REACH_ELEMENT(sesTkt, tls13_serverNewSesTkt_t, ticketExtensionLen, offset, uint16_t) = 0x0000;
-
-    sesTkt->handshakeHdr.handshakeMsgLen = sizeof(sesTkt->ticketLifetime) + sizeof(sesTkt->ticketAgeAdd) + \
-                                           sizeof(sesTkt->nounceLen) + sizeof(sesTkt->sessionTicketLen) + \
-                                           sizeof(sesTkt->ticketExtensionLen) + offset;
-#endif
     sNST->recordHeader.recordLen = offset;
         
     len = sNST->recordHeader.recordLen + TLS13_RECORD_HEADER_SIZE; 
-    memcpy((uint8_t *)sessionTicket, (uint8_t *)sNST, len);
+    memcpy(tlsPkt, (uint8_t *)sNST, len);
     free(sNST);
     return len;
 }
 
-void tls13_extractSessionTicket(tls13_serverNewSesTkt_t *sessionTkt, uint8_t *authTag, const tls13_serverSesTktWrappedRecord_t *sessionTicketRec, const uint16_t pktSize)
+void tls13_extractSessionTicket(tls13_serverNewSesTkt_t *sessionTkt, uint8_t *authTag, const uint8_t *tlsPkt)
 {
     uint16_t dataSize = 0;
-    tls13_serverSesTktWrappedRecord_t *tmp = calloc(1, pktSize);
-    memcpy((uint8_t *)tmp, (uint8_t *)sessionTicketRec, pktSize);
+    uint16_t offset = 0;
+
+    uint16_t pktLen = ((uint16_t)tlsPkt[3] << 8 | tlsPkt[4]) + TLS13_RECORD_HEADER_SIZE;
+    tls13_serverSesTktWrappedRecord_t *tmp = calloc(1, pktLen);
+    memcpy((uint8_t *)tmp, tlsPkt, pktLen);
+
     /* Some basic assertion to check for pkt deformity */
     assert(tmp->recordHeader.recordType == TLS13_APPDATA_RECORD);
     assert(tmp->recordHeader.protoVersion == TLS12_PROTO_VERSION || tmp->recordHeader.protoVersion == TLS13_PROTO_VERSION);
-    assert((tmp->recordHeader.recordLen + TLS13_RECORD_HEADER_SIZE) == pktSize);
+    //assert((tmp->recordHeader.recordLen + TLS13_RECORD_HEADER_SIZE) == pktSize);
 
     dataSize = tmp->recordHeader.recordLen - TLS13_RECORD_AUTHTAG_LEN;
     memcpy(authTag, (tmp->authTag + dataSize), TLS13_RECORD_AUTHTAG_LEN);
@@ -445,11 +467,31 @@ void tls13_extractSessionTicket(tls13_serverNewSesTkt_t *sessionTkt, uint8_t *au
     tsl13_serverSesTktDataDecrypt_t *tmp1 = &tmp->encryptedData;
     /* decrypt the data */
     assert(tmp1->recordType == TLS13_HANDSHAKE_RECORD);
-    memcpy(sessionTkt, &tmp1->sessionTicket, dataSize - 1);
+    sessionTkt->handshakeHdr.handshakeType = tmp1->sessionTicket.handshakeHdr.handshakeType;
+    sessionTkt->handshakeHdr.handshakeMsgLen = tmp1->sessionTicket.handshakeHdr.handshakeMsgLen;
+    sessionTkt->ticketLifetime = 
+    sessionTkt->ticketAgeAdd =
+
+    sessionTkt->nounceLen = tmp1->sessionTicket.nounceLen;
+    if(*sessionTkt->nounce != NULL)
+        memcpy(sessionTkt->nounce, tmp1->sessionTicket.nounce, sessionTkt->nounceLen);
+    offset += sessionTkt->nounceLen;
+
+    //sessionTkt->sessionTicketLen = tmp1->sessionTicket.sessionTicketLen;
+    sessionTkt->sessionTicketLen = REACH_ELEMENT(&tmp1->sessionTicket, tls13_serverNewSesTkt_t, sessionTicketLen, offset, uint8_t);
+    if(*sessionTkt->sessionTicket != NULL)
+        memcpy(sessionTkt->sessionTicket, tmp1->sessionTicket.nounce + offset, sessionTkt->sessionTicketLen);
+    offset += sessionTkt->sessionTicketLen;
+
+    //sessionTkt->ticketExtensionLen = tmp1->sessionTicket.ticketExtensionLen;
+    sessionTkt->ticketExtensionLen = REACH_ELEMENT(&tmp1->sessionTicket, tls13_serverNewSesTkt_t, ticketExtensionLen, offset, uint16_t);
+    if(sessionTkt->extList != NULL) 
+        memcpy(sessionTkt->extList, &tmp1->sessionTicket.extList + offset, sessionTkt->ticketExtensionLen);
     free(tmp);
 }
 
 /* There should be a max cap to the dataLen. Data length should be inclusive of padding  */
+/* TLS pkt is expected to be in little endian format */
 uint16_t tls13_prepareAppData(const uint8_t *dIn, const uint16_t dInLen, const uint8_t *authTag, uint8_t *tlsPkt)
 {
     uint16_t offset = 0;
