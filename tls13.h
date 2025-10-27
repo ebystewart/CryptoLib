@@ -157,8 +157,6 @@ typedef struct{
    tls13_compressionMethods_t *compressionMethodList;   /* N_COMPRESSION_METHOD_SUPPORTED         */
    uint8_t                    hostnameLen;
    uint8_t                    *hostname;
-   uint8_t                    servernameLen;
-   uint8_t                    *serverName;
    uint8_t                    ecFormatsLen;
    uint8_t                    *ecPoints;
    uint8_t                    supportedGrpLen;

@@ -259,7 +259,92 @@ void tls13_extractClientHello(uint8_t *clientRandom, uint8_t *sessionId, uint8_t
     memcpy(sessionId, cHello->sessionId, cHello->sessionIdLen);
     offset += cHello->sessionIdLen;
 
+    /* copy the supported cipher suite list to the local buffer */
+    if(cHello->cipherSuiteLen > 0){
+        memcpy(capability->cipherSuiteList, cHello->cipherSuiteList, cHello->cipherSuiteLen);
+        capability->cipherSuiteLen = cHello->cipherSuiteLen;
+        offset += cHello->cipherSuiteLen;
+    }
+    /* Copy the supported compression menthod list to the local buffer */
+    if(cHello->compressionMethodLen > 0){
+        memcpy(capability->compressionMethodList, cHello->compressionMethodList, cHello->compressionMethodLen);
+        capability->compressionMethodLen = cHello->compressionMethodLen;
+        offset += cHello->compressionMethodLen;
+    }
 
+    tls13_clientExtensions_t *ext = &cHello->clientExt + offset;
+    offset = 0;
+    {
+        /* Server Name Indication (SNI) Extension */
+        tls13_extensionSNI_t *sni = &ext->extSNI;
+        assert(sni->list->listType == 0x00); /* should be server name - macro needed */
+        assert(sni->extType == 0x0000); /* should be hostname - macro  needed */
+        memcpy(capability->hostname, sni->list->listData, sni->list->listLen);
+        offset += sni->extDataLen;
+                  
+        /* EC Point Formats extension */
+        tls13_extension2211_t *ecp = &ext->extECP + offset;
+        assert(ecp->extType == TLS13_EXT_EC_POINTS_FORMAT);
+        memcpy(capability->ecPoints, ecp->list, ecp->subListSize);
+        capability->ecFormatsLen = ecp->subListSize;
+        offset += ecp->extDataLen;
+
+        /* Supported Groups Extension */               
+        tls13_extension2222_t *sgr = &ext->extSupprotedGrp + offset;
+        assert(sgr->extType == TLS13_EXT_SUPPORTED_GROUPS);
+        memcpy(capability->supportedGrp, sgr->list, sgr->subListSize);
+        capability->supportedGrpLen = sgr->subListSize;
+        offset += sgr->subListSize;
+
+        /* extension data length is 0 - session ticket */         
+        tls13_extensionNULL_t *stkt = &ext->extSessionTicket + offset;
+        assert(stkt->extType == TLS13_EXT_SESSION_TICKET);
+        if(stkt->extDataLen > 0x0000){
+            /* To be handled */
+        }
+
+        /* extension data length is 0 - Encrypt-Then-MAC */         
+        tls13_extensionNULL_t *etm = &ext->extEncryptThenMAC + offset;
+        assert(etm->extType == TLS13_EXT_ENCRYPT_THEN_MAC);
+        if(etm->extDataLen > 0x0000){
+            /* To be handled */
+        }
+
+        /* extension data length is 0 - extended master secret */       
+        tls13_extensionNULL_t *ems = &ext->extExtendedMasterSecret + offset;
+        assert(ems->extType == TLS13_EXT_EXT_MASTER_SECRET);
+        if(ems->extDataLen > 0x0000){
+            /* to be handled */
+        }
+
+        /* Signature Algorithms Extension */
+        tls13_extension2222_t *esa = &ext->extSignatureAlgos + offset;
+        assert(esa->extType = TLS13_EXT_SIGN_AGLORITHM);
+        memcpy(capability->signAlgos, esa->list, esa->subListSize);
+        capability->signAlgoLen = esa->subListSize;
+        offset += esa->subListSize;
+
+        /* supported versions */       
+        tls13_extension2212_t *esv = &ext->extSupportedVers + offset;
+        assert(esv->extType = TLS13_EXT_SUPPORTED_VERSIONS);
+        memcpy(capability->supportedVersions, esv->list, esv->subListSize);
+        capability->supportedVersionLen = esv->subListSize;
+        offset += esv->subListSize;
+
+        /* PSK key exchange modes */
+        tls13_extension2211_t *epskkem = &ext->extPSKExchangeModes + offset;
+        assert(epskkem->extType == TLS13_EXT_PSK_KEYXCHANGE_MODES);
+        assert(epskkem->list[0] == 1); /* 01 - assigned value for "PSK with (EC)DHE key establishment */
+        assert(epskkem->subListSize == 1);
+
+        /* Key share */
+        tls13_extensionKeyShare_t *ks = &ext->extkeyShare + offset;
+        assert(ks->extType == TLS13_EXT_KEY_SHARE);
+        assert(ks->keyShareType == 0x001D); /* assigned value for x25519 (key exchange via curve25519) */
+        assert(ks->keyShareLen == 2);
+        memcpy(pubKey, ks->pubKey, ks->pubKeyLen);
+        *pubKeyLen = ks->pubKeyLen;
+    }
 
 }
 
