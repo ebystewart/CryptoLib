@@ -594,7 +594,8 @@ SHAKE128("The quick brown fox jumps over the lazy dof", 256)
 
 #if 1
     tls13_clientHello_t *ch = calloc(1, (sizeof(tls13_clientHello_t) + 200));
-    uint16_t size = tls13_prepareClientHello(ch);
+    uint16_t size;
+    //size = tls13_prepareClientHello(ch);
     uint8_t *disp;
     disp = (uint8_t *)ch;
     for(int idx = 0; idx < size; idx++){
