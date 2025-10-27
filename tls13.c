@@ -161,7 +161,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
             clientHelloTmp->extLen += enTM->extDataLen + 1;
         }
         {
-            /* Set the extended MAC secret extension data */
+            /* Set the extended master secret */
             tls13_extensionNULL_t *extMS = &cExts->extExtendedMasterSecret;
             extMS->extType = TLS13_EXT_EXT_MASTER_SECRET;
             extMS->extDataLen = 0x0000;
@@ -240,8 +240,27 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
     memcpy(tlsPkt, (uint8_t *)clientHelloTmp, len);
 
     free(clientHelloTmp);
-
     return len;
+}
+
+void tls13_extractClientHello(uint8_t *clientRandom, uint8_t *sessionId, uint8_t *dnsHostname, tls13_clientCapability_t *capability,
+                                    uint8_t *pubKey, uint16_t *pubKeyLen, const uint8_t *tlsPkt)
+{
+    uint16_t offset = 0;
+    uint16_t len = ((uint16_t)tlsPkt[3] << 8 | tlsPkt[4]) + TLS13_RECORD_HEADER_SIZE;    
+    tls13_clientHello_t *cHello = calloc(1, len);
+
+    assert(cHello->recordHeader.recordType == TLS13_HANDSHAKE_RECORD);
+    assert(cHello->recordHeader.protoVersion == TLS13_PROTO_VERSION);
+    assert(cHello->handshakeHeader.handshakeType == TLS13_HST_CLIENT_HELLO);
+    assert(cHello->clientVersion == TLS13_PROTO_VERSION);
+
+    memcpy(clientRandom, cHello->clientRandom, TLS13_RANDOM_LEN);
+    memcpy(sessionId, cHello->sessionId, cHello->sessionIdLen);
+    offset += cHello->sessionIdLen;
+
+
+
 }
 
 uint16_t tls13_prepareServerHello(const uint8_t *serverRandom, const uint8_t *sessionId, const uint16_t cipherSuite, 

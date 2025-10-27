@@ -150,6 +150,33 @@ typedef struct{
    tls13_clientExtensions_t   clientExt;
 } tls13_clientHello_t;
 
+typedef struct{
+   uint16_t                   cipherSuiteLen;
+   tls13_cipherSuiteData_t    *cipherSuiteList;         /* N_CIPHER_SUITE_SUPPORTED  */
+   uint8_t                    compressionMethodLen;
+   tls13_compressionMethods_t *compressionMethodList;   /* N_COMPRESSION_METHOD_SUPPORTED         */
+   uint8_t                    hostnameLen;
+   uint8_t                    *hostname;
+   uint8_t                    servernameLen;
+   uint8_t                    *serverName;
+   uint8_t                    ecFormatsLen;
+   uint8_t                    *ecPoints;
+   uint8_t                    supportedGrpLen;
+   uint16_t                   *supportedGrp;
+   uint8_t                    sessTktLen;
+   uint16_t                   *sessTkt;
+   uint8_t                    eTMLen;
+   uint16_t                   *eTM; /* Encrypt-then-MAC */
+   uint8_t                    extMasterSecretLen;
+   uint16_t                   *extMasterSecret;
+   uint16_t                   signAlgoLen;
+   uint16_t                   *signAlgos;
+   uint16_t                   supportedVersionLen;
+   uint16_t                   *supportedVersions;
+   uint8_t                    keyXchangeModesLen;
+   uint8_t                    *keyXchangeModes;
+}tls13_clientCapability_t;
+
 /* Server Hello Extensions */
 typedef struct{
    tls13_extension222_t       extSupportedVers;
@@ -366,6 +393,9 @@ uint16_t tls13_prepareServerSessionTicketRecord(const uint8_t *sessionTkt, \
 uint16_t tls13_prepareAppData(const uint8_t *dIn, const uint16_t dInLen, const uint8_t *authTag, uint8_t *tlsPkt);
 
 /* Deserialize and update data structures based on received pkts */
+
+void tls13_extractClientHello(uint8_t *clientRandom, uint8_t *sessionId, uint8_t *dnsHostname, tls13_clientCapability_t *capability,
+                                    uint8_t *pubKey, uint16_t *pubKeyLen, const uint8_t *tlsPkt);
 
 void tls13_extractServerHello(uint8_t *serverRandom, uint8_t *sessionId, uint16_t *cipherSuite, 
                                     uint8_t *pubKey, uint16_t *pubKeyLen, uint16_t *keyType, uint8_t *data, uint16_t *dataLen, const uint8_t *tlsPkt);
