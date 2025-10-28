@@ -37,7 +37,8 @@ typedef enum {
    TLS13_CHANGE_CIPHERSPEC_RECORD = 0x14,
    TLS13_ALERT_RECORD             = 0x15,
    TLS13_HANDSHAKE_RECORD         = 0x16,
-   TLS13_APPDATA_RECORD           = 0x17
+   TLS13_APPDATA_RECORD           = 0x17,
+   TLS13_HEARTBEAT_RECORD         = 0x18
 }tls13_recordType_e;
 
 typedef enum {
@@ -82,7 +83,45 @@ typedef enum {
    TLS13_CHACHA20_POLY1305_SHA256      = 0x1303
 }tls13_cipherSuite_e;
 
+typedef enum {
+   TLS13_ALERT_WARNING = 1,
+   TLS13_ALERT_FATAL   = 2
+}tls13_alertLevel_e;
+
+typedef enum {
+   TLS13_ALERT_CLOSE_NOTIFY          = 0,
+   TLS13_UNEXPECTED_MESSAGE          = 10,
+   TLS13_BAD_RECORD_MAC              = 20,
+   TLS13_DECRYPTION_FAILED_RESERVED  = 21,
+   TLS13_RECORD_OVERFLOW             = 22,
+   TLS13_DECOMPRESSION_FAILURE       = 30,
+   TLS13_HANDSHAKE_FAILURE           = 40,
+   TLS13_NO_CERTIFICATE_RESERVED     = 41,
+   TLS13_BAD_CERTIFICATE             = 42,
+   TLS13_UNSUPPORTED_CERTIFICATE     = 43,
+   TLS13_CERTIFICATE_REVOKED         = 44,
+   TLS13_CERTIFICATE_EXPIRED         = 45,
+   TLS13_CERTIFICATE_UNKNOWN         = 46,
+   TLS13_ILLEGAL_PARAMETER           = 47,
+   TLS13_UNKNOWN_CA                  = 48,
+   TLS13_ACCESS_DENIED               = 49,
+   TLS13_DECODE_ERROR                = 50,
+   TLS13_DECRYPT_ERROR               = 51,
+   TLS13_EXPORT_RESTRICTION_RESERVED = 60,
+   TLS13_PROTOCOL_VERSION            = 70,
+   TLS13_INSUFFICIENT_SECURITY       = 71,
+   TLS13_INTERNAL_ERROR              = 80,
+   TLS13_USER_CANCELED               = 90,
+   TLS13_NO_RENEGOTIATION            = 100,
+   TLS13_UNSUPPORTED_EXTENSION       = 110
+} tls13_alertDescription_e;
+
 #pragma pack(push, 1)
+
+typedef struct {
+   tls13_alertLevel_e level;
+   tls13_alertDescription_e description;
+} tls13_alert_t;
 
 typedef struct{
    /* 0x16 -> handshake record; 
@@ -205,6 +244,12 @@ typedef struct {
    uint8_t               encryptedData[0];   /* Data encrypted with the server handshake key */
    uint8_t               authTag[16];        /* AEAD authentication tag */
 }tls13_wrappedRecord_t;
+
+typedef struct {
+   tls13_recordHdr_t     recordHeader;       /* 0x15 (TLS13_ALERT_RECORD) */ 
+   tls13_alert_t         alert;
+   uint8_t               authTag[16];        /* AEAD authentication tag */
+}tls13_wrappedAlertRecord_t;
 
 typedef struct {
    tls13_encryExt_t      encryExt;         /* could be Server Certificate  (tls13_serverCert_t) [or] server cert verify [or]  server finished [or] client finished */
@@ -385,10 +430,11 @@ uint16_t tls13_prepareClientWrappedRecord(const uint8_t *dVerify, const uint16_t
 
 uint16_t tls13_prepareServerSessionTicketRecord(const uint8_t *sessionTkt, \
                                                 const uint8_t sessionTktLen, \
-                                                const uint8_t *authTag, \
                                                 uint8_t *tlsPkt);
 
-uint16_t tls13_prepareAppData(const uint8_t *dIn, const uint16_t dInLen, const uint8_t *authTag, uint8_t *tlsPkt);
+uint16_t tls13_prepareAppData(const uint8_t *dIn, const uint16_t dInLen, uint8_t *tlsPkt);
+
+uint16_t tls13_prepareAlertRecord(const tls13_alert_t *alertData, uint8_t *tlsPkt);
 
 /* Deserialize and update data structures based on received pkts */
 
@@ -402,8 +448,10 @@ void tls13_extractServerWrappedRecord(const uint8_t *tlsPkt, tls13_cert_t *dCert
 
 void tls13_extractClientWrappedRecord(const uint8_t *tlsPkt, uint8_t *dVerify, uint16_t *dVerifyLen, uint8_t *appData, uint16_t *appDataLen);
 
-void tls13_extractSessionTicket(tls13_serverNewSesTkt_t *sessionTkt, uint8_t *authTag, const uint8_t *tlsPkt);
+void tls13_extractSessionTicket(tls13_serverNewSesTkt_t *sessionTkt, const uint8_t *tlsPkt);
 
-void tls13_extractEncryptedAppData(uint8_t *dOut, uint16_t *dOutLen, uint8_t *authTag, const uint8_t *tlsPkt);
+void tls13_extractEncryptedAppData(uint8_t *dOut, uint16_t *dOutLen, const uint8_t *tlsPkt);
+
+void tls13_extractAlertRecord(tls13_alert_t *alertData, const uint8_t *tlsPkt);
 
 #endif
