@@ -75,7 +75,7 @@ int chacha20_encrypt(uint8_t *plain_text, uint32_t dataLen, uint32_t *key, uint3
     chacha20_PerformQuarterRound(state);
 
     /* Now XOR the scrambled block with the 512 bits of the plain text stream */
-    xor2(state, plain_text, 64, cipher_text);
+    xor2((uint8_t *)state, plain_text, 64, cipher_text);
 
     free(state);
 }

@@ -1191,7 +1191,7 @@ int aes_decrypt_update(aes_mode_t mode, const uint8_t *cipher_text, uint8_t *pla
     return 0;
 }
 
-int aes_decrypt_end(aes_mode_t mode, const uint8_t *cipher_text, uint8_t *plain_text, uint8_t *key, aes_keylen_t keyLen)
+int aes_decrypt_end(aes_mode_t mode, const uint8_t *cipher_text, uint8_t *plain_text, const uint8_t *key, aes_keylen_t keyLen)
 {
     uint8_t idx;
     //uint8_t round;

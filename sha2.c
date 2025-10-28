@@ -216,7 +216,7 @@ void sha256_compute_hash(uint8_t *message, uint32_t messageLen, uint8_t *digest)
 
         /* Initialize working variables to current hash value */
         memcpy(working_var, hash, sizeof(hash));
-        printf("working var of length %u is:\n", sizeof(h_256));
+        printf("working var of length %lu is:\n", sizeof(h_256));
         for(idx = 0; idx < sizeof(h_256)/4; idx++){
             printf("%x", working_var[idx]);
         }
@@ -407,7 +407,7 @@ void sha512t_compute_hash(uint8_t *message, uint64_t messageLen, sha2_type_e typ
     printf("Received: %lu, padding: %lu, offset: %lu, Total: %lu\n", messageLen, paddingLen, offset, remainingLen);
     printf("The received message of length %lu inlcuding padding is:\n", messageLen);
     for(idx = 0; idx < messageLen; idx++){
-        printf("%lx", message[idx]);
+        printf("%x", message[idx]);
     }
     printf("\n");
     uint64_t *w = (uint64_t *)calloc(1, (80 *8)); /* Schedule array */
@@ -455,7 +455,7 @@ void sha512t_compute_hash(uint8_t *message, uint64_t messageLen, sha2_type_e typ
 
     printf("The total message of length %lu inlcuding padding is:\n", remainingLen);
     for(idx = 0; idx < remainingLen; idx++){
-        printf("%lx", temp_msg[idx]);
+        printf("%x", temp_msg[idx]);
     }
     printf("\n");
 
@@ -464,9 +464,9 @@ void sha512t_compute_hash(uint8_t *message, uint64_t messageLen, sha2_type_e typ
     {
         memcpy(messageChunk, (temp_msg + (chunkIdx * 128)), 128);
 
-        printf("The chunk %lu is:\n", chunkIdx);
+        printf("The chunk %u is:\n", chunkIdx);
         for(idx = 0; idx < 128; idx++){
-            printf("%lx", messageChunk[idx]);
+            printf("%x", messageChunk[idx]);
         }
         printf("\n");
 
@@ -481,7 +481,7 @@ void sha512t_compute_hash(uint8_t *message, uint64_t messageLen, sha2_type_e typ
         printf("\n");
         convert64_endianess(w, w, 128);
 
-        printf("w after endianess change (with message chunk) of length %lu is:\n", 128);
+        printf("w after endianess change (with message chunk) of length %u is:\n", 128);
         for(idx = 0; idx < 32; idx++){
             printf("%lx", w[idx]);
         }
@@ -509,11 +509,11 @@ void sha512t_compute_hash(uint8_t *message, uint64_t messageLen, sha2_type_e typ
             S1 = (ROTR64(working_var[4],14)) ^ (ROTR64(working_var[4],18)) ^ (ROTR64(working_var[4],41));
             ch = (working_var[4] & working_var[5]) ^ ((~working_var[4]) & working_var[6]);
             temp1 = modulo64_add(working_var[7], modulo64_add(S1, modulo64_add(ch, modulo64_add(k_512[idx], w[idx]))));
-            printf("[idx:%d] temp1 (%lx + %lx + %lx + %lx)is %lx\n", idx, working_var[7], S1, ch, k_512[idx], w[idx], temp1);
+            printf("[idx:%ld] temp1 (%lx + %lx + %lx + %lx)is %lx\n", idx, working_var[7], S1, ch, k_512[idx], w[idx], temp1);
             S0 = (ROTR64(working_var[0],28)) ^ (ROTR64(working_var[0],34)) ^ (ROTR64(working_var[0],39));
             maj = (working_var[0] & working_var[1]) ^ (working_var[0] & working_var[2]) ^ (working_var[1] & working_var[2]);
             temp2 = modulo64_add(S0, maj);
-            printf("[idx:%d] temp2 (%lx + %lx) is %lx\n", idx, S0, maj, temp2);
+            printf("[idx:%ld] temp2 (%lx + %lx) is %lx\n", idx, S0, maj, temp2);
      
             working_var[7] = working_var[6]; /* h = g */
             working_var[6] = working_var[5]; /* g = f*/
@@ -524,7 +524,7 @@ void sha512t_compute_hash(uint8_t *message, uint64_t messageLen, sha2_type_e typ
             working_var[1] = working_var[0]; /* b */
             working_var[0] = modulo64_add(temp1, temp2); /* a */
 
-            printf("working var after %d iteration of length %u is:\n", idx, sizeof(h_512));
+            printf("working var after %ld iteration of length %lu is:\n", idx, sizeof(h_512));
             for(int idx1 = 0; idx1 < sizeof(h_512)/8; idx1++){
                 printf("%lx", working_var[idx1]);
             }
@@ -546,19 +546,19 @@ void sha512t_compute_hash(uint8_t *message, uint64_t messageLen, sha2_type_e typ
     /* Produce the final hash value (big-endian) */
     if(type == SHA_512){
         memcpy(digest, hash, sizeof(hash));
-        convert64_endianess(digest, digest, 64);
+        convert64_endianess((uint64_t *)digest, (uint64_t *)digest, 64);
     }
     else if(type == SHA_384){
         memcpy(digest, hash, (sizeof(hash) - 16));
-        convert64_endianess(digest, digest, 48);
+        convert64_endianess((uint64_t *)digest, (uint64_t *)digest, 48);
     }
     else if(type == SHA_512_256){
         memcpy(digest, hash, (sizeof(hash) - 32));
-        convert64_endianess(digest, digest, 32);
+        convert64_endianess((uint64_t *)digest, (uint64_t *)digest, 32);
     }
     else if(type == SHA_512_224){
         memcpy(digest, hash, (sizeof(hash) - 40));
-        convert64_endianess(digest, digest, 28);
+        convert64_endianess((uint64_t *)digest, (uint64_t *)digest, 28);
     }
     else{
         assert(0);

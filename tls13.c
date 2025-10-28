@@ -66,7 +66,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
                                     const uint8_t *pubKey, const uint16_t pubKeyLen, uint8_t *tlsPkt)
 {
     uint16_t len = 0;
-    tls13_clientHello_t *clientHelloTmp = calloc(1, sizeof(tls13_clientHello_t) + 200);
+    tls13_clientHello_t *clientHelloTmp = calloc(1, sizeof(tls13_clientHello_t) + 1200);
 
     /* Record header update */
     clientHelloTmp->recordHeader.recordType   = TLS13_HANDSHAKE_RECORD;
@@ -105,7 +105,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
             /* Set up the SNI extension data */
             tls13_extensionSNI_t *extSni = &cExts->extSNI;
             extSni->extType = 0x0000;
-            tls13_extSubList_t *sniSub = &extSni->list;
+            tls13_extSubList_t *sniSub = (tls13_extSubList_t *)&extSni->list;
             sniSub->listType = 0x00; /* DNS Hostname */
             strcpy(sniSub->listData, dnsHostname); /* "dns.google.com" */
 
@@ -118,7 +118,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
             /* Set the EC Point Formats extension data */
             tls13_extension2211_t *ecPF = &cExts->extECP + clientHelloTmp->extLen;
             ecPF->extType = TLS13_EXT_EC_POINTS_FORMAT;
-            uint8_t *ecPFList = &ecPF->list;
+            uint8_t *ecPFList = (uint8_t *)&ecPF->list;
             ecPFList[0] = TLS13_EC_POINT_UNCOMPRESSED;
             ecPFList[1] = TLS13_EC_POINT_ANSIX962_COMPRESSED_PRIME;
             ecPFList[2] = TLS13_EC_POINT_ANSIX962_COMPRESSED_CHAR2;
@@ -130,7 +130,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
             /* Set the supported Group extension data */
             tls13_extension2222_t *supGr = &cExts->extSupprotedGrp;
             supGr->extType = TLS13_EXT_SUPPORTED_GROUPS;
-            uint16_t *supGrList = &supGr->list;
+            uint16_t *supGrList = (uint16_t *)&supGr->list;
             supGrList[0] = TLS13_SUPPGRP_X25519;
             supGrList[1] = TLS13_SUPPGRP_SECP256R1;
             supGrList[2] = TLS13_SUPPGRP_X448;
@@ -171,7 +171,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
             /* Set the Signature Algorithms Extension data */  
             tls13_extension2222_t *sigAlg = &cExts->extSignatureAlgos;
             sigAlg->extType = TLS13_EXT_SIGN_AGLORITHM;
-            uint16_t *sigAlgList = &sigAlg->list;
+            uint16_t *sigAlgList = (uint16_t *)&sigAlg->list;
             sigAlgList[0] = TLS13_SIGNALGOS_ECDSA_SECP256r1_SHA256;
             sigAlgList[0] = TLS13_SIGNALGOS_ECDSA_SECP384r1_SHA384;
             sigAlgList[0] = TLS13_SIGNALGOS_ECDSA_SECP521r1_SHA512;
@@ -195,7 +195,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
             /* Set the supported versions extension data */
             tls13_extension2212_t *supVers = &cExts->extSupportedVers;
             supVers->extType = TLS13_EXT_SUPPORTED_VERSIONS;
-            uint16_t *supVersList = &supVers->list;
+            uint16_t *supVersList = (uint16_t *)&supVers->list;
             supVersList[0] = TLS13_PROTO_VERSION;
 
             supVers->subListSize = 2;
@@ -206,7 +206,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
             /* Set the PSK Key exchange modes extension data */
             tls13_extension2211_t *pskKE = &cExts->extPSKExchangeModes;
             pskKE->extType = TLS13_EXT_PSK_KEYXCHANGE_MODES;
-            uint8_t *pskKEList = &pskKE->list;
+            uint8_t *pskKEList = (uint8_t *)&pskKE->list;
             pskKEList[0] = 1; /* 01 - assigned value for "PSK with (EC)DHE key establishment */
 
             pskKE->subListSize = 1;
@@ -336,6 +336,9 @@ void tls13_extractClientHello(uint8_t *clientRandom, uint8_t *sessionId, uint8_t
         assert(epskkem->extType == TLS13_EXT_PSK_KEYXCHANGE_MODES);
         assert(epskkem->list[0] == 1); /* 01 - assigned value for "PSK with (EC)DHE key establishment */
         assert(epskkem->subListSize == 1);
+        memcpy(capability->keyXchangeModes, epskkem->list, epskkem->subListSize);
+        capability->keyXchangeModesLen = epskkem->subListSize;
+        offset += epskkem->subListSize;
 
         /* Key share */
         tls13_extensionKeyShare_t *ks = &ext->extkeyShare + offset;
@@ -345,7 +348,6 @@ void tls13_extractClientHello(uint8_t *clientRandom, uint8_t *sessionId, uint8_t
         memcpy(pubKey, ks->pubKey, ks->pubKeyLen);
         *pubKeyLen = ks->pubKeyLen;
     }
-
 }
 
 uint16_t tls13_prepareServerHello(const uint8_t *serverRandom, const uint8_t *sessionId, const uint16_t cipherSuite, 
@@ -552,7 +554,7 @@ void tls13_extractServerWrappedRecord(const uint8_t *tlsPkt, tls13_cert_t *dCert
         assert(recvdCertRecord->recordHeader.recordType == TLS13_APPDATA_RECORD);
         assert(recvdCertRecord->recordHeader.protoVersion == TLS12_PROTO_VERSION || recvdCertRecord->recordHeader.protoVersion == TLS13_PROTO_VERSION);
 
-        tls13_certRecordDataDecrypt_t *dCertTemp = &recvdCertRecord->encryptedData;
+        tls13_certRecordDataDecrypt_t *dCertTemp = (tls13_certRecordDataDecrypt_t *)&recvdCertRecord->encryptedData;
         assert(dCertTemp->recordType == TLS13_HANDSHAKE_RECORD);
         assert(dCertTemp->certificate.handshakeHdr.handshakeType == TLS13_HST_CERTIFICATE);
 
@@ -563,11 +565,11 @@ void tls13_extractServerWrappedRecord(const uint8_t *tlsPkt, tls13_cert_t *dCert
     }
     if(tlsPkt[6 + certLen] == TLS13_HST_CERTIFICATE_VERIFY)
     {
-        tls13_certVerifyRecord_t *recvdCertVerifyRecord = &tmp->certVerifyRecord + certLen;
+        tls13_certVerifyRecord_t *recvdCertVerifyRecord = (tls13_certVerifyRecord_t *)&tmp->certVerifyRecord + certLen;
         assert(recvdCertVerifyRecord->recordHeader.recordType == TLS13_APPDATA_RECORD);
         assert(recvdCertVerifyRecord->recordHeader.protoVersion == TLS12_PROTO_VERSION || recvdCertVerifyRecord->recordHeader.protoVersion == TLS13_PROTO_VERSION);
         
-        tls13_certVerifyRecordDataDecrypt_t *dSign = &recvdCertVerifyRecord->encryptedData;
+        tls13_certVerifyRecordDataDecrypt_t *dSign = (tls13_certVerifyRecordDataDecrypt_t *)&recvdCertVerifyRecord->encryptedData;
         assert(dSign->recordType == TLS13_HANDSHAKE_RECORD);
         assert(dSign->certVerify.handshakeHdr.handshakeType == TLS13_HST_CERTIFICATE_VERIFY);
 
@@ -582,7 +584,7 @@ void tls13_extractServerWrappedRecord(const uint8_t *tlsPkt, tls13_cert_t *dCert
         assert(recvdFinRecord->recordHeader.recordType == TLS13_APPDATA_RECORD);
         assert(recvdFinRecord->recordHeader.protoVersion == TLS12_PROTO_VERSION || recvdFinRecord->recordHeader.protoVersion == TLS13_PROTO_VERSION);
 
-        tsl13_finishedRecordDataDecrypted_t *verf = &recvdFinRecord->encryptedData;
+        tsl13_finishedRecordDataDecrypted_t *verf = (tsl13_finishedRecordDataDecrypted_t *)&recvdFinRecord->encryptedData;
         assert(verf->recordType == TLS13_HANDSHAKE_RECORD);
         assert(verf->finished.handshakeHdr.handshakeType == TLS13_HST_FINISHED);
 
@@ -669,7 +671,7 @@ void tls13_extractClientWrappedRecord(const uint8_t *tlsPkt, uint8_t *dVerify, u
         assert(recvdFinRecord->recordHeader.recordType == TLS13_APPDATA_RECORD);
         assert(recvdFinRecord->recordHeader.protoVersion == TLS12_PROTO_VERSION || recvdFinRecord->recordHeader.protoVersion == TLS13_PROTO_VERSION);
         /* Verify the auth Tag */
-        tsl13_finishedRecordDataDecrypted_t *verf = &recvdFinRecord->encryptedData;
+        tsl13_finishedRecordDataDecrypted_t *verf = (tsl13_finishedRecordDataDecrypted_t *)&recvdFinRecord->encryptedData;
         assert(verf->recordType == TLS13_HANDSHAKE_RECORD);
         assert(verf->finished.handshakeHdr.handshakeType == TLS13_HST_FINISHED);
 
@@ -680,7 +682,7 @@ void tls13_extractClientWrappedRecord(const uint8_t *tlsPkt, uint8_t *dVerify, u
     }
     if(tlsPkt[6 + ccspLen + verifLen] == TLS13_HST_FINISHED)
     {
-        tls13_appDataRecord_t *recvdAppData = &tmp->appDataRecord + ccspLen + verifLen;
+        tls13_appDataRecord_t *recvdAppData = (tls13_appDataRecord_t *)(&tmp->appDataRecord + ccspLen + verifLen);
         /* Verify the auth Tag */
         assert(recvdAppData->recordHeader.recordType == TLS13_APPDATA_RECORD);
         assert(recvdAppData->recordHeader.protoVersion == TLS12_PROTO_VERSION || recvdAppData->recordHeader.protoVersion == TLS13_PROTO_VERSION);
@@ -701,9 +703,9 @@ uint16_t tls13_prepareServerSessionTicketRecord(const uint8_t *sessionTkt, const
 
     sNST->recordHeader.recordType = TLS13_APPDATA_RECORD;
     sNST->recordHeader.protoVersion = TLS12_PROTO_VERSION;      /* Legacy TLS 1.2 */
-    memset(&sNST->encryptedData, sessionTkt, sessionTktLen);    // session ticket with the server handshake key
+    memcpy(&sNST->encryptedData, sessionTkt, sessionTktLen);    // session ticket with the server handshake key
     offset += sessionTktLen;
-    memset(sNST->authTag + offset, authTag, TLS13_RECORD_AUTHTAG_LEN);
+    memcpy(sNST->authTag + offset, authTag, TLS13_RECORD_AUTHTAG_LEN);
     offset += TLS13_RECORD_AUTHTAG_LEN;
 
     sNST->recordHeader.recordLen = offset;
@@ -731,7 +733,7 @@ void tls13_extractSessionTicket(tls13_serverNewSesTkt_t *sessionTkt, uint8_t *au
     dataSize = tmp->recordHeader.recordLen - TLS13_RECORD_AUTHTAG_LEN;
     memcpy(authTag, (tmp->authTag + dataSize), TLS13_RECORD_AUTHTAG_LEN);
 
-    tsl13_serverSesTktDataDecrypt_t *tmp1 = &tmp->encryptedData;
+    tsl13_serverSesTktDataDecrypt_t *tmp1 = (tsl13_serverSesTktDataDecrypt_t *)&tmp->encryptedData;
     /* decrypt the data */
     assert(tmp1->recordType == TLS13_HANDSHAKE_RECORD);
     sessionTkt->handshakeHdr.handshakeType = tmp1->sessionTicket.handshakeHdr.handshakeType;
@@ -740,13 +742,13 @@ void tls13_extractSessionTicket(tls13_serverNewSesTkt_t *sessionTkt, uint8_t *au
     sessionTkt->ticketAgeAdd =
 
     sessionTkt->nounceLen = tmp1->sessionTicket.nounceLen;
-    if(*sessionTkt->nounce != NULL)
+    if(sessionTkt->nounce != NULL)
         memcpy(sessionTkt->nounce, tmp1->sessionTicket.nounce, sessionTkt->nounceLen);
     offset += sessionTkt->nounceLen;
 
     //sessionTkt->sessionTicketLen = tmp1->sessionTicket.sessionTicketLen;
     sessionTkt->sessionTicketLen = REACH_ELEMENT(&tmp1->sessionTicket, tls13_serverNewSesTkt_t, sessionTicketLen, offset, uint8_t);
-    if(*sessionTkt->sessionTicket != NULL)
+    if(sessionTkt->sessionTicket != NULL)
         memcpy(sessionTkt->sessionTicket, tmp1->sessionTicket.nounce + offset, sessionTkt->sessionTicketLen);
     offset += sessionTkt->sessionTicketLen;
 

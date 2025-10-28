@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 #include "poly1305.h"
 #include "math.h"
 
@@ -42,7 +43,7 @@ int poly1305_mac_generate(const uint8_t *plain_text, uint32_t dataLen, const uin
 
     memcpy(&rKey, key, 16);
     memcpy(&sKey, (key + 16), 16);
-    poly1305_clamp_key(&rKey);
+    poly1305_clamp_key(rKey);
 
     inputChunks = dataLen/16;
     residueBytes = (dataLen % 16);

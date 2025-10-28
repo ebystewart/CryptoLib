@@ -30,7 +30,7 @@ int rsa_generate_prime(rsa_keyLen_e keyLen, uint8_t *prime)
         generate_random(prime, keyLen);
     printf("The generated random number of length %d is:\n", keyLen*8); 
     for(idx = 0; idx < keyLen; idx++){
-      printf("%x");
+      printf("%x",prime[idx]);
     }
     printf("\n");
     /* Do primality test - Fermat's test */
@@ -494,17 +494,17 @@ uint8_t rsa_calculate_exponent(const uint8_t *base, uint32_t baseLen, const uint
     bool odd_power = false;
     assert(baseLen != 0 && powerLen != 0);
 
-    const uint8_t *temp = calloc(1, powerLen);
+    uint8_t *temp = calloc(1, powerLen);
     memcpy(temp, power, powerLen);
     printf("The power value is:\n");
     for (idxx= 0; idxx < powerLen; idxx++){
         printf("%x", temp[idxx]);
     }
     printf("\n");
-    const uint8_t *temp2 = calloc(1, powerLen);
+    uint8_t *temp2 = calloc(1, powerLen);
     memset(temp2, 0, powerLen);
 
-    const uint8_t *temp3 = calloc(1, intBaseLen);
+    uint8_t *temp3 = calloc(1, intBaseLen);
     temp3x = (temp3 + intBaseLen - baseLen);
     /* data has to be right- aligned */
     memcpy(temp3x, base, baseLen);
@@ -513,7 +513,7 @@ uint8_t rsa_calculate_exponent(const uint8_t *base, uint32_t baseLen, const uint
         printf("%x", temp3x[idxx]);
     }
     printf("\n");
-    const uint8_t *temp4 = calloc(1, intBaseLen);
+    uint8_t *temp4 = calloc(1, intBaseLen);
     /* data has to be right- aligned */
     memset(temp4, 0, intBaseLen);
     temp4x = (temp4 + (2 * baseLen));

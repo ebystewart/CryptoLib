@@ -43,7 +43,7 @@ int aes_decrypt_init(aes_mode_t mode, const uint8_t *initVal, const uint8_t *cip
 
 int aes_decrypt_update(aes_mode_t mode, const uint8_t *cipher_text, uint8_t *plain_text, const uint8_t *key, uint8_t *rKey, aes_keylen_t keyLen);
 
-int aes_decrypt_end(aes_mode_t mode, const uint8_t *cipher_text, uint8_t *plain_text, uint8_t *round_key, aes_keylen_t keyLen);
+int aes_decrypt_end(aes_mode_t mode, const uint8_t *cipher_text, uint8_t *plain_text, const uint8_t *round_key, aes_keylen_t keyLen);
 
 /* Sync APIs */
 int aes_encrypt(aes_mode_t mode, uint8_t *initVal, uint8_t *plain_text, uint8_t *cipher_text, uint8_t dataLen, const uint8_t *key, aes_keylen_t keyLen);
