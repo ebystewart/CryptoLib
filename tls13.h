@@ -37,8 +37,8 @@ typedef enum {
    TLS13_CHANGE_CIPHERSPEC_RECORD = 0x14,
    TLS13_ALERT_RECORD             = 0x15,
    TLS13_HANDSHAKE_RECORD         = 0x16,
-   TLS13_APPDATA_RECORD           = 0x17,
-   TLS13_HEARTBEAT_RECORD         = 0x18
+   TLS13_APPDATA_RECORD           = 0x17
+   //TLS13_HEARTBEAT_RECORD         = 0x18
 }tls13_recordType_e;
 
 typedef enum {
@@ -419,13 +419,13 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
 
 uint16_t tls13_prepareServerHello(const uint8_t *serverRandom, const uint8_t *sessionId, const uint16_t cipherSuite, 
                                     const uint8_t *pubKey, const uint16_t pubKeyLen, const uint16_t keyType, const uint8_t *data, const uint16_t dataLen, 
-                                    const uint8_t *authTag, uint8_t *tlsPkt);
+                                    uint8_t *tlsPkt);
 
-uint16_t tls13_prepareServerWrappedRecord(const uint8_t *dCert, const uint16_t dCertLen, const uint8_t *authTag, 
+uint16_t tls13_prepareServerWrappedRecord(const uint8_t *dCert, const uint16_t dCertLen,
                                         const uint8_t *dCertVerf, const uint16_t dCertVerfLen, 
                                         const uint8_t *dVerify, const uint16_t dVerifyLen,  uint8_t *tlsPkt);
 
-uint16_t tls13_prepareClientWrappedRecord(const uint8_t *dVerify, const uint16_t dVerifyLen, const uint8_t *authTag, 
+uint16_t tls13_prepareClientWrappedRecord(const uint8_t *dVerify, const uint16_t dVerifyLen,
                                             const uint8_t *appData, const uint8_t appDataLen, uint8_t *tlsPkt);
 
 uint16_t tls13_prepareServerSessionTicketRecord(const uint8_t *sessionTkt, \
