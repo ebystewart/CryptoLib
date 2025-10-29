@@ -32,6 +32,7 @@
 #define TLS13_RANDOM_LEN 32
 #define TLS13_RECORD_AUTHTAG_LEN 16
 #define TLS13_RECORD_HEADER_SIZE 5
+#define TLS13_HANDSHAKE_HEADER_SIZE 4
 
 typedef enum {
    TLS13_CHANGE_CIPHERSPEC_RECORD = 0x14,
@@ -291,7 +292,7 @@ typedef struct {
 
 typedef struct {
    tls13_serverCert_t   certificate;      /* could be Server Certificate  (tls13_serverCert_t) */
-   uint8_t              recordType;       /* 0x16 (handshake record) */   
+   //uint8_t              recordType;       /* 0x16 (handshake record) */   
 }tls13_certRecordDataDecrypt_t;
 
 typedef struct {
@@ -331,8 +332,13 @@ typedef struct {
 
 typedef struct {
    tls13_finished_t           finished;         /* server finished  */
-   uint8_t                    recordType;       /* 0x16 (handshake record) */
+   //uint8_t                    recordType;       /* 0x16 (handshake record) */
 }tsl13_finishedRecordDataDecrypted_t;
+
+typedef struct {
+   tls13_finished_t           finished;         /* server finished  */
+   uint8_t                    recordType;       /* 0x16 (handshake record) */
+}tsl13_finishedClientRecordDataDecrypted_t;
 
 /* Application data */
 typedef struct {
@@ -418,7 +424,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
                                     const uint8_t *pubKey, const uint16_t pubKeyLen, uint8_t *tlsPkt);
 
 uint16_t tls13_prepareServerHello(const uint8_t *serverRandom, const uint8_t *sessionId, const uint16_t cipherSuite, 
-                                    const uint8_t *pubKey, const uint16_t pubKeyLen, const uint16_t keyType, const uint8_t *data, const uint16_t dataLen, 
+                                    const uint8_t *pubKey, const uint16_t pubKeyLen, const uint16_t keyType, const uint8_t *encryExt, const uint16_t encryExtLen, 
                                     uint8_t *tlsPkt);
 
 uint16_t tls13_prepareServerWrappedRecord(const uint8_t *dCert, const uint16_t dCertLen,
@@ -442,7 +448,7 @@ void tls13_extractClientHello(uint8_t *clientRandom, uint8_t *sessionId, uint8_t
                                     uint8_t *pubKey, uint16_t *pubKeyLen, const uint8_t *tlsPkt);
 
 void tls13_extractServerHello(uint8_t *serverRandom, uint8_t *sessionId, uint16_t *cipherSuite, 
-                                    uint8_t *pubKey, uint16_t *pubKeyLen, uint16_t *keyType, uint8_t *data, uint16_t *dataLen, const uint8_t *tlsPkt);
+                                    uint8_t *pubKey, uint16_t *pubKeyLen, uint16_t *keyType, uint8_t *encryExt, uint16_t *encryExtLen, const uint8_t *tlsPkt);
 
 void tls13_extractServerWrappedRecord(const uint8_t *tlsPkt, tls13_cert_t *dCert, tls13_signature_t *sign, uint8_t *dVerify, uint16_t *dVerifyLen);
 
