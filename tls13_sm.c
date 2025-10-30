@@ -101,6 +101,8 @@ const tls13_capability_t clientCapability = {
 
 static void tls13_cxt_queueInit(void);
 
+static tls13_ctxDatabase_t *tls13_cxt_queueFind(tls13_context_t *ctx);
+
 static void tls13_cxt_queueInsert(tls13_context_t *ctx);
 
 static void tls13_cxt_queueDelete(tls13_context_t *ctx);
@@ -115,14 +117,50 @@ static void tls13_cxt_queueInit(void)
     ctxHead->prev = NULL;
 }
 
+static tls13_ctxDatabase_t *tls13_cxt_queueFind(tls13_context_t *ctx)
+{
+    tls13_ctxDatabase_t *ctxTmp = ctxHead;
+    /* Exclude the head */
+    ctxTmp = ctxTmp->next;
+    while (memcmp(ctxTmp->ctx, ctx, sizeof(tls13_context_t))){
+        ctxTmp = ctxTmp->next;
+        if(ctxTmp == NULL){
+            return NULL;
+        }
+    }
+    return ctxTmp;
+}
+
 static void tls13_cxt_queueInsert(tls13_context_t *ctx)
 {
-
+    tls13_ctxDatabase_t *ctxTmp = ctxHead;
+    /* Exclude the head */
+    ctxTmp = ctxTmp->next;
+    while (ctxTmp->next != NULL){
+        ctxTmp = ctxTmp->next;
+    }
+    if(ctxTmp != NULL){
+        ctxTmp->next = calloc(1, sizeof(tls13_ctxDatabase_t));
+        ctxTmp = ctxTmp->next;
+        ctxTmp->ctxId = ctxTmp->prev->ctxId + 1;
+        ctxTmp->ctx->instanceId = ctxTmp->ctxId;
+        memcpy(ctxTmp->ctx, ctx, sizeof(tls13_context_t));
+        ctxTmp->next = NULL;
+    }
 }
 
 static void tls13_cxt_queueDelete(tls13_context_t *ctx)
 {
+    tls13_ctxDatabase_t *ctxTmp = tls13_cxt_queueFind(ctx);
 
+    if(ctxTmp != NULL){
+        ctxTmp = ctxTmp->prev;
+        free(ctxTmp->next->ctx->random);
+        free(ctxTmp->next->ctx->sessionId);
+        free(ctxTmp->next->ctx->publicKey);
+        free(ctxTmp->next);
+        ctxTmp->next = NULL;
+    }
 }
 
 static void tls13_ctx_queue(tls13_context_t *ctx, tls13_ctxOperation_e op)
@@ -130,9 +168,20 @@ static void tls13_ctx_queue(tls13_context_t *ctx, tls13_ctxOperation_e op)
     /* Do context queu management here */
     if (op == TLS13_CTX_ENQUEUE)
     {
+        /* Insert the context to the database */
+        tls13_cxt_queueInsert(ctx);
+        /* Generate the 32-Byte client random for handshake */
+        ctx->random = calloc(1, TLS13_RANDOM_LEN);
+        generate_random(ctx->random, TLS13_RANDOM_LEN);
+
+        /* Generate a session Id */
+        ctx->sessionId = calloc(1, TLS13_SESSION_ID_LEN);
+        generate_random(ctx->random, TLS13_SESSION_ID_LEN);
     }
     else if (op == TLS13_CTX_DEQUEUE)
     {
+        /* Delete the context from the database */
+        tls13_cxt_queueDelete(ctx);
     }
     else
     {
@@ -146,12 +195,13 @@ void tls13_init(tls13_context_t *ctx)
 
     if (ctx->role == TLS13_CLIENT)
     {
-        /* Perform client handshake */
-        // generate_random()
+        /* Start the client handshake process */
+
     }
     else if (ctx->role == TLS13_SERVER)
-    {
-        /* perform server handshake */
+    {        
+        /* Start the server handshake process */
+
     }
     else
     {
@@ -163,15 +213,17 @@ void tls13_close(tls13_context_t *ctx)
 {
     if (ctx->role == TLS13_CLIENT)
     {
+
     }
     else if (ctx->role == TLS13_SERVER)
     {
+
     }
     else
     {
         assert(0);
     }
-
+ 
     tls13_ctx_queue(ctx, TLS13_CTX_DEQUEUE);
 }
 
