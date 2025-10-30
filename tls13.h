@@ -25,12 +25,12 @@
       |                                                               |
 */
 
-#define TLS13_SESSION_ID_LEN 16
+#define TLS13_SESSION_ID_LEN 32
 #define TLS13_CIPHERSUITE_LEN 3
 #define TLS13_PROTO_VERSION 0x0301
 #define TLS12_PROTO_VERSION 0x0303
 #define TLS13_RANDOM_LEN 32
-#define TLS13_RECORD_AUTHTAG_LEN 16
+#define TLS13_RECORD_AUTHTAG_LEN 16U
 #define TLS13_RECORD_HEADER_SIZE 5
 #define TLS13_HANDSHAKE_HEADER_SIZE 4
 
@@ -213,7 +213,7 @@ typedef struct{
    uint16_t                   *supportedVersions;
    uint8_t                    keyXchangeModesLen;
    uint8_t                    *keyXchangeModes;
-}tls13_clientCapability_t;
+}tls13_capability_t;
 
 /* Server Hello Extensions */
 typedef struct{
@@ -420,7 +420,7 @@ typedef struct {
                (*(retType *)(&(((inPtrType *)inPtr)->element) + (offset)))
 
 /* Prepare pkts to be sent  */
-uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *sessionId, const uint8_t *dnsHostname, 
+uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *sessionId, const char *dnsHostname, 
                                     const uint8_t *pubKey, const uint16_t pubKeyLen, uint8_t *tlsPkt);
 
 uint16_t tls13_prepareServerHello(const uint8_t *serverRandom, const uint8_t *sessionId, const uint16_t cipherSuite, 
@@ -444,7 +444,7 @@ uint16_t tls13_prepareAlertRecord(const tls13_alert_t *alertData, uint8_t *tlsPk
 
 /* Deserialize and update data structures based on received pkts */
 
-void tls13_extractClientHello(uint8_t *clientRandom, uint8_t *sessionId, uint8_t *dnsHostname, tls13_clientCapability_t *capability,
+void tls13_extractClientHello(uint8_t *clientRandom, uint8_t *sessionId, uint8_t *dnsHostname, tls13_capability_t *capability,
                                     uint8_t *pubKey, uint16_t *pubKeyLen, const uint8_t *tlsPkt);
 
 void tls13_extractServerHello(uint8_t *serverRandom, uint8_t *sessionId, uint16_t *cipherSuite, 

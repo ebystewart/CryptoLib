@@ -14,7 +14,8 @@ OBJS= aes.o	\
 	poly1305.o	\
 	aead.o	\
 	tls12.o	\
-	tls13.o
+	tls13.o	\
+	tls13_sm.o
 
 CryptoLib.bin:${OBJS}
 	${CC} ${CFLAGS} ${OBJS} -o CryptoLib.bin
@@ -63,6 +64,9 @@ tls12.o:tls12.c
 
 tls13.o:tls13.c
 	${CC} ${CFLAGS} -c tls13.c -I . -o tls13.o
+
+tls13_sm.o:tls13_sm.c
+	${CC} ${CFLAGS} -c tls13_sm.c -I . -o tls13_sm.o
 
 all:
 	make
