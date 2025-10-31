@@ -14,6 +14,10 @@ typedef enum {
 }tls13_ctxType_e;
 
 typedef struct{
+    int fd;
+    int comm_fd;
+    uint32_t ip;
+    uint16_t port;
     uint8_t          instanceId;
     tls13_ctxType_e  role;
     uint8_t          *random;

@@ -1,6 +1,14 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <assert.h>
+#include <pthread.h>
+#include <errno.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <netdb.h>
+#include <sys/select.h>
 #include "tls13.h"
 #include "tls13_sm.h"
 #include "math.h"
@@ -188,19 +196,178 @@ static void tls13_ctx_queue(tls13_context_t *ctx, tls13_ctxOperation_e op)
         assert(0);
     }
 }
+static uint16_t portNum = 27000;
+static uint16_t tls13_getNextPortNumber(void)
+{
+    return (portNum + 4);
+}
+
+static void *__client_handshake_thread(void *arg)
+{
+    int opt = 1;
+    tls13_context_t *ctx = (tls13_context_t *)arg;
+
+    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+    pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
+
+    if(setsockopt(ctx->fd, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) < 0U)
+    {
+         printf("%s(): Setting of socket option to reuse address failed.\n", __FUNCTION__);
+         exit(0);
+    }
+    if(setsockopt(ctx->fd, SOL_SOCKET, SO_REUSEPORT, (char *)&opt, sizeof(opt)) > 0U)
+    {
+        printf("%s(): Setting of sock option to reuse port address failed\n", __FUNCTION__);
+        exit(0);
+    }
+
+    fd_set active_sock_fd_set;
+    fd_set backup_sock_fd_set;
+
+    FD_SET(ctx->fd, &backup_sock_fd_set);
+    FD_SET(ctx->fd, &active_sock_fd_set);
+
+    if(listen(ctx->fd, 5) < 0U)
+    {
+        printf("listen failed \n");
+        exit(0);
+    }
+    while(true){
+    
+        pthread_testcancel();
+        select(ctx->fd + 1, &active_sock_fd_set, NULL, NULL, NULL);
+
+        active_sock_fd_set = backup_sock_fd_set;
+    }
+}
+
+static void *__server_handshake_thread(void *arg)
+{
+    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+    pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
+    while(1){
+        pthread_testcancel();
+        
+    }
+}
+
+static void *__tls_transmit_thread(void *arg)
+{
+    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+    pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
+    while(1){
+        pthread_testcancel();
+        
+    }
+}
+
+static void *__tls_receive_thread(void *arg)
+{
+    pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
+    pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
+    while(1){
+        pthread_testcancel();
+        
+    }
+}
+
+static void tls13_startClientHandshakeThread(tls13_context_t *ctx)
+{
+    pthread_attr_t attr;
+    pthread_t clientHandshake_thread;
+
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+
+    if(pthread_create(&clientHandshake_thread, &attr, __client_handshake_thread, (void *)ctx)){
+        printf("Client Handshake thread creation failed with error code %d\n", errno);
+        exit(0); /* cancel point */
+    }
+}
+
+static void tls13_startServerHandshakeThread(tls13_context_t *ctx)
+{
+    pthread_attr_t attr;
+    pthread_t serverHandshake_thread;
+
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    if(pthread_create(&serverHandshake_thread, &attr, __server_handshake_thread, (void *)ctx)){
+        printf("Client Handshake thread creation failed with error code %d\n", errno);
+        exit(0); /* cancel point */
+    }
+}
+
+static void tls13_startDataTransmitThread(tls13_context_t *ctx)
+{
+    pthread_attr_t attr;
+    pthread_t dataTransmit_thread;
+
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    if(pthread_create(&dataTransmit_thread, &attr, __tls_transmit_thread, (void *)ctx)){
+        printf("TLS 1.3 data Transmit thread creation failed with error code %d\n", errno);
+        exit(0); /* cancel point */
+    }
+}
+
+static void tls13_startDataReceiveThread(tls13_context_t *ctx)
+{
+    pthread_attr_t attr;
+    pthread_t dataTransmit_thread;
+
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    if(pthread_create(&dataTransmit_thread, &attr, __tls_receive_thread, (void *)ctx)){
+        printf("TLS 1.3 data receive thread creation failed with error code %d\n", errno);
+        exit(0); /* cancel point */
+    }
+}
+
+static void init_socket(tls13_context_t *ctx)
+{
+    struct sockaddr_in node_addr;
+    node_addr.sin_family = AF_INET;
+    node_addr.sin_addr.s_addr = INADDR_ANY;
+
+    ctx->port = tls13_getNextPortNumber();
+    node_addr.sin_port =ctx->port;
+
+    /* IP also needs to be updated */
+
+    ctx->fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);     //SOCK_DGRAM, IPPROTO_UDP);
+
+    if(bind(ctx->fd, (const struct sockaddr *)&node_addr, sizeof(struct sockaddr_in)) == -1)
+    {
+        printf("socket bind failed for instance %d\n", ctx->instanceId);
+        return;
+    }
+
+    int retVal = connect(ctx->fd, (struct sockaddr *)&node_addr, sizeof(node_addr));
+    if(retVal == -1){
+        printf("connect unsuccessful\n");
+        exit(0);
+    }
+}
 
 void tls13_init(tls13_context_t *ctx)
 {
+    /* create the context entry in database */
     tls13_ctx_queue(ctx, TLS13_CTX_ENQUEUE);
+
+    /* Create and bind a socket */
+    init_socket(ctx);
 
     if (ctx->role == TLS13_CLIENT)
     {
         /* Start the client handshake process */
+        tls13_startClientHandshakeThread(ctx);
 
     }
     else if (ctx->role == TLS13_SERVER)
     {        
         /* Start the server handshake process */
+        tls13_startServerHandshakeThread(ctx);
 
     }
     else
@@ -213,6 +380,9 @@ void tls13_close(tls13_context_t *ctx)
 {
     if (ctx->role == TLS13_CLIENT)
     {
+        pthread_cancel(__client_handshake_thread);
+        pthread_join(__client_handshake_thread, NULL);
+        close(ctx->fd);
 
     }
     else if (ctx->role == TLS13_SERVER)
@@ -223,10 +393,14 @@ void tls13_close(tls13_context_t *ctx)
     {
         assert(0);
     }
- 
+    pthread_cancel(__tls_transmit_thread);
+    pthread_join(__tls_transmit_thread, NULL);
+    close(ctx->fd);
+
     tls13_ctx_queue(ctx, TLS13_CTX_DEQUEUE);
 }
 
 void tls13_stateManager(tls13_context_t *ctx)
 {
+
 }
