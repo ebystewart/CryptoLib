@@ -163,9 +163,9 @@ static void tls13_cxt_queueDelete(tls13_context_t *ctx)
 
     if(ctxTmp != NULL){
         ctxTmp = ctxTmp->prev;
-        free(ctxTmp->next->ctx->random);
-        free(ctxTmp->next->ctx->sessionId);
-        free(ctxTmp->next->ctx->publicKey);
+        free(ctxTmp->next->ctx->client_random);
+        free(ctxTmp->next->ctx->client_sessionId);
+        free(ctxTmp->next->ctx->client_publicKey);
         free(ctxTmp->next);
         ctxTmp->next = NULL;
     }
@@ -178,13 +178,15 @@ static void tls13_ctx_queue(tls13_context_t *ctx, tls13_ctxOperation_e op)
     {
         /* Insert the context to the database */
         tls13_cxt_queueInsert(ctx);
-        /* Generate the 32-Byte client random for handshake */
-        ctx->random = calloc(1, TLS13_RANDOM_LEN);
-        generate_random(ctx->random, TLS13_RANDOM_LEN);
+        if(ctx->role == TLS13_CLIENT){
+            /* Generate the 32-Byte client random for handshake */
+            ctx->client_random = calloc(1, TLS13_RANDOM_LEN);
+            generate_random(ctx->client_random, TLS13_RANDOM_LEN);
 
-        /* Generate a session Id */
-        ctx->sessionId = calloc(1, TLS13_SESSION_ID_LEN);
-        generate_random(ctx->random, TLS13_SESSION_ID_LEN);
+            /* Generate a session Id */
+            ctx->client_sessionId = calloc(1, TLS13_SESSION_ID_LEN);
+            generate_random(ctx->client_random, TLS13_SESSION_ID_LEN);
+        }
     }
     else if (op == TLS13_CTX_DEQUEUE)
     {
@@ -205,7 +207,14 @@ static uint16_t tls13_getNextPortNumber(void)
 static void *__client_handshake_thread(void *arg)
 {
     int opt = 1;
+    bool serverHelloReceived = false;
     tls13_context_t *ctx = (tls13_context_t *)arg;
+
+    struct sockaddr_in server_addr;
+    server_addr.sin_family = AF_INET;
+    server_addr.sin_port = ctx->server_port;
+    server_addr.sin_addr.s_addr = ctx->server_ip;
+
 
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
     pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
@@ -224,18 +233,25 @@ static void *__client_handshake_thread(void *arg)
     fd_set active_sock_fd_set;
     fd_set backup_sock_fd_set;
 
-    FD_SET(ctx->fd, &backup_sock_fd_set);
-    FD_SET(ctx->fd, &active_sock_fd_set);
+    FD_SET(ctx->comm_fd, &backup_sock_fd_set);
+    FD_SET(ctx->comm_fd, &active_sock_fd_set);
+
+    uint8_t *tls_pkt = calloc(1, TLS13_CLIENT_HELLO_LEN);
+
+    tls13_prepareClientHello(ctx->client_random, ctx->client_sessionId, "dns.google.com", ctx->client_publicKey, ctx->client_publicKey, tls_pkt);
+
+    int rc = sendto(ctx->comm_fd, tls_pkt, TLS13_CLIENT_HELLO_LEN, 0, (struct sockaddr *)&server_addr, sizeof(struct sockaddr));
 
     if(listen(ctx->fd, 5) < 0U)
     {
         printf("listen failed \n");
         exit(0);
     }
-    while(true){
+    while(serverHelloReceived == false){
     
         pthread_testcancel();
-        select(ctx->fd + 1, &active_sock_fd_set, NULL, NULL, NULL);
+        select(ctx->comm_fd + 1, &active_sock_fd_set, NULL, NULL, NULL);
+
 
         active_sock_fd_set = backup_sock_fd_set;
     }
@@ -330,8 +346,8 @@ static void init_socket(tls13_context_t *ctx)
     node_addr.sin_family = AF_INET;
     node_addr.sin_addr.s_addr = INADDR_ANY;
 
-    ctx->port = tls13_getNextPortNumber();
-    node_addr.sin_port =ctx->port;
+    ctx->client_port = tls13_getNextPortNumber();
+    node_addr.sin_port =ctx->client_port;
 
     /* IP also needs to be updated */
 
@@ -348,6 +364,7 @@ static void init_socket(tls13_context_t *ctx)
         printf("connect unsuccessful\n");
         exit(0);
     }
+    ctx->comm_fd = retVal;
 }
 
 void tls13_init(tls13_context_t *ctx)

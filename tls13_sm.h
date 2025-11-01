@@ -3,6 +3,8 @@
 
 #include <stdint.h>
 
+#define TLS13_CLIENT_HELLO_LEN 2400 // approximate value; need to revisit
+
 typedef enum {
     TLS13_CTX_ENQUEUE,
     TLS13_CTX_DEQUEUE
@@ -14,17 +16,22 @@ typedef enum {
 }tls13_ctxType_e;
 
 typedef struct{
-    int fd;
-    int comm_fd;
-    uint32_t ip;
-    uint16_t port;
-    uint8_t          instanceId;
     tls13_ctxType_e  role;
-    uint8_t          *random;
-    uint8_t          *sessionId;   
+    int              fd;
+    int              comm_fd;
+    uint32_t         client_ip;
+    uint16_t         client_port;
+    uint32_t         server_ip;
+    uint16_t         server_port;
+    uint8_t          instanceId;
+    uint8_t          *client_random;
+    uint8_t          *server_random;
+    uint8_t          *client_sessionId;
+    uint8_t          *server_sessionId;  
     uint16_t         keyType;
     uint16_t         keyLen;
-    uint8_t          *publicKey;
+    uint8_t          *client_publicKey;
+    uint8_t          *server_publicKey;
 }tls13_context_t;
 
 
