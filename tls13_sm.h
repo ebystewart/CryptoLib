@@ -17,8 +17,10 @@ typedef enum {
 
 typedef struct{
     tls13_ctxType_e  role;
-    int              fd;
-    int              comm_fd;
+    int              client_fd;
+    int              server_fd;
+    int              client_max_fd;
+    int              server_max_fd;
     uint32_t         client_ip;
     uint16_t         client_port;
     uint32_t         server_ip;
