@@ -245,10 +245,12 @@ static void *__client_handshake_thread(void *arg)
             if (tls_pkt[0] == TLS13_HST_SERVER_HELLO)
             {
                 serverHelloReceived == true;
-                tls13_extractServerHello(ctx->server_random, ctx->client_sessionId, NULL, ctx->client_publicKey, &ctx->keyLen, &ctx->keyType, NULL, NULL, tls_pkt); // need to update args
+                tls13_extractServerHello(ctx->server_random, ctx->client_sessionId, NULL, ctx->client_publicKey, \
+                    &ctx->keyLen, &ctx->keyType, (tls13_serverExtensions_t *)ctx->serverExtension, &ctx->serverExtensionLen, tls_pkt); // need to update args
             }
         }
     }
+    //tls13_hash_and_sign(uint8_t **handshakeMessages, uint8_t hashType, uint16_t hashLength, )
 
     tls13_prepareClientWrappedRecord(NULL, 32, "hello", strlen("hello"), tls_pkt);
 
@@ -294,6 +296,7 @@ static void *__server_handshake_thread(void *arg)
             clientHelloReceived = true;
         }
     }
+    
 }
 
 static void *__tls_transmit_thread(void *arg)
