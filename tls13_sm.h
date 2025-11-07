@@ -4,6 +4,11 @@
 #include <stdint.h>
 
 #define TLS13_CLIENT_HELLO_LEN 2400 // approximate value; need to revisit
+#define TLS13_SERVER_HELLO_LEN 2400
+#define TLS13_CLIENT_FINISHED_LEN 2400
+#define TLS13_CLIENT_HELLO_MAX_LEN  2400
+#define TLS13_SERVER_HELLO_MAX_LEN  2400
+#define TLS13_CLIENT_FINISHED_MAX_LEN 2400
 
 typedef enum {
     TLS13_CTX_ENQUEUE,
@@ -38,6 +43,8 @@ typedef struct{
     uint16_t           clientCapabilityLen;
     tls13_serverExtensions_t *serverExtension;
     uint16_t                 serverExtensionLen;
+    bool              handshakeCompleted;
+    bool              handshakeExpired;
 }tls13_context_t;
 
 

@@ -118,6 +118,11 @@ static void tls13_cxt_queueDelete(tls13_context_t *ctx);
 
 static void tls13_ctx_queue(tls13_context_t *ctx, tls13_ctxOperation_e op);
 
+static void tls13_hash_and_sign(uint8_t *clientHelloRec, uint16_t clientHelloRecLen, 
+                        uint8_t *serverHelloRec, uint16_t serverHelloRecLen,
+                        uint8_t *clientRecExclFin, uint16_t clientRecExclFinLen,
+                        tls13_cipherSuite_e cipherSuite, uint8_t *handshakeSign);
+
 static void tls13_cxt_queueInit(void)
 {
     ctxHead = calloc(1, sizeof(tls13_ctxDatabase_t));
@@ -194,6 +199,8 @@ static void tls13_ctx_queue(tls13_context_t *ctx, tls13_ctxOperation_e op)
             ctx->client_sessionId = calloc(1, TLS13_SESSION_ID_LEN);
             generate_random(ctx->client_random, TLS13_SESSION_ID_LEN);
         }
+        ctx->handshakeCompleted = false;
+        ctx->handshakeExpired = false;
     }
     else if (op == TLS13_CTX_DEQUEUE)
     {
@@ -216,10 +223,20 @@ static uint32_t tls13_getIPAddress(void)
     return 0;
 }
 
+static void tls13_hash_and_sign(uint8_t *clientHelloRec, uint16_t clientHelloRecLen, 
+                        uint8_t *serverHelloRec, uint16_t serverHelloRecLen,
+                        uint8_t *clientRecExclFin, uint16_t clientRecExclFinLen,
+                        tls13_cipherSuite_e cipherSuite, uint8_t *handshakeSign)
+{
+
+}
+
 static void *__client_handshake_thread(void *arg)
 {
     int opt = 1;
     bool serverHelloReceived = false;
+    tls13_cipherSuite_e serverCipherSuiteSupported;
+    uint16_t handshakeSignLen;
     tls13_context_t *ctx = (tls13_context_t *)arg;
 
     /*struct sockaddr_in client_addr;
@@ -230,31 +247,67 @@ static void *__client_handshake_thread(void *arg)
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
     pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
 
-    uint8_t *tls_pkt = calloc(1, TLS13_CLIENT_HELLO_LEN);
+    /* We need to keep the backup of all the messages for signature calculation for finished record */
+    /* assuming the following messages:
+     *  1. Client hello (sent)
+     *  2. Server hello (received)
+     *  3. Client Finished (this has the signature)
+    */
+    uint8_t *clientHello_pkt = calloc(1, TLS13_CLIENT_HELLO_LEN);
+    uint8_t *serverHello_pkt = calloc(1, TLS13_SERVER_HELLO_MAX_LEN); // If pkt is more than max size, we may receive as 2 pkts; need to handle this
+    uint8_t *clientFinish_pkt = calloc(1, TLS13_CLIENT_FINISHED_LEN);
 
-    tls13_prepareClientHello(ctx->client_random, ctx->client_sessionId, "dns.google.com", ctx->client_publicKey, ctx->client_publicKey, tls_pkt);
+    /* Prepare the cleint hello pkt */
+    tls13_prepareClientHello(ctx->client_random, ctx->client_sessionId, "dns.google.com", ctx->client_publicKey, ctx->client_publicKey, clientHello_pkt);
 
-    int rc = send(ctx->client_fd, tls_pkt, TLS13_CLIENT_HELLO_LEN, 0);
+    /* Send the client hello pkt over TCP to the destined socket */
+    int rc = send(ctx->client_fd, clientHello_pkt, TLS13_CLIENT_HELLO_LEN, 0);
 
+    /* Wait for the server hello response to be received */
     while (serverHelloReceived == false)
     {
 
         pthread_testcancel();
         {
-            rc = recv(ctx->client_fd, tls_pkt, sizeof(tls_pkt), 0);// NULL, 0);
-            if (tls_pkt[0] == TLS13_HST_SERVER_HELLO)
+            rc = recv(ctx->client_fd, serverHello_pkt, sizeof(serverHello_pkt), 0);// NULL, 0);
+            if (serverHello_pkt[0] == TLS13_HST_SERVER_HELLO)
             {
                 serverHelloReceived == true;
-                tls13_extractServerHello(ctx->server_random, ctx->client_sessionId, NULL, ctx->client_publicKey, \
-                    &ctx->keyLen, &ctx->keyType, (tls13_serverExtensions_t *)ctx->serverExtension, &ctx->serverExtensionLen, tls_pkt); // need to update args
+                tls13_extractServerHello(ctx->server_random, ctx->client_sessionId, &serverCipherSuiteSupported, ctx->client_publicKey, \
+                    &ctx->keyLen, &ctx->keyType, (tls13_serverExtensions_t *)ctx->serverExtension, &ctx->serverExtensionLen, serverHello_pkt); // need to update args
             }
         }
     }
-    //tls13_hash_and_sign(uint8_t **handshakeMessages, uint8_t hashType, uint16_t hashLength, )
+    /* Extract the hash lengh from the cipher suite supported 
+       This will be helpful to compute the signature */
+    if (serverCipherSuiteSupported == TLS13_AES_128_GCM_SHA256 || serverCipherSuiteSupported == TLS13_CHACHA20_POLY1305_SHA256){
+        handshakeSignLen = 256U;
+    }else if(serverCipherSuiteSupported == TLS13_AES_256_GCM_SHA384){
+        handshakeSignLen = 384U;
+    }
+    else{
+        /* assert error as unspoorted TLS 1.3 cupher suiite is used */
+        assert(0);
+    }
 
-    tls13_prepareClientWrappedRecord(NULL, 32, "hello", strlen("hello"), tls_pkt);
+    uint8_t *handshakeSign = calloc(1, handshakeSignLen);
 
-    send(ctx->client_fd, tls_pkt, TLS13_CLIENT_HELLO_LEN, 0);
+    /* At this point, we should be able to calculate the hash and sign it */
+    tls13_hash_and_sign(clientHello_pkt, TLS13_CLIENT_HELLO_LEN, 
+                        serverHello_pkt, TLS13_SERVER_HELLO_LEN,
+                        clientFinish_pkt, TLS13_CLIENT_FINISHED_LEN - handshakeSignLen, //should use an offse to exclude the handshake record completely
+                        serverCipherSuiteSupported, handshakeSign);
+
+    /* Prepare the wrapped record (certificate, certificateVerify, finished)*/
+    // need to handle if certificate and certverify also needs to be send
+    tls13_prepareClientWrappedRecord(handshakeSign, handshakeSignLen, "hello", strlen("hello"), clientFinish_pkt);
+
+    send(ctx->client_fd, clientFinish_pkt, TLS13_CLIENT_FINISHED_LEN, 0);
+
+    free(clientHello_pkt);
+    free(serverHello_pkt);
+    free(clientFinish_pkt);
+    free(handshakeSign);
 
     /* This thread should terminate when the handshake is complete */
     pthread_exit(0);
@@ -276,7 +329,15 @@ static void *__server_handshake_thread(void *arg)
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
     pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);  // joinable ??
 
-    uint8_t *tls_pkt = calloc(1, TLS13_CLIENT_HELLO_LEN);
+    /* We need to keep the backup of all the messages for signature calculation for finished record */
+    /* assuming the following messages:
+     *  1. Client hello (received)
+     *  2. Server hello (sent)
+     *  3. Server Finished (this has the signature)
+    */
+    uint8_t *clientHello_pkt = calloc(1, TLS13_CLIENT_HELLO_MAX_LEN);
+    uint8_t *serverHello_pkt = calloc(1, TLS13_SERVER_HELLO_MAX_LEN); // If pkt is more than max size, we may receive as 2 pkts; need to handle this
+    uint8_t *clientFinish_pkt = calloc(1, TLS13_CLIENT_FINISHED_LEN);
 
     if (listen(ctx->client_fd, 20) < 0U)
     {
@@ -288,10 +349,11 @@ static void *__server_handshake_thread(void *arg)
         pthread_testcancel();
         ctx->client_fd = accept(ctx->server_fd, (struct sockaddr *)&client_addr, &addr_size);
 
+        /* recieve client hello first */
         {
-            int rc = recv(ctx->client_fd, tls_pkt, TLS13_CLIENT_HELLO_LEN, 0);// (struct sockaddr *)&server_addr, &addr_len);
+            int rc = recv(ctx->client_fd, clientHello_pkt, TLS13_CLIENT_HELLO_MAX_LEN, 0);// (struct sockaddr *)&server_addr, &addr_len);
 
-            tls13_extractClientHello(ctx->client_random, ctx->client_sessionId, NULL, ctx->clientCapability, ctx->client_publicKey, ctx->keyLen, tls_pkt);
+            tls13_extractClientHello(ctx->client_random, ctx->client_sessionId, NULL, ctx->clientCapability, ctx->client_publicKey, ctx->keyLen, clientHello_pkt);
             /* Receive the server hello and extract the data */
             clientHelloReceived = true;
         }
@@ -334,7 +396,7 @@ static void tls13_startClientHandshakeThread(tls13_context_t *ctx)
     if (pthread_create(&clientHandshake_thread, &attr, __client_handshake_thread, (void *)ctx))
     {
         printf("Client Handshake thread creation failed with error code %d\n", errno);
-        exit(0); /* cancel point */
+        exit(1); /* cancel point */
     }
 }
 
@@ -348,7 +410,7 @@ static void tls13_startServerHandshakeThread(tls13_context_t *ctx)
     if (pthread_create(&serverHandshake_thread, &attr, __server_handshake_thread, (void *)ctx))
     {
         printf("Client Handshake thread creation failed with error code %d\n", errno);
-        exit(0); /* cancel point */
+        exit(1); /* cancel point */
     }
 }
 
