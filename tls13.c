@@ -92,7 +92,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
                                     const uint8_t *pubKey, const uint16_t pubKeyLen, uint8_t *tlsPkt)
 {
     uint16_t len = 0;
-    tls13_clientHello_t *clientHelloTmp = calloc(1, sizeof(tls13_clientHello_t) + 2400);
+    tls13_clientHello_t *clientHelloTmp = calloc(1, sizeof(tls13_clientHello_t) + 300);
 
     /* Record header update */
     clientHelloTmp->recordHeader.recordType   = TLS13_HANDSHAKE_RECORD;
@@ -199,19 +199,19 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
             sigAlg->extType = TLS13_EXT_SIGN_AGLORITHM;
             uint16_t *sigAlgList = (uint16_t *)&sigAlg->list;
             sigAlgList[0] = TLS13_SIGNALGOS_ECDSA_SECP256r1_SHA256;
-            sigAlgList[0] = TLS13_SIGNALGOS_ECDSA_SECP384r1_SHA384;
-            sigAlgList[0] = TLS13_SIGNALGOS_ECDSA_SECP521r1_SHA512;
-            sigAlgList[0] = TLS13_SIGNALGOS_ED25519;
-            sigAlgList[0] = TLS13_SIGNALGOS_ED448;
-            sigAlgList[0] = TLS13_SIGNALGOS_RSA_PSS_PSS_SHA256;
-            sigAlgList[0] = TLS13_SIGNALGOS_RSA_PSS_PSS_SHA384;
-            sigAlgList[0] = TLS13_SIGNALGOS_RSA_PSS_PSS_SHA512;
-            sigAlgList[0] = TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA256;
-            sigAlgList[0] = TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA384;
-            sigAlgList[0] = TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA512;
-            sigAlgList[0] = TLS13_SIGNALGOS_RSA_PKCS1_SHA256;
-            sigAlgList[0] = TLS13_SIGNALGOS_RSA_PKCS1_SHA384;
-            sigAlgList[0] = TLS13_SIGNALGOS_RSA_PKCS1_SHA512;
+            sigAlgList[1] = TLS13_SIGNALGOS_ECDSA_SECP384r1_SHA384;
+            sigAlgList[2] = TLS13_SIGNALGOS_ECDSA_SECP521r1_SHA512;
+            sigAlgList[3] = TLS13_SIGNALGOS_ED25519;
+            sigAlgList[4] = TLS13_SIGNALGOS_ED448;
+            sigAlgList[5] = TLS13_SIGNALGOS_RSA_PSS_PSS_SHA256;
+            sigAlgList[6] = TLS13_SIGNALGOS_RSA_PSS_PSS_SHA384;
+            sigAlgList[7] = TLS13_SIGNALGOS_RSA_PSS_PSS_SHA512;
+            sigAlgList[8] = TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA256;
+            sigAlgList[9] = TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA384;
+            sigAlgList[10] = TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA512;
+            sigAlgList[11] = TLS13_SIGNALGOS_RSA_PKCS1_SHA256;
+            sigAlgList[12] = TLS13_SIGNALGOS_RSA_PKCS1_SHA384;
+            sigAlgList[13] = TLS13_SIGNALGOS_RSA_PKCS1_SHA512;
 
             sigAlg->subListSize = 28;
             sigAlg->extDataLen = sigAlg->subListSize + 2;

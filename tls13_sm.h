@@ -41,7 +41,9 @@ typedef struct{
     uint8_t          *client_random;
     uint8_t          *server_random;
     uint8_t          *client_sessionId;
-    uint8_t          *server_sessionId;  
+    uint8_t          *server_sessionId;
+    char             *server_hostname;
+    uint16_t         server_hostname_len; 
     uint16_t         keyType;
     uint16_t         keyLen;
     uint8_t          *client_publicKey;

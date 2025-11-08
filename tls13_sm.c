@@ -14,6 +14,7 @@
 #include "tls13_sm.h"
 #include "math.h"
 #include "rand.h"
+#include "ecc.h"
 
 typedef struct tls13_ctxDatabase_ tls13_ctxDatabase_t;
 
@@ -191,13 +192,49 @@ static void tls13_ctx_queue(tls13_context_t *ctx, tls13_ctxOperation_e op)
         tls13_cxt_queueInsert(ctx);
         if (ctx->role == TLS13_CLIENT)
         {
-            /* Generate the 32-Byte client random for handshake */
+            /* Generate the 32-Byte client random (private key) for handshake */
             ctx->client_random = calloc(1, TLS13_RANDOM_LEN);
-            generate_random(ctx->client_random, TLS13_RANDOM_LEN);
+            ctx->client_publicKey = calloc(1, TLS13_RANDOM_LEN);
+            //generate_random(ctx->client_random, TLS13_RANDOM_LEN);
 
-            /* Generate a session Id */
+            /* Generate a session Id - THis is unused in TLS 1.3 
+               For session resume, pre-shared keys are used 
+               Here, we generate for compatibility with TLS 1.2 */
             ctx->client_sessionId = calloc(1, TLS13_SESSION_ID_LEN);
-            generate_random(ctx->client_random, TLS13_SESSION_ID_LEN);
+            generate_random(ctx->client_sessionId, TLS13_SESSION_ID_LEN);
+
+            ecc_point_t ecc_x25519;
+            ecc_keypair_t keyPair;
+            keyPair.privKey = ctx->client_random;
+            keyPair.pubKey = ctx->client_publicKey;
+            keyPair.privKeyLen = TLS13_RANDOM_LEN;
+
+            /* Generate the public key */
+            ecc_generate_keypair(&ecc_x25519, &keyPair);
+        }
+        else if (ctx->role == TLS13_SERVER){
+            /* Generate the 32-Byte client random (private key) for handshake */
+            ctx->server_random = calloc(1, TLS13_RANDOM_LEN);
+            ctx->server_publicKey = calloc(1, TLS13_RANDOM_LEN);
+            //generate_random(ctx->server_random, TLS13_RANDOM_LEN);
+
+            /* Generate a session Id - THis is unused in TLS 1.3 
+               For session resume, pre-shared keys are used 
+               Here, we generate for compatibility with TLS 1.2 */
+            ctx->server_sessionId = calloc(1, TLS13_SESSION_ID_LEN);
+            generate_random(ctx->server_sessionId, TLS13_SESSION_ID_LEN);
+
+            ecc_point_t ecc_x25519;
+            ecc_keypair_t keyPair;
+            keyPair.privKey = ctx->server_random;
+            keyPair.pubKey = ctx->server_publicKey;
+            keyPair.privKeyLen = TLS13_RANDOM_LEN;
+
+            /* Generate the public key */
+            ecc_generate_keypair(&ecc_x25519, &keyPair);
+        }
+        else{
+            assert(0);
         }
         ctx->handshakeCompleted = false;
         ctx->handshakeExpired = false;
@@ -241,12 +278,6 @@ static void *__client_handshake_thread(void *arg)
     tls13_recordType_e first_record;
     tls13_context_t *ctx = (tls13_context_t *)arg;
 
-
-    /*struct sockaddr_in client_addr;
-    client_addr.sin_family = AF_INET;
-    client_addr.sin_port = ctx->server_port;
-    client_addr.sin_addr.s_addr = ctx->server_ip;*/
-
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
     pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
 
@@ -256,14 +287,14 @@ static void *__client_handshake_thread(void *arg)
      *  2. Server hello (received)
      *  3. Client Finished (this has the signature)
     */
-    uint8_t *clientHello_pkt = calloc(1, TLS13_CLIENT_HELLO_LEN); // client hello may not fit in one frame
-    uint8_t *temp = calloc(1, TLS13_SERVER_HELLO_MAX_LEN);
-    uint8_t *serverHello_pkt = calloc(1, TLS13_SERVER_HELLO_MAX_LEN); // If pkt is more than max size, we may receive as 2 pkts; need to handle this
+    uint8_t *clientHello_pkt      = calloc(1, TLS13_CLIENT_HELLO_LEN); // client hello may not fit in one frame
+    uint8_t *temp                 = calloc(1, TLS13_SERVER_HELLO_MAX_LEN);
+    uint8_t *serverHello_pkt      = calloc(1, TLS13_SERVER_HELLO_MAX_LEN); // If pkt is more than max size, we may receive as 2 pkts; need to handle this
     uint8_t *serverWrappedRec_pkt = calloc(1, TLS13_SERVER_WRAPPEDREC_MAX_LEN);
-    uint8_t *clientFinish_pkt = calloc(1, TLS13_CLIENT_FINISHED_LEN);
+    uint8_t *clientFinish_pkt     = calloc(1, TLS13_CLIENT_FINISHED_LEN);
 
     /* Prepare the cleint hello pkt */
-    tls13_prepareClientHello(ctx->client_random, ctx->client_sessionId, "dns.google.com", ctx->client_publicKey, ctx->client_publicKey, clientHello_pkt);
+    tls13_prepareClientHello(ctx->client_random, ctx->client_sessionId, ctx->server_hostname, ctx->client_publicKey, ctx->client_publicKey, clientHello_pkt);
 
     /* Send the client hello pkt over TCP to the destined socket */
     int rc = send(ctx->client_fd, clientHello_pkt, TLS13_CLIENT_HELLO_LEN, 0);
@@ -317,7 +348,7 @@ static void *__client_handshake_thread(void *arg)
                         serverCipherSuiteSupported, handshakeSign);
 
     /* Prepare the wrapped record (certificate, certificateVerify, finished)*/
-    // need to handle if certificate and certverify also needs to be send
+    // need to handle if certificate and certverify also needs to be sent
     tls13_prepareClientWrappedRecord(handshakeSign, handshakeSignLen, "hello", strlen("hello"), clientFinish_pkt);
 
     /* check if the handshake is successful */
