@@ -543,6 +543,8 @@ uint16_t tls13_prepareServerWrappedRecord(const uint8_t *dCert, const uint16_t d
     tls13_cipherSuite_e cs = tls13_getCipherSuite();
     tls13_serverWrappedRecord_t *record = calloc(1, (sizeof(tls13_serverWrappedRecord_t) + 1200));
 
+    // should be able to send certificate request, if certificate is expected from the client
+    /* certificate */
     tls13_certRecord_t *certRecord = &record->certRecord;
     {
         uint16_t certRecordLen = 0;
@@ -571,6 +573,7 @@ uint16_t tls13_prepareServerWrappedRecord(const uint8_t *dCert, const uint16_t d
         free(certR);
     }
     offset = 0;
+    /* certificate verification */
     tls13_certVerifyRecord_t *certVerifyRecord = &record->certVerifyRecord + len; 
     {
         certVerifyRecord->recordHeader.recordType   = TLS13_APPDATA_RECORD;
@@ -720,6 +723,7 @@ uint16_t tls13_prepareClientWrappedRecord(const uint8_t *dVerify, const uint16_t
         cCCS->recordHeader.recordLen    = 0x0001;
         len += cCCS->recordHeader.recordLen + TLS13_RECORD_HEADER_SIZE;
     }
+    // If client also wands to respond to a certificate request, it should be able to send certificate and cert verify records
     tls13_finishedRecord_t *finishedRecord = &record->finishedRecord + len;
     {
         finishedRecord->recordHeader.recordType   = TLS13_APPDATA_RECORD;

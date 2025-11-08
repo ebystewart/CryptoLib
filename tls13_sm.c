@@ -235,9 +235,12 @@ static void *__client_handshake_thread(void *arg)
 {
     int opt = 1;
     bool serverHelloReceived = false;
+    bool serverWrappedRecReceived = false;
     tls13_cipherSuite_e serverCipherSuiteSupported;
     uint16_t handshakeSignLen;
+    tls13_recordType_e first_record;
     tls13_context_t *ctx = (tls13_context_t *)arg;
+
 
     /*struct sockaddr_in client_addr;
     client_addr.sin_family = AF_INET;
@@ -253,8 +256,10 @@ static void *__client_handshake_thread(void *arg)
      *  2. Server hello (received)
      *  3. Client Finished (this has the signature)
     */
-    uint8_t *clientHello_pkt = calloc(1, TLS13_CLIENT_HELLO_LEN);
+    uint8_t *clientHello_pkt = calloc(1, TLS13_CLIENT_HELLO_LEN); // client hello may not fit in one frame
+    uint8_t *temp = calloc(1, TLS13_SERVER_HELLO_MAX_LEN);
     uint8_t *serverHello_pkt = calloc(1, TLS13_SERVER_HELLO_MAX_LEN); // If pkt is more than max size, we may receive as 2 pkts; need to handle this
+    uint8_t *serverWrappedRec_pkt = calloc(1, TLS13_SERVER_WRAPPEDREC_MAX_LEN);
     uint8_t *clientFinish_pkt = calloc(1, TLS13_CLIENT_FINISHED_LEN);
 
     /* Prepare the cleint hello pkt */
@@ -264,17 +269,30 @@ static void *__client_handshake_thread(void *arg)
     int rc = send(ctx->client_fd, clientHello_pkt, TLS13_CLIENT_HELLO_LEN, 0);
 
     /* Wait for the server hello response to be received */
-    while (serverHelloReceived == false)
+    while (serverHelloReceived == false || serverWrappedRecReceived == false)
     {
 
         pthread_testcancel();
         {
-            rc = recv(ctx->client_fd, serverHello_pkt, sizeof(serverHello_pkt), 0);// NULL, 0);
-            if (serverHello_pkt[0] == TLS13_HST_SERVER_HELLO)
+            rc = recv(ctx->client_fd, temp, sizeof(temp), 0);// NULL, 0);
+            first_record = temp[TLS13_RECORD_HEADER_OFFSET];
+            if (temp[TLS13_HANDSHAKE_HEADER_OFFSET] == TLS13_HST_SERVER_HELLO && first_record == TLS13_HANDSHAKE_RECORD)
             {
                 serverHelloReceived == true;
+                memcpy(serverHello_pkt, temp, sizeof(serverHello_pkt));
                 tls13_extractServerHello(ctx->server_random, ctx->client_sessionId, &serverCipherSuiteSupported, ctx->client_publicKey, \
                     &ctx->keyLen, &ctx->keyType, (tls13_serverExtensions_t *)ctx->serverExtension, &ctx->serverExtensionLen, serverHello_pkt); // need to update args
+            }
+            if((temp[TLS13_HANDSHAKE_HEADER_OFFSET] == TLS13_HST_CERTIFICATE || \
+                temp[TLS13_HANDSHAKE_HEADER_OFFSET] == TLS13_HST_CERTIFICATE_VERIFY || \
+                temp[TLS13_HANDSHAKE_HEADER_OFFSET] == TLS13_HST_CERTIFICATE_REQUEST || \
+                temp[TLS13_HANDSHAKE_HEADER_OFFSET] == TLS13_HST_CERTIFICATE_REQUEST) \
+                && first_record == TLS13_APPDATA_RECORD)
+            {
+
+                memcpy(serverWrappedRec_pkt, temp, sizeof(serverWrappedRec_pkt));
+                tls13_extractServerWrappedRecord(serverWrappedRec_pkt, ctx->serverCert, ctx->serverHandshakeSignature, ctx->serverCertVerify, &ctx->serverCertVerifyLen);
+                serverWrappedRecReceived = true;
             }
         }
     }
@@ -295,17 +313,35 @@ static void *__client_handshake_thread(void *arg)
     /* At this point, we should be able to calculate the hash and sign it */
     tls13_hash_and_sign(clientHello_pkt, TLS13_CLIENT_HELLO_LEN, 
                         serverHello_pkt, TLS13_SERVER_HELLO_LEN,
-                        clientFinish_pkt, TLS13_CLIENT_FINISHED_LEN - handshakeSignLen, //should use an offse to exclude the handshake record completely
+                        clientFinish_pkt, TLS13_CLIENT_FINISHED_LEN - handshakeSignLen, //should use an offset to exclude the handshake record completely
                         serverCipherSuiteSupported, handshakeSign);
 
     /* Prepare the wrapped record (certificate, certificateVerify, finished)*/
     // need to handle if certificate and certverify also needs to be send
     tls13_prepareClientWrappedRecord(handshakeSign, handshakeSignLen, "hello", strlen("hello"), clientFinish_pkt);
 
+    /* check if the handshake is successful */
+    // actually server handshake signature is calculated and compared with the received one
+    if (0 != memcmp(ctx->clientHandshakeSignature, ctx->serverHandshakeSignature, ctx->clientHandshakeSignLen)){
+        tls13_alert_t alert;
+        uint8_t *alert_pkt = calloc(1, TLS13_ALERT_LEN);
+        alert.level = TLS13_ALERT_FATAL;
+        alert.description = TLS13_HANDSHAKE_FAILURE;
+        tls13_prepareAlertRecord(&alert, alert_pkt);
+        send(ctx->client_fd, alert_pkt, TLS13_ALERT_LEN, 0);
+        ctx->handshakeExpired = false;
+        
+        /* handshake failed - terminate the thread */
+        pthread_exit(0);
+    }
     send(ctx->client_fd, clientFinish_pkt, TLS13_CLIENT_FINISHED_LEN, 0);
+    ctx->handshakeCompleted = true;
+    ctx->handshakeExpired = false;
 
     free(clientHello_pkt);
+    free(temp);
     free(serverHello_pkt);
+    free(serverWrappedRec_pkt);
     free(clientFinish_pkt);
     free(handshakeSign);
 

@@ -3,12 +3,19 @@
 
 #include <stdint.h>
 
-#define TLS13_CLIENT_HELLO_LEN 2400 // approximate value; need to revisit
-#define TLS13_SERVER_HELLO_LEN 2400
-#define TLS13_CLIENT_FINISHED_LEN 2400
-#define TLS13_CLIENT_HELLO_MAX_LEN  2400
-#define TLS13_SERVER_HELLO_MAX_LEN  2400
-#define TLS13_CLIENT_FINISHED_MAX_LEN 2400
+#define TLS13_CLIENT_HELLO_LEN 1460 // approximate value; need to revisit
+#define TLS13_SERVER_HELLO_LEN 1460
+#define TLS13_CLIENT_FINISHED_LEN 1460
+#define TLS13_CLIENT_HELLO_MAX_LEN  1460
+#define TLS13_SERVER_HELLO_MAX_LEN  1460
+#define TLS13_CLIENT_FINISHED_MAX_LEN 1460
+
+#define TLS13_SERVER_WRAPPEDREC_MAX_LEN 1460
+#define TLS13_ALERT_LEN \
+                (TLS13_RECORD_HEADER_SIZE + TLS13_HANDSHAKE_HEADER_SIZE + sizeof(tls13_alert_t))
+
+#define TLS13_RECORD_HEADER_OFFSET 0U
+#define TLS13_HANDSHAKE_HEADER_OFFSET 6U
 
 typedef enum {
     TLS13_CTX_ENQUEUE,
@@ -43,6 +50,18 @@ typedef struct{
     uint16_t           clientCapabilityLen;
     tls13_serverExtensions_t *serverExtension;
     uint16_t                 serverExtensionLen;
+    uint8_t           *clientCert;
+    uint16_t          clientCertLen;
+    uint8_t           *clientCertVerify;
+    uint16_t          clientCertVerifyLen;
+    uint8_t           *serverCert;
+    uint16_t          serverCertLen;
+    uint8_t           *serverCertVerify;
+    uint16_t          serverCertVerifyLen;
+    uint8_t           *clientHandshakeSignature;
+    uint16_t          clientHandshakeSignLen;
+    uint8_t           *serverHandshakeSignature;
+    uint16_t          serverHandshakeSignLen;
     bool              handshakeCompleted;
     bool              handshakeExpired;
 }tls13_context_t;
