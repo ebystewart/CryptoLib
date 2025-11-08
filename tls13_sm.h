@@ -3,9 +3,11 @@
 
 #include <stdint.h>
 
-#define TLS13_CLIENT_HELLO_LEN 1460 // approximate value; need to revisit
-#define TLS13_SERVER_HELLO_LEN 1460
-#define TLS13_CLIENT_FINISHED_LEN 1460
+#define TLS13_CLIENT_HELLO_LEN 254U 
+#define TLS13_SERVER_HELLO_LEN 128U
+#define TLS13_SERVER_WRAPPEDREC_LEN (6U + 28U + 840U + 286U + 74U) // 1234U
+#define TLS13_CLIENT_FINISHED_LEN (6U + 74U) // 80U + data Length
+
 #define TLS13_CLIENT_HELLO_MAX_LEN  1460
 #define TLS13_SERVER_HELLO_MAX_LEN  1460
 #define TLS13_CLIENT_FINISHED_MAX_LEN 1460
@@ -31,8 +33,6 @@ typedef struct{
     tls13_ctxType_e  role;
     int              client_fd;
     int              server_fd;
-    int              client_max_fd;
-    int              server_max_fd;
     uint32_t         client_ip;
     uint16_t         client_port;
     uint32_t         server_ip;

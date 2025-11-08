@@ -249,6 +249,95 @@ static void tls13_ctx_queue(tls13_context_t *ctx, tls13_ctxOperation_e op)
         assert(0);
     }
 }
+
+/* Initialize all teh context elements except for key-pair */
+static tls13_init_ctx(tls13_context_t *ctx)
+{
+    if(ctx->role == TLS13_CLIENT){
+        ctx->server_random = calloc(1, TLS13_RANDOM_LEN);
+        ctx->server_sessionId = calloc(1, TLS13_SESSION_ID_LEN);
+        ctx->server_hostname = calloc(1, 64); // tentative size
+        ctx->server_hostname_len = 0;
+        ctx->server_publicKey = calloc(1, TLS13_RANDOM_LEN);
+
+        ctx->clientCapability = &clientCapability;
+        ctx->clientCapabilityLen = sizeof(clientCapability);
+        ctx->serverExtension = calloc(1, 50); //tentative size
+        ctx->serverExtensionLen = 0;
+
+        ctx->clientCert       = calloc(1, 256); // need to give address of certificate file
+        ctx->clientCertLen    = 0; // need to revisit
+        ctx->clientCertVerify = calloc(1, 300); // need to revisit
+        ctx->clientCertVerifyLen = 300;
+        ctx->serverCert       = calloc(1, 256);
+        ctx->serverCertLen    = 0;
+        ctx->serverCertVerify = calloc(1, 300);
+        ctx->serverCertVerifyLen = 300;
+        ctx->clientHandshakeSignature = calloc(1, 128);
+        ctx->clientHandshakeSignLen = 0;
+        ctx->serverHandshakeSignature = calloc(1, 128);
+        ctx->serverHandshakeSignLen = 0;
+
+    }
+    else if (ctx->role == TLS13_SERVER){
+        ctx->client_random            = calloc(1, TLS13_RANDOM_LEN);
+        ctx->client_sessionId         = calloc(1, TLS13_SESSION_ID_LEN);
+        ctx->server_hostname          = calloc(1, 64); // actual hostname shoudl come from app
+        ctx->server_hostname_len      = 0;
+        ctx->client_publicKey         = calloc(1, TLS13_RANDOM_LEN);
+
+        ctx->clientCapability         = calloc(1, sizeof(clientCapability)); // need to revisit the size
+        ctx->clientCapabilityLen      = sizeof(clientCapability);
+        ctx->serverExtension          = calloc(1, 50); //tentative size
+        ctx->serverExtensionLen       = 0;
+
+        ctx->clientCert               = calloc(1, 256); // need to give address of certificate file
+        ctx->clientCertLen            = 0; // need to revisit
+        ctx->clientCertVerify         = calloc(1, 300); // need to revisit
+        ctx->clientCertVerifyLen      = 300;
+        ctx->serverCert               = calloc(1, 256);
+        ctx->serverCertLen            = 0;
+        ctx->serverCertVerify         = calloc(1, 300);
+        ctx->serverCertVerifyLen      = 300;
+        ctx->clientHandshakeSignature = calloc(1, 128);
+        ctx->clientHandshakeSignLen   = 0;
+        ctx->serverHandshakeSignature = calloc(1, 128);
+        ctx->serverHandshakeSignLen   = 0;
+    }
+}
+
+static tls13_deInit_ctx(tls13_context_t *ctx)
+{
+    free(ctx->client_random);
+    free(ctx->server_random);
+    free(ctx->client_sessionId);
+    free(ctx->server_sessionId);
+    free(ctx->server_hostname);
+    free(ctx->client_publicKey);
+    free(ctx->server_publicKey);
+    free(ctx->clientCapability);
+    free(ctx->serverExtension);
+    free(ctx->clientCert);
+    free(ctx->clientCertVerify);
+    free(ctx->serverCert);
+    free(ctx->serverCertVerify);
+    free(ctx->clientHandshakeSignature);
+    free(ctx->serverHandshakeSignature);
+}
+
+static tsl13_check_ctx(tls13_context_t *ctx)
+{
+    assert(ctx->role == TLS13_CLIENT || ctx->role == TLS13_SERVER);
+    if(ctx->role == TLS13_CLIENT){
+        assert(ctx->client_ip == 0);
+        assert(ctx->client_port == 0);
+    }
+    else{
+        assert(ctx->server_ip == 0);
+        assert(ctx->server_port == 0);
+    }
+} 
+
 static uint16_t portNum = 27000;
 static uint16_t tls13_getNextPortNumber(void)
 {
@@ -571,6 +660,8 @@ void tls13_init(tls13_context_t *ctx)
 
     /* create the context entry in database */
     tls13_ctx_queue(ctx, TLS13_CTX_ENQUEUE);
+    tsl13_check_ctx(ctx);
+    tls13_init_ctx(ctx);
 
     if (ctx->role == TLS13_CLIENT)
     {
@@ -614,6 +705,7 @@ void tls13_close(tls13_context_t *ctx)
     pthread_join(__tls_transmit_thread, NULL);
     // close(ctx->client_fd);
 
+    tls13_deInit_ctx(ctx);
     tls13_ctx_queue(ctx, TLS13_CTX_DEQUEUE);
 }
 
