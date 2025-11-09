@@ -27,6 +27,7 @@
 
 #define TLS13_SESSION_ID_LEN 32
 #define TLS13_CIPHERSUITE_LEN 3
+#define TLS13_COMPRESSIONMETHD_LEN 1U
 #define TLS13_PROTO_VERSION 0x0301
 #define TLS12_PROTO_VERSION 0x0303
 #define TLS13_RANDOM_LEN 32
@@ -398,7 +399,7 @@ typedef struct {
 #define GET_CLIENTHELLO_CMPMTHDLIST_PTR(clientHelloPtr, sessionIdLen, cipherSuiteLen)      \
                ((tls13_compressionMethods_t *)(&(((tls13_clientHello_t *)clientHelloPtr)->compressionMethodList) + sessionIdLen + cipherSuiteLen))
 
-#define CLIENTHELLO_CLIENTEXT_LEN(clientHelloPtr, sessionIdLen, cipherSuiteLen, cmpMthdLen)      \
+//#define CLIENTHELLO_CLIENTEXT_LEN(clientHelloPtr, sessionIdLen, cipherSuiteLen, cmpMthdLen)      \
                (*(uint16_t *)((&((tls13_clientHello_t *)clientHelloPtr)->extLen) + sessionIdLen + cipherSuiteLen + cmpMthdLen))
 
 #define GET_CLIENTHELLO_CLIENTEXT_PTR(clientHelloPtr, sessionIdLen, cipherSuiteLen, cmpMthdLen)      \

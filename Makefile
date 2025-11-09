@@ -6,6 +6,7 @@ OBJS= aes.o	\
 	rsa.o \
 	test.o \
 	sha2.o \
+	sha3.o \
 	math.o \
 	ecc.o 	\
 	ecdh.o 	\

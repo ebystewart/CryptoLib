@@ -20,6 +20,8 @@
 #define TLS13_RECORD_HEADER_LENGTH_OFFSET 3U
 #define TLS13_HANDSHAKE_HEADER_OFFSET 6U
 
+#define TLS13_KEY_SIZE 32U
+
 typedef enum {
     TLS13_CTX_ENQUEUE,
     TLS13_CTX_DEQUEUE
@@ -31,6 +33,7 @@ typedef enum {
 }tls13_ctxType_e;
 
 typedef struct{
+    /* sent or received */
     tls13_ctxType_e  role;
     int              client_fd;
     int              server_fd;
@@ -53,6 +56,7 @@ typedef struct{
     uint16_t           clientCapabilityLen;
     tls13_serverExtensions_t *serverExtension;
     uint16_t                 serverExtensionLen;
+    tls13_cipherSuite_e serverCipherSuiteSupported;
     uint8_t           *clientCert;
     uint16_t          clientCertLen;
     uint8_t           *clientCertVerify;
@@ -67,6 +71,15 @@ typedef struct{
     uint16_t          serverHandshakeSignLen;
     bool              handshakeCompleted;
     bool              handshakeExpired;
+    /* Calculated */
+    uint8_t           *serverHandshakeKey;
+    uint16_t          serverHandshakeKeyLen;
+    uint8_t           *serverHandshakeIV;
+    uint16_t          serverHandshakeIVLen;
+    uint8_t           *clientHandshakeKey;
+    uint16_t          clientHandshakeKeyLen;
+    uint8_t           *clientHandshakeIV;
+    uint16_t          clientHandshakeIVLen;
 }tls13_context_t;
 
 
