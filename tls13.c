@@ -92,6 +92,8 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
                                     const uint8_t *pubKey, const uint16_t pubKeyLen, uint8_t *tlsPkt)
 {
     uint16_t len = 0;
+    uint8_t offset = 0;
+    uint8_t offsetExt = 0;
     tls13_clientHello_t *clientHelloTmp = calloc(1, sizeof(tls13_clientHello_t) + 300);
 
     /* Record header update */
@@ -103,11 +105,9 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
 
     clientHelloTmp->clientVersion = TLS13_PROTO_VERSION;
     /* serialize the 32 Byte random value */
-    //clientHelloTmp->clientRandom =
     memcpy(clientHelloTmp->clientRandom, clientRandom, TLS13_RANDOM_LEN);
     clientHelloTmp->sessionIdLen = TLS13_SESSION_ID_LEN;
     /* Serialize the 16 Byte Session Id */
-    //clientHelloTmp->sessionId =
     memcpy(clientHelloTmp->sessionId, sessionId, TLS13_SESSION_ID_LEN);
 
     /* copy the Ciphersuite data */
@@ -117,14 +117,15 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
     csd[1] = TLS13_AES_256_GCM_SHA384;
     csd[2] = TLS13_CHACHA20_POLY1305_SHA256;
 
-    /* copy the compression methods */
+    /* copy the compression methods (offset by ciphersuite length) */
     CLIENTHELLO_CMPMTHDLIST_LEN(clientHelloTmp, TLS13_SESSION_ID_LEN, TLS13_CIPHERSUITE_LEN) = 0x01;
     tls13_compressionMethods_t *cmpMthd = GET_CLIENTHELLO_CMPMTHDLIST_PTR(clientHelloTmp, TLS13_SESSION_ID_LEN, TLS13_CIPHERSUITE_LEN);
     cmpMthd[0] = 0x00;
 
-    clientHelloTmp->extLen = 0;
+    /* Initialize the extension length */
+    REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_SESSION_ID_LEN, uint16_t) = 0;
 
-    /* Set up the extensions */
+    /* Set up the extensions (offset by ciphersuite length) */
     tls13_clientExtensions_t *cExts = GET_CLIENTHELLO_CLIENTEXT_PTR(clientHelloTmp, TLS13_SESSION_ID_LEN, TLS13_CIPHERSUITE_LEN, 1);
     {
         {
@@ -132,26 +133,47 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
             tls13_extensionSNI_t *extSni = &cExts->extSNI;
             extSni->extType = 0x0000;
             tls13_extSubList_t *sniSub = (tls13_extSubList_t *)&extSni->list;
-            sniSub->listType = 0x00; /* DNS Hostname */
-            memcpy(sniSub->listData, dnsHostname, strlen(dnsHostname)); /* "dns.google.com" */
-
-            sniSub->listLen = strlen(dnsHostname); // to be update
-            extSni->subListSize = sniSub->listLen + 3; // to be updated
-            extSni->extDataLen = extSni->subListSize + 2;  // to be updated
-            clientHelloTmp->extLen += extSni->extDataLen + 1;
+            {
+                //REACH_ELEMENT(sniSub, tls13_extSubList_t, listType, offset, uint8_t) = 0x00; /* DNS Hostname */
+                sniSub->listType = 0x00; /* DNS Hostname */
+                offset += sizeof(sniSub->listType);
+                //REACH_ELEMENT(sniSub, tls13_extSubList_t, listLen, offset, uint16_t) = strlen(dnsHostname);
+                sniSub->listLen = strlen(dnsHostname);
+                offset += sizeof(sniSub->listLen);
+                memcpy(sniSub->listData, dnsHostname, strlen(dnsHostname)); /* "dns.google.com" */
+                offset += strlen(dnsHostname);
+            }
+            extSni->subListSize = sizeof(tls13_extSubList_t) + offset;
+            extSni->extDataLen = extSni->subListSize + sizeof(extSni->subListSize);
+            /* Update the total extension length so far */
+            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_SESSION_ID_LEN, uint16_t) += (extSni->extDataLen + \
+                                                                                                          sizeof(extSni->extDataLen) + \
+                                                                                                          sizeof(extSni->extType));
         }
+        offsetExt += offset;
+        offset = 0;
         {
             /* Set the EC Point Formats extension data */
-            tls13_extension2211_t *ecPF = &cExts->extECP + clientHelloTmp->extLen;
+            tls13_extension2211_t *ecPF = &cExts->extECP + \
+                                          REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_SESSION_ID_LEN, uint16_t) + \
+                                          offsetExt;
             ecPF->extType = TLS13_EXT_EC_POINTS_FORMAT;
             uint8_t *ecPFList = (uint8_t *)&ecPF->list;
-            ecPFList[0] = TLS13_EC_POINT_UNCOMPRESSED;
-            ecPFList[1] = TLS13_EC_POINT_ANSIX962_COMPRESSED_PRIME;
-            ecPFList[2] = TLS13_EC_POINT_ANSIX962_COMPRESSED_CHAR2;
-            ecPF->subListSize = 3;
-            ecPF->extDataLen = ecPF->subListSize + 1;
-            clientHelloTmp->extLen += ecPF->extDataLen + 1;
+            {
+                ecPFList[0] = TLS13_EC_POINT_UNCOMPRESSED;
+                ecPFList[1] = TLS13_EC_POINT_ANSIX962_COMPRESSED_PRIME;
+                ecPFList[2] = TLS13_EC_POINT_ANSIX962_COMPRESSED_CHAR2;
+                offset += 3;
+            }
+            ecPF->subListSize = offset;
+            ecPF->extDataLen = ecPF->subListSize + sizeof(ecPF->subListSize);
+
+            /* Update the total extension length so far */
+            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_SESSION_ID_LEN, uint16_t) += (ecPF->extDataLen + \
+                                                                                                          sizeof(ecPF->extType));
         }
+        offsetExt += offset;
+        offset = 0;
         {
             /* Set the supported Group extension data */
             tls13_extension2222_t *supGr = &cExts->extSupprotedGrp;
@@ -746,6 +768,7 @@ uint16_t tls13_prepareClientWrappedRecord(const uint8_t *dVerify, const uint16_t
     }
     offset = 0;
     tls13_appDataRecord_t *aDR = &record->appDataRecord + len;
+    if(appData != NULL && appDataLen > 0)
     {
         aDR->recordHeader.recordType   = TLS13_APPDATA_RECORD;
         aDR->recordHeader.protoVersion = TLS12_PROTO_VERSION; /* Legacy TLS 1.2 */

@@ -17,6 +17,7 @@
                 (TLS13_RECORD_HEADER_SIZE + TLS13_HANDSHAKE_HEADER_SIZE + sizeof(tls13_alert_t))
 
 #define TLS13_RECORD_HEADER_OFFSET 0U
+#define TLS13_RECORD_HEADER_LENGTH_OFFSET 3U
 #define TLS13_HANDSHAKE_HEADER_OFFSET 6U
 
 typedef enum {
@@ -42,7 +43,7 @@ typedef struct{
     uint8_t          *server_random;
     uint8_t          *client_sessionId;
     uint8_t          *server_sessionId;
-    char             *server_hostname;
+    char             server_hostname[32];
     uint16_t         server_hostname_len; 
     uint16_t         keyType;
     uint16_t         keyLen;
