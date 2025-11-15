@@ -126,7 +126,13 @@ static void tls13_hash_and_sign(uint8_t *clientHelloRec, uint16_t clientHelloRec
                         uint8_t *clientRecExclFin, uint16_t clientRecExclFinLen, \
                         tls13_cipherSuite_e cipherSuite, uint8_t *handshakeSign);
 
-static void tls13_cxt_queueInit(void)
+
+static void tls13_ctx_queueDestroy(void)
+{
+    free(ctxHead);
+}
+
+static void tls13_ctx_queueInit(void)
 {
     ctxHead = calloc(1, sizeof(tls13_ctxDatabase_t));
     ctxHead->ctxId = 0; /* 0 is the Id of the head node */
@@ -154,8 +160,10 @@ static void tls13_cxt_queueInsert(tls13_context_t *ctx)
 {
     tls13_ctxDatabase_t *ctxTmp = ctxHead;
     /* Exclude the head */
-    ctxTmp = ctxTmp->next;
-    while (ctxTmp->next != NULL)
+    if(ctxTmp != NULL)
+        ctxTmp = ctxTmp->next;
+
+    while (ctxTmp != NULL && ctxTmp->next != NULL)
     {
         ctxTmp = ctxTmp->next;
     }
@@ -362,7 +370,7 @@ static tls13_deInit_ctx(tls13_context_t *ctx)
     ctx->serverHandshakeIV    = NULL;
 }
 
-static tsl13_check_ctx(tls13_context_t *ctx)
+static tls13_check_ctx(tls13_context_t *ctx)
 {
     assert(ctx->role == TLS13_CLIENT || ctx->role == TLS13_SERVER);
     if(ctx->role == TLS13_CLIENT){
@@ -762,9 +770,12 @@ void tls13_init(tls13_context_t *ctx)
     assert(ctx->client_ip > 0);
     assert(ctx->client_port > 0);
 
+    if(!ctxHead)
+        tls13_ctx_queueInit();
+        
     /* create the context entry in database */
     tls13_ctx_queue(ctx, TLS13_CTX_ENQUEUE);
-    tsl13_check_ctx(ctx);
+    tls13_check_ctx(ctx);
     tls13_init_ctx(ctx);
 
     if (ctx->role == TLS13_CLIENT)
@@ -811,6 +822,8 @@ void tls13_close(tls13_context_t *ctx)
 
     tls13_deInit_ctx(ctx);
     tls13_ctx_queue(ctx, TLS13_CTX_DEQUEUE);
+    if(!ctxHead || !ctxHead->next)
+        tls13_ctx_queueDestroy();
 }
 
 void tls13_stateManager(tls13_context_t *ctx)

@@ -592,7 +592,7 @@ SHAKE128("The quick brown fox jumps over the lazy dof", 256)
 
 #endif
 
-#if 1
+#if 0 // yet to be tested
     tls13_clientHello_t *ch = calloc(1, (sizeof(tls13_clientHello_t) + 200));
     uint16_t size;
     //size = tls13_prepareClientHello(ch);
@@ -602,6 +602,21 @@ SHAKE128("The quick brown fox jumps over the lazy dof", 256)
         printf("%x", disp[idx]);
     }
     printf("\n");
+#endif
+
+#if 1
+#include "tls13_sm.h"
+tls13_context_t *ctx = calloc(1, sizeof(tls13_context_t));
+ctx->role = TLS13_CLIENT;
+ctx->server_ip = 270000;
+ctx->server_port = 40000;
+ctx->client_ip = 27000;
+ctx->client_port = 40000;
+memcpy(ctx->server_hostname, "www.google.com", strlen("www.google.com"));
+ctx->server_hostname_len = strlen("www.google.com");
+tls13_init(ctx);
+tls13_close(ctx);
+free(ctx);
 #endif
 
     return 0;
