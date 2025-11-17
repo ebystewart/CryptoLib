@@ -8,6 +8,7 @@
 #include "sha.h"
 #include "math.h"
 #include "tls13.h"
+#include "tls13_sm.h"
 
 #if 0
 uint8_t in[16] = {0x63, 0x2F, 0xAF, 0xA2,
@@ -605,13 +606,14 @@ SHAKE128("The quick brown fox jumps over the lazy dof", 256)
 #endif
 
 #if 1
+/* use netcat command to run a server to test: nc -l -s 127.0.0.1 -p 40000 -k */
 #include "tls13_sm.h"
 tls13_context_t *ctx = calloc(1, sizeof(tls13_context_t));
 ctx->role = TLS13_CLIENT;
-ctx->server_ip = 270000;
+ctx->server_ip = 0x7F000001;
 ctx->server_port = 40000;
-ctx->client_ip = 27000;
-ctx->client_port = 40000;
+ctx->client_ip = 0x7F000001; /* Host byte order */
+ctx->client_port = 40001;
 memcpy(ctx->server_hostname, "www.google.com", strlen("www.google.com"));
 ctx->server_hostname_len = strlen("www.google.com");
 tls13_init(ctx);

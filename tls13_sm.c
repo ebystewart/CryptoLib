@@ -373,15 +373,12 @@ static tls13_deInit_ctx(tls13_context_t *ctx)
 static tls13_check_ctx(tls13_context_t *ctx)
 {
     assert(ctx->role == TLS13_CLIENT || ctx->role == TLS13_SERVER);
-    if(ctx->role == TLS13_CLIENT){
-        assert(ctx->client_ip == 0);
-        assert(ctx->client_port == 0);
-        assert(ctx->server_hostname_len > 0);
-    }
-    else{
-        assert(ctx->server_ip == 0);
-        assert(ctx->server_port == 0);
-    }
+    /* Both client and server needs client and server socket details to send data */
+    assert(ctx->client_ip != 0);
+    assert(ctx->client_port != 0);
+    assert(ctx->server_hostname_len > 0);
+    assert(ctx->server_ip != 0);
+    assert(ctx->server_port != 0);
 } 
 
 static uint16_t portNum = 27000;
@@ -715,22 +712,24 @@ static void init_clientSocket(tls13_context_t *ctx)
 {
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = ctx->server_ip;//INADDR_ANY;//0x7F000001UL; //tls13_getIPAddress();
-    server_addr.sin_port = ctx->server_port;
+    server_addr.sin_addr.s_addr = htonl(ctx->server_ip);//INADDR_ANY;//0x7F000001UL; //tls13_getIPAddress();
+    server_addr.sin_port = htons(ctx->server_port);
 
     /* IP also needs to be updated */
-
+    printf("Setting up the client socket connection......\n");
     ctx->client_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP); // SOCK_DGRAM, IPPROTO_UDP);
     if(ctx->client_fd < 0){
         perror("Error creating socket");
         exit(EXIT_FAILURE);
     }
+    printf("Client socket created with fd: %d\n", ctx->client_fd);
 
-    if(connect(ctx->client_fd, (struct sockaddr *)&server_addr, sizeof(server_addr) < 0))
+    if(connect(ctx->client_fd, (struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
     {
         perror("connection failed");
         exit(EXIT_FAILURE);
     }
+    printf("Client socket created\n");
 }
 
 static void init_serverSocket(tls13_context_t *ctx)
@@ -738,8 +737,8 @@ static void init_serverSocket(tls13_context_t *ctx)
     int opt = 1;
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
-    server_addr.sin_addr.s_addr = ctx->server_ip;
-    server_addr.sin_port = ctx->client_port;
+    server_addr.sin_addr.s_addr = htonl(ctx->server_ip);
+    server_addr.sin_port = htons(ctx->client_port);
 
     ctx->server_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP); // SOCK_DGRAM, IPPROTO_UDP);
 
@@ -774,8 +773,8 @@ void tls13_init(tls13_context_t *ctx)
         tls13_ctx_queueInit();
         
     /* create the context entry in database */
-    tls13_ctx_queue(ctx, TLS13_CTX_ENQUEUE);
     tls13_check_ctx(ctx);
+    tls13_ctx_queue(ctx, TLS13_CTX_ENQUEUE);
     tls13_init_ctx(ctx);
 
     if (ctx->role == TLS13_CLIENT)

@@ -83,4 +83,8 @@ typedef struct{
 }tls13_context_t;
 
 
+
+void tls13_init(tls13_context_t *ctx);
+
+
 #endif
