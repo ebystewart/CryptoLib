@@ -480,6 +480,14 @@ static void *__client_handshake_thread(void *arg)
 
     /* Send the client hello pkt over TCP to the destined socket */
     clientHelloLen = (size_t)((((tls13_clientHello_t *)clientHello_pkt)->recordHeader.recordLen) + TLS13_RECORD_HEADER_SIZE);
+    
+#ifndef DEBUG
+    printf("Cleint Hello Length is %d\n", clientHelloLen);
+    for (int i= 0; i < clientHelloLen; i++){
+        printf("%x\n", clientHello_pkt[i]);
+    }
+    printf("\n");
+#endif
     int rc = send(ctx->client_fd, clientHello_pkt, clientHelloLen, 0);
     if(rc != clientHelloLen)
         perror("client Hello transmission error");
@@ -610,6 +618,7 @@ static void *__server_handshake_thread(void *arg)
     while (clientHelloReceived == false)
     {
         pthread_testcancel();
+        printf("Waiting for client hello message\n");
         ctx->client_fd = accept(ctx->server_fd, (struct sockaddr *)&client_addr, &addr_size);
 
         /* recieve client hello first */
@@ -760,6 +769,7 @@ static void init_serverSocket(tls13_context_t *ctx)
         printf("socket bind failed for instance %d\n", ctx->instanceId);
         exit(1);
     }
+    printf("Server socket creation successful\n");
 }
 
 void tls13_init(tls13_context_t *ctx)

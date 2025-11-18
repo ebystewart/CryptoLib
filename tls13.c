@@ -54,6 +54,14 @@ static tls13_cipherSuite_e tls13_getCipherSuite(void);
 
 static tls13_signAlgos_e tls13_getSignatureType(void);
 
+static uint16_t tls13_htons(uint16_t dIn);
+
+static uint32_t tls13_htonss(uint32_t dIn);
+
+static uint32_t tls13_htonl(uint32_t dIn);
+
+static uint64_t tls13_htonll(uint64_t dIn);
+
 /* Static function definitions */
 
 static bool tls13_verify_authTag(const uint8_t *cipherText, const uint16_t cipherTextLen, const uint8_t *mac, const uint16_t macLen, tls13_cipherSuite_e cs)
@@ -85,6 +93,47 @@ static tls13_cipherSuite_e tls13_getCipherSuite(void)
 static tls13_signAlgos_e tls13_getSignatureType(void)
 {
     return TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA256;
+}
+
+static uint16_t tls13_htons(uint16_t dIn)
+{
+    uint16_t dOut = 0;
+    dOut = ((dIn >> 8) & 0x00FFu) | ((dIn << 8) & 0xFF00u);
+    return dOut;
+}
+
+static uint32_t tls13_htonss(uint32_t dIn)
+{
+    uint32_t dOut = 0;
+    dOut |= ((dIn & 0xFF000000) >> 24);
+    dOut |= ((dIn & 0x00FF0000) >> 8);
+    dOut |= ((dIn & 0x0000FF00) << 8);
+    dOut |= ((dIn & 0x000000FF) << 24);
+    return dOut;
+}
+
+static uint32_t tls13_htonl(uint32_t dIn)
+{
+    uint32_t dOut = 0;
+    dOut |= ((dIn & 0xFF000000) >> 24);
+    dOut |= ((dIn & 0x00FF0000) >> 8);
+    dOut |= ((dIn & 0x0000FF00) << 8);
+    dOut |= ((dIn & 0x000000FF) << 24);
+    return dOut;
+}
+
+static uint64_t tls13_htonll(uint64_t dIn)
+{
+    uint64_t dOut = 0;
+    dOut |= ((dIn & 0xFF00000000000000) >> 56);
+    dOut |= ((dIn & 0x00FF000000000000) >> 40);
+    dOut |= ((dIn & 0x0000FF0000000000) >> 24);
+    dOut |= ((dIn & 0x000000FF00000000) >> 8);
+    dOut |= ((dIn & 0x00000000FF000000) << 8);
+    dOut |= ((dIn & 0x0000000000FF0000) << 24);
+    dOut |= ((dIn & 0x000000000000FF00) << 40);
+    dOut |= ((dIn & 0x00000000000000FF) << 56);
+    return dOut;
 }
 
 /* Global Functions */

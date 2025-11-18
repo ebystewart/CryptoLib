@@ -610,6 +610,7 @@ SHAKE128("The quick brown fox jumps over the lazy dof", 256)
 #include "tls13_sm.h"
 tls13_context_t *ctx = calloc(1, sizeof(tls13_context_t));
 ctx->role = TLS13_CLIENT;
+//ctx->role = TLS13_SERVER;
 ctx->server_ip = 0x7F000001;
 ctx->server_port = 40000;
 ctx->client_ip = 0x7F000001; /* Host byte order */
