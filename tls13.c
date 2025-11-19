@@ -62,6 +62,14 @@ static uint32_t tls13_htonl(uint32_t dIn);
 
 static uint64_t tls13_htonll(uint64_t dIn);
 
+static uint16_t tls13_ntohs(uint16_t dIn);
+
+static uint32_t tls13_ntohss(uint32_t dIn);
+
+static uint32_t tls13_ntohl(uint32_t dIn);
+
+static uint64_t tls13_ntohll(uint64_t dIn);
+
 /* Static function definitions */
 
 static bool tls13_verify_authTag(const uint8_t *cipherText, const uint16_t cipherTextLen, const uint8_t *mac, const uint16_t macLen, tls13_cipherSuite_e cs)
@@ -98,17 +106,16 @@ static tls13_signAlgos_e tls13_getSignatureType(void)
 static uint16_t tls13_htons(uint16_t dIn)
 {
     uint16_t dOut = 0;
-    dOut = ((dIn >> 8) & 0x00FFu) | ((dIn << 8) & 0xFF00u);
+    dOut = ((dIn & 0xFF00) >> 8) | ((dIn & 0x00FF) << 8);
     return dOut;
 }
 
 static uint32_t tls13_htonss(uint32_t dIn)
 {
     uint32_t dOut = 0;
-    dOut |= ((dIn & 0xFF000000) >> 24);
-    dOut |= ((dIn & 0x00FF0000) >> 8);
-    dOut |= ((dIn & 0x0000FF00) << 8);
-    dOut |= ((dIn & 0x000000FF) << 24);
+    dOut |= ((dIn & 0x00FF0000) >> 16);
+    dOut |= (dIn & 0x0000FF00);
+    dOut |= ((dIn & 0x000000FF) << 16);
     return dOut;
 }
 
@@ -136,6 +143,46 @@ static uint64_t tls13_htonll(uint64_t dIn)
     return dOut;
 }
 
+static uint16_t tls13_ntohs(uint16_t dIn)
+{
+    uint16_t dOut = 0;
+    dOut = ((dIn & 0xFF00) >> 8) | ((dIn & 0x00FF) << 8);
+    return dOut;
+}
+
+static uint32_t tls13_ntohss(uint32_t dIn)
+{
+    uint32_t dOut = 0;
+    dOut |= ((dIn & 0x00FF0000) >> 16);
+    dOut |= (dIn & 0x0000FF00);
+    dOut |= ((dIn & 0x000000FF) << 16);
+    return dOut;
+}
+
+static uint32_t tls13_ntohl(uint32_t dIn)
+{
+    uint32_t dOut = 0;
+    dOut |= ((dIn & 0xFF000000) >> 24);
+    dOut |= ((dIn & 0x00FF0000) >> 8);
+    dOut |= ((dIn & 0x0000FF00) << 8);
+    dOut |= ((dIn & 0x000000FF) << 24);
+    return dOut;
+}
+
+static uint64_t tls13_ntohll(uint64_t dIn)
+{
+    uint64_t dOut = 0;
+    dOut |= ((dIn & 0xFF00000000000000) >> 56);
+    dOut |= ((dIn & 0x00FF000000000000) >> 40);
+    dOut |= ((dIn & 0x0000FF0000000000) >> 24);
+    dOut |= ((dIn & 0x000000FF00000000) >> 8);
+    dOut |= ((dIn & 0x00000000FF000000) << 8);
+    dOut |= ((dIn & 0x0000000000FF0000) << 24);
+    dOut |= ((dIn & 0x000000000000FF00) << 40);
+    dOut |= ((dIn & 0x00000000000000FF) << 56);
+    return dOut;
+}
+
 /* Global Functions */
 uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *sessionId, const char *dnsHostname, 
                                     const uint8_t *pubKey, const uint16_t pubKeyLen, uint8_t *tlsPkt)
@@ -143,16 +190,18 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
     uint16_t len = 0;
     uint8_t offset = 0;
     uint8_t offsetExt = 0;
+    uint16_t recordLen = 0;
+    uint32_t handshakeLen = 0;
     tls13_clientHello_t *clientHelloTmp = calloc(1, sizeof(tls13_clientHello_t) + 300);
 
     /* Record header update */
     clientHelloTmp->recordHeader.recordType   = TLS13_HANDSHAKE_RECORD;
-    clientHelloTmp->recordHeader.protoVersion = TLS13_PROTO_VERSION;
+    clientHelloTmp->recordHeader.protoVersion = tls13_htons(TLS13_PROTO_VERSION);
 
     /* handshake header update */
     clientHelloTmp->handshakeHeader.handshakeType = TLS13_HST_CLIENT_HELLO;
 
-    clientHelloTmp->clientVersion = TLS13_PROTO_VERSION;
+    clientHelloTmp->clientVersion = tls13_htons(TLS12_PROTO_VERSION);
     /* serialize the 32 Byte random value */
     memcpy(clientHelloTmp->clientRandom, clientRandom, TLS13_RANDOM_LEN);
     clientHelloTmp->sessionIdLen = TLS13_SESSION_ID_LEN;
@@ -160,11 +209,11 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
     memcpy(clientHelloTmp->sessionId, sessionId, TLS13_SESSION_ID_LEN);
 
     /* copy the Ciphersuite data */
-    CLIENTHELLO_CIPHERSUITE_LEN(clientHelloTmp, TLS13_SESSION_ID_LEN) = TLS13_CIPHERSUITE_LEN;
+    CLIENTHELLO_CIPHERSUITE_LEN(clientHelloTmp, TLS13_SESSION_ID_LEN) = tls13_htons(TLS13_CIPHERSUITE_LEN);
     tls13_cipherSuiteData_t *csd = GET_CLIENTHELLO_CIPHERSUITELIST_PTR(clientHelloTmp, TLS13_SESSION_ID_LEN);
-    csd[0] = TLS13_AES_128_GCM_SHA256;
-    csd[1] = TLS13_AES_256_GCM_SHA384;
-    csd[2] = TLS13_CHACHA20_POLY1305_SHA256;
+    csd[0] = tls13_htons(TLS13_AES_128_GCM_SHA256);
+    csd[1] = tls13_htons(TLS13_AES_256_GCM_SHA384);
+    csd[2] = tls13_htons(TLS13_CHACHA20_POLY1305_SHA256);
 
     /* copy the compression methods (offset by ciphersuite length) */
     CLIENTHELLO_CMPMTHDLIST_LEN(clientHelloTmp, TLS13_SESSION_ID_LEN, TLS13_CIPHERSUITE_LEN) = 0x01;
@@ -180,14 +229,14 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
         {
             /* Set up the SNI extension data */
             tls13_extensionSNI_t *extSni = &cExts->extSNI;
-            extSni->extType = 0x0000;
+            extSni->extType = 0x0000; // should be in Big Endian format
             tls13_extSubList_t *sniSub = (tls13_extSubList_t *)&extSni->list;
             {
                 //REACH_ELEMENT(sniSub, tls13_extSubList_t, listType, offset, uint8_t) = 0x00; /* DNS Hostname */
                 sniSub->listType = 0x00; /* DNS Hostname */
                 offset += sizeof(sniSub->listType);
                 //REACH_ELEMENT(sniSub, tls13_extSubList_t, listLen, offset, uint16_t) = strlen(dnsHostname);
-                sniSub->listLen = strlen(dnsHostname);
+                sniSub->listLen = tls13_htons(strlen(dnsHostname));
                 offset += sizeof(sniSub->listLen);
                 memcpy(sniSub->listData, dnsHostname, strlen(dnsHostname)); /* "dns.google.com" */
                 offset += strlen(dnsHostname);
@@ -204,7 +253,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
         {
             /* Set the EC Point Formats extension data */
             tls13_extension2211_t *ecPF = &cExts->extECP + offsetExt;
-            ecPF->extType = TLS13_EXT_EC_POINTS_FORMAT;
+            ecPF->extType = tls13_htonl(TLS13_EXT_EC_POINTS_FORMAT);
             uint8_t *ecPFList = (uint8_t *)&ecPF->list;
             {
                 ecPFList[0] = TLS13_EC_POINT_UNCOMPRESSED;
@@ -225,22 +274,22 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
         {
             /* Set the supported Group extension data */
             tls13_extension2222_t *supGr = &cExts->extSupprotedGrp + offsetExt;
-            supGr->extType = TLS13_EXT_SUPPORTED_GROUPS;
+            supGr->extType = tls13_htonl(TLS13_EXT_SUPPORTED_GROUPS);
             uint16_t *supGrList = (uint16_t *)&supGr->list;
             {
-                supGrList[0] = TLS13_SUPPGRP_X25519;
-                supGrList[1] = TLS13_SUPPGRP_SECP256R1;
-                supGrList[2] = TLS13_SUPPGRP_X448;
-                supGrList[3] = TLS13_SUPPGRP_SECP521R1;
-                supGrList[4] = TLS13_SUPPGRP_SECP384R1;
-                supGrList[5] = TLS13_SUPPGRP_FFDHE2048;
-                supGrList[6] = TLS13_SUPPGRP_FFDHE3072;
-                supGrList[7] = TLS13_SUPPGRP_FFDHE4096;
-                supGrList[8] = TLS13_SUPPGRP_FFDHE6144;
-                supGrList[9] = TLS13_SUPPGRP_FFDHE8192;
+                supGrList[0] = tls13_htonl(TLS13_SUPPGRP_X25519);
+                supGrList[1] = tls13_htonl(TLS13_SUPPGRP_SECP256R1);
+                supGrList[2] = tls13_htonl(TLS13_SUPPGRP_X448);
+                supGrList[3] = tls13_htonl(TLS13_SUPPGRP_SECP521R1);
+                supGrList[4] = tls13_htonl(TLS13_SUPPGRP_SECP384R1);
+                supGrList[5] = tls13_htonl(TLS13_SUPPGRP_FFDHE2048);
+                supGrList[6] = tls13_htonl(TLS13_SUPPGRP_FFDHE3072);
+                supGrList[7] = tls13_htonl(TLS13_SUPPGRP_FFDHE4096);
+                supGrList[8] = tls13_htonl(TLS13_SUPPGRP_FFDHE6144);
+                supGrList[9] = tls13_htonl(TLS13_SUPPGRP_FFDHE8192);
                 offset = 10 * 2;
             }
-            supGr->subListSize = offset; /* each entry of 2 Bytes */
+            supGr->subListSize = tls13_htonl(offset); /* each entry of 2 Bytes */
             supGr->extDataLen = supGr->subListSize + sizeof(supGr->subListSize);
 
             /* Update the total extension length so far */
@@ -253,7 +302,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
         {
             /* set the Session Ticket extension data */
             tls13_extensionNULL_t *sesTic = &cExts->extSessionTicket + offsetExt;
-            sesTic->extType = TLS13_EXT_SESSION_TICKET;
+            sesTic->extType = tls13_htonl(TLS13_EXT_SESSION_TICKET);
             sesTic->extDataLen = 0x0000;
 
             /* Update the total extension length so far */
@@ -264,7 +313,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
         {
         /* Set the Encrypt-Then-MAC extension data */
             tls13_extensionNULL_t *enTM = &cExts->extEncryptThenMAC + offsetExt;
-            enTM->extType = TLS13_EXT_ENCRYPT_THEN_MAC;
+            enTM->extType = tls13_htonl(TLS13_EXT_ENCRYPT_THEN_MAC);
             enTM->extDataLen = 0x0000;
 
             /* Update the total extension length so far */
@@ -275,7 +324,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
         {
             /* Set the extended master secret */
             tls13_extensionNULL_t *extMS = &cExts->extExtendedMasterSecret + offsetExt;
-            extMS->extType = TLS13_EXT_EXT_MASTER_SECRET;
+            extMS->extType = tls13_htonl(TLS13_EXT_EXT_MASTER_SECRET);
             extMS->extDataLen = 0x0000;
 
             /* Update the total extension length so far */
@@ -286,26 +335,26 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
         {
             /* Set the Signature Algorithms Extension data */  
             tls13_extension2222_t *sigAlg = &cExts->extSignatureAlgos;
-            sigAlg->extType = TLS13_EXT_SIGN_AGLORITHM;
+            sigAlg->extType = tls13_htonl(TLS13_EXT_SIGN_AGLORITHM);
             uint16_t *sigAlgList = (uint16_t *)&sigAlg->list;
             {
-                sigAlgList[0] = TLS13_SIGNALGOS_ECDSA_SECP256r1_SHA256;
-                sigAlgList[1] = TLS13_SIGNALGOS_ECDSA_SECP384r1_SHA384;
-                sigAlgList[2] = TLS13_SIGNALGOS_ECDSA_SECP521r1_SHA512;
-                sigAlgList[3] = TLS13_SIGNALGOS_ED25519;
-                sigAlgList[4] = TLS13_SIGNALGOS_ED448;
-                sigAlgList[5] = TLS13_SIGNALGOS_RSA_PSS_PSS_SHA256;
-                sigAlgList[6] = TLS13_SIGNALGOS_RSA_PSS_PSS_SHA384;
-                sigAlgList[7] = TLS13_SIGNALGOS_RSA_PSS_PSS_SHA512;
-                sigAlgList[8] = TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA256;
-                sigAlgList[9] = TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA384;
-                sigAlgList[10] = TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA512;
-                sigAlgList[11] = TLS13_SIGNALGOS_RSA_PKCS1_SHA256;
-                sigAlgList[12] = TLS13_SIGNALGOS_RSA_PKCS1_SHA384;
-                sigAlgList[13] = TLS13_SIGNALGOS_RSA_PKCS1_SHA512;
+                sigAlgList[0] = tls13_htonl(TLS13_SIGNALGOS_ECDSA_SECP256r1_SHA256);
+                sigAlgList[1] = tls13_htonl(TLS13_SIGNALGOS_ECDSA_SECP384r1_SHA384);
+                sigAlgList[2] = tls13_htonl(TLS13_SIGNALGOS_ECDSA_SECP521r1_SHA512);
+                sigAlgList[3] = tls13_htonl(TLS13_SIGNALGOS_ED25519);
+                sigAlgList[4] = tls13_htonl(TLS13_SIGNALGOS_ED448);
+                sigAlgList[5] = tls13_htonl(TLS13_SIGNALGOS_RSA_PSS_PSS_SHA256);
+                sigAlgList[6] = tls13_htonl(TLS13_SIGNALGOS_RSA_PSS_PSS_SHA384);
+                sigAlgList[7] = tls13_htonl(TLS13_SIGNALGOS_RSA_PSS_PSS_SHA512);
+                sigAlgList[8] = tls13_htonl(TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA256);
+                sigAlgList[9] = tls13_htonl(TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA384);
+                sigAlgList[10] = tls13_htonl(TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA512);
+                sigAlgList[11] = tls13_htonl(TLS13_SIGNALGOS_RSA_PKCS1_SHA256);
+                sigAlgList[12] = tls13_htonl(TLS13_SIGNALGOS_RSA_PKCS1_SHA384);
+                sigAlgList[13] = tls13_htonl(TLS13_SIGNALGOS_RSA_PKCS1_SHA512);
                 offset = 14 * 2;
             }
-            sigAlg->subListSize = offset;
+            sigAlg->subListSize = tls13_htonl(offset);
             sigAlg->extDataLen = sigAlg->subListSize + sizeof(sigAlg->subListSize);
 
             /* Update the total extension length so far */
@@ -318,13 +367,13 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
         {
             /* Set the supported versions extension data */
             tls13_extension2212_t *supVers = &cExts->extSupportedVers + offsetExt;
-            supVers->extType = TLS13_EXT_SUPPORTED_VERSIONS;
+            supVers->extType = tls13_htonl(TLS13_EXT_SUPPORTED_VERSIONS);
             uint16_t *supVersList = (uint16_t *)&supVers->list;
             {
-                supVersList[0] = TLS13_PROTO_VERSION;
+                supVersList[0] = tls13_htonl(TLS13_PROTO_VERSION);
                 offset = 1 * 2;
             }
-            supVers->subListSize = offset;
+            supVers->subListSize = tls13_htonl(offset);
             supVers->extDataLen = supVers->subListSize + sizeof(supVers->subListSize);
 
             /* Update the total extension length so far */
@@ -337,13 +386,13 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
         {
             /* Set the PSK Key exchange modes extension data */
             tls13_extension2211_t *pskKE = &cExts->extPSKExchangeModes;
-            pskKE->extType = TLS13_EXT_PSK_KEYXCHANGE_MODES;
+            pskKE->extType = tls13_htonl(TLS13_EXT_PSK_KEYXCHANGE_MODES);
             uint8_t *pskKEList = (uint8_t *)&pskKE->list;
             {
                 pskKEList[0] = 1; /* 01 - assigned value for "PSK with (EC)DHE key establishment */
                 offset = 1 * 1;
             }
-            pskKE->subListSize = offset;
+            pskKE->subListSize = tls13_htonl(offset);
             pskKE->extDataLen = pskKE->subListSize + sizeof(pskKE->subListSize);
 
             /* Update the total extension length so far */
@@ -356,14 +405,14 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
         {
             /* Set the key share extension data */
             tls13_extensionKeyShare_t *keyS = &cExts->extkeyShare + offsetExt;
-            keyS->extType = TLS13_EXT_KEY_SHARE;
-            keyS->keyShareType = TLS13_SUPPGRP_X25519; /* assigned value for x25519 (key exchange via curve25519) */
+            keyS->extType = tls13_htonl(TLS13_EXT_KEY_SHARE);
+            keyS->keyShareType = tls13_htonl(TLS13_SUPPGRP_X25519); /* assigned value for x25519 (key exchange via curve25519) */
             {
                 memcpy(keyS->pubKey, pubKey, pubKeyLen);
                 offset += pubKeyLen;
             }
             keyS->keyShareLen = sizeof(keyS->keyShareType) + sizeof(keyS->pubKeyLen) + keyS->pubKeyLen; /* key share data length */
-            keyS->pubKeyLen = pubKeyLen;  /* 32  Bytes of public key */
+            keyS->pubKeyLen = tls13_htonl(pubKeyLen);  /* 32  Bytes of public key */
             keyS->extDataLen = keyS->keyShareLen + sizeof(keyS->keyShareLen);
 
             /* Update the total extension length so far */
@@ -374,7 +423,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
     }
 
     //CLIENTHELLO_CLIENTEXT_LEN(clientHelloTmp, TLS13_SESSION_ID_LEN, TLS13_CIPHERSUITE_LEN, 1) = 0; // to be updated
-    clientHelloTmp->handshakeHeader.handshakeMsgLen = sizeof(clientHelloTmp->clientVersion) + \
+    handshakeLen = sizeof(clientHelloTmp->clientVersion) + \
                                                         sizeof(clientHelloTmp->clientRandom) + \
                                                         sizeof(clientHelloTmp->sessionIdLen) + \
                                                         TLS13_SESSION_ID_LEN + \
@@ -384,11 +433,14 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
                                                         TLS13_SESSION_ID_LEN + \
                                                         sizeof(clientHelloTmp->extLen) + \
                                                         REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_SESSION_ID_LEN, uint16_t);
+    clientHelloTmp->handshakeHeader.handshakeMsgLen = tls13_htonss(handshakeLen);
                                                         
-    clientHelloTmp->recordHeader.recordLen = clientHelloTmp->handshakeHeader.handshakeMsgLen + sizeof(tls13_handshakeHdr_t);
+    recordLen = handshakeLen + sizeof(tls13_handshakeHdr_t);
+
+    clientHelloTmp->recordHeader.recordLen = tls13_htons(recordLen);
 
     /* Finally do a memcopy */
-    len = clientHelloTmp->recordHeader.recordLen + TLS13_RECORD_HEADER_SIZE;
+    len = recordLen + TLS13_RECORD_HEADER_SIZE;
     memcpy(tlsPkt, (uint8_t *)clientHelloTmp, len);
 
     free(clientHelloTmp);
@@ -403,9 +455,9 @@ void tls13_extractClientHello(uint8_t *clientRandom, uint8_t *sessionId, uint8_t
     tls13_clientHello_t *cHello = calloc(1, len);
 
     assert(cHello->recordHeader.recordType == TLS13_HANDSHAKE_RECORD);
-    assert(cHello->recordHeader.protoVersion == TLS13_PROTO_VERSION);
+    assert(tls13_ntohl(cHello->recordHeader.protoVersion) == TLS13_PROTO_VERSION);
     assert(cHello->handshakeHeader.handshakeType == TLS13_HST_CLIENT_HELLO);
-    assert(cHello->clientVersion == TLS13_PROTO_VERSION);
+    assert(tls13_ntohl(cHello->clientVersion) == TLS12_PROTO_VERSION);
 
     memcpy(clientRandom, cHello->clientRandom, TLS13_RANDOM_LEN);
     memcpy(sessionId, cHello->sessionId, cHello->sessionIdLen);
