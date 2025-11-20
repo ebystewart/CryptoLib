@@ -54,21 +54,6 @@ static tls13_cipherSuite_e tls13_getCipherSuite(void);
 
 static tls13_signAlgos_e tls13_getSignatureType(void);
 
-static uint16_t tls13_htons(uint16_t dIn);
-
-static uint32_t tls13_htonss(uint32_t dIn);
-
-static uint32_t tls13_htonl(uint32_t dIn);
-
-static uint64_t tls13_htonll(uint64_t dIn);
-
-static uint16_t tls13_ntohs(uint16_t dIn);
-
-static uint32_t tls13_ntohss(uint32_t dIn);
-
-static uint32_t tls13_ntohl(uint32_t dIn);
-
-static uint64_t tls13_ntohll(uint64_t dIn);
 
 /* Static function definitions */
 
@@ -103,14 +88,14 @@ static tls13_signAlgos_e tls13_getSignatureType(void)
     return TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA256;
 }
 
-static uint16_t tls13_htons(uint16_t dIn)
+uint16_t tls13_htons(uint16_t dIn)
 {
     uint16_t dOut = 0;
     dOut = ((dIn & 0xFF00) >> 8) | ((dIn & 0x00FF) << 8);
     return dOut;
 }
 
-static uint32_t tls13_htonss(uint32_t dIn)
+uint32_t tls13_htonss(uint32_t dIn)
 {
     uint32_t dOut = 0;
     dOut |= ((dIn & 0x00FF0000) >> 16);
@@ -119,7 +104,7 @@ static uint32_t tls13_htonss(uint32_t dIn)
     return dOut;
 }
 
-static uint32_t tls13_htonl(uint32_t dIn)
+uint32_t tls13_htonl(uint32_t dIn)
 {
     uint32_t dOut = 0;
     dOut |= ((dIn & 0xFF000000) >> 24);
@@ -129,7 +114,7 @@ static uint32_t tls13_htonl(uint32_t dIn)
     return dOut;
 }
 
-static uint64_t tls13_htonll(uint64_t dIn)
+uint64_t tls13_htonll(uint64_t dIn)
 {
     uint64_t dOut = 0;
     dOut |= ((dIn & 0xFF00000000000000) >> 56);
@@ -143,14 +128,14 @@ static uint64_t tls13_htonll(uint64_t dIn)
     return dOut;
 }
 
-static uint16_t tls13_ntohs(uint16_t dIn)
+uint16_t tls13_ntohs(uint16_t dIn)
 {
     uint16_t dOut = 0;
     dOut = ((dIn & 0xFF00) >> 8) | ((dIn & 0x00FF) << 8);
     return dOut;
 }
 
-static uint32_t tls13_ntohss(uint32_t dIn)
+uint32_t tls13_ntohss(uint32_t dIn)
 {
     uint32_t dOut = 0;
     dOut |= ((dIn & 0x00FF0000) >> 16);
@@ -159,7 +144,7 @@ static uint32_t tls13_ntohss(uint32_t dIn)
     return dOut;
 }
 
-static uint32_t tls13_ntohl(uint32_t dIn)
+uint32_t tls13_ntohl(uint32_t dIn)
 {
     uint32_t dOut = 0;
     dOut |= ((dIn & 0xFF000000) >> 24);
@@ -169,7 +154,7 @@ static uint32_t tls13_ntohl(uint32_t dIn)
     return dOut;
 }
 
-static uint64_t tls13_ntohll(uint64_t dIn)
+uint64_t tls13_ntohll(uint64_t dIn)
 {
     uint64_t dOut = 0;
     dOut |= ((dIn & 0xFF00000000000000) >> 56);
@@ -205,15 +190,19 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
     /* serialize the 32 Byte random value */
     memcpy(clientHelloTmp->clientRandom, clientRandom, TLS13_RANDOM_LEN);
     clientHelloTmp->sessionIdLen = TLS13_SESSION_ID_LEN;
-    /* Serialize the 16 Byte Session Id */
+    /* Serialize the 32 Byte Session Id */
     memcpy(clientHelloTmp->sessionId, sessionId, TLS13_SESSION_ID_LEN);
 
     /* copy the Ciphersuite data */
+    printf("%lx:%lx\n", clientHelloTmp, CLIENTHELLO_CIPHERSUITE_LEN(clientHelloTmp, TLS13_SESSION_ID_LEN));
     CLIENTHELLO_CIPHERSUITE_LEN(clientHelloTmp, TLS13_SESSION_ID_LEN) = tls13_htons(TLS13_CIPHERSUITE_LEN);
+    printf("%lx:%lx\n", clientHelloTmp, CLIENTHELLO_CIPHERSUITE_LEN(clientHelloTmp, TLS13_SESSION_ID_LEN));
+    printf("%lx:%lx\n", clientHelloTmp, GET_CLIENTHELLO_CIPHERSUITELIST_PTR(clientHelloTmp, TLS13_SESSION_ID_LEN)); 
     tls13_cipherSuiteData_t *csd = GET_CLIENTHELLO_CIPHERSUITELIST_PTR(clientHelloTmp, TLS13_SESSION_ID_LEN);
-    csd[0] = tls13_htons(TLS13_AES_128_GCM_SHA256);
-    csd[1] = tls13_htons(TLS13_AES_256_GCM_SHA384);
-    csd[2] = tls13_htons(TLS13_CHACHA20_POLY1305_SHA256);
+    csd[0] = tls13_htons(TLS13_AES_256_GCM_SHA384);
+    csd[1] = tls13_htons(TLS13_CHACHA20_POLY1305_SHA256);
+    csd[2] = tls13_htons(TLS13_AES_128_GCM_SHA256);
+    csd[3] = tls13_htons(TLS13_EMPTY_RENEGOTIATION_INFO_SCSV);
 
     /* copy the compression methods (offset by ciphersuite length) */
     CLIENTHELLO_CMPMTHDLIST_LEN(clientHelloTmp, TLS13_SESSION_ID_LEN, TLS13_CIPHERSUITE_LEN) = 0x01;

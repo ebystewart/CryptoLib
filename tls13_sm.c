@@ -263,57 +263,42 @@ static void tls13_ctx_queue(tls13_context_t *ctx, tls13_ctxOperation_e op)
 /* Initialize all teh context elements except for key-pair */
 static tls13_init_ctx(tls13_context_t *ctx)
 {
+    ctx->server_random            = calloc(1, TLS13_RANDOM_LEN);
+    ctx->server_sessionId         = calloc(1, TLS13_SESSION_ID_LEN);
+    ctx->client_random            = calloc(1, TLS13_RANDOM_LEN);
+    ctx->client_sessionId         = calloc(1, TLS13_SESSION_ID_LEN);
+
     if(ctx->role == TLS13_CLIENT){
-        ctx->server_random            = calloc(1, TLS13_RANDOM_LEN);
-        ctx->server_sessionId         = calloc(1, TLS13_SESSION_ID_LEN);
+        generate_random(ctx->client_random, TLS13_RANDOM_LEN);
+        generate_random(ctx->client_sessionId, TLS13_SESSION_ID_LEN);
         //ctx->server_hostname          = calloc(1, 64); // tentative size
         //ctx->server_hostname_len      = 0;
         ctx->server_publicKey         = calloc(1, TLS13_RANDOM_LEN);
-
-        ctx->clientCapability         = &clientCapability;
-        ctx->clientCapabilityLen      = sizeof(clientCapability);
-        ctx->serverExtension          = calloc(1, 50); //tentative size
-        ctx->serverExtensionLen       = 0;
-
-        ctx->clientCert               = calloc(1, 256); // need to give address of certificate file
-        ctx->clientCertLen            = 0; // need to revisit
-        ctx->clientCertVerify         = calloc(1, 300); // need to revisit
-        ctx->clientCertVerifyLen      = 300;
-        ctx->serverCert               = calloc(1, 256);
-        ctx->serverCertLen            = 0;
-        ctx->serverCertVerify         = calloc(1, 300);
-        ctx->serverCertVerifyLen      = 300;
-        ctx->clientHandshakeSignature = calloc(1, 128);
-        ctx->clientHandshakeSignLen   = 0;
-        ctx->serverHandshakeSignature = calloc(1, 128);
-        ctx->serverHandshakeSignLen   = 0;
-
     }
     else if (ctx->role == TLS13_SERVER){
-        ctx->client_random            = calloc(1, TLS13_RANDOM_LEN);
-        ctx->client_sessionId         = calloc(1, TLS13_SESSION_ID_LEN);
+        generate_random(ctx->server_random, TLS13_RANDOM_LEN);
+        generate_random(ctx->server_sessionId, TLS13_SESSION_ID_LEN);
         //ctx->server_hostname          = calloc(1, 64); // actual hostname shoudl come from app
         ctx->server_hostname_len      = 0;
         ctx->client_publicKey         = calloc(1, TLS13_RANDOM_LEN);
-
-        ctx->clientCapability         = calloc(1, sizeof(clientCapability)); // need to revisit the size
-        ctx->clientCapabilityLen      = sizeof(clientCapability);
-        ctx->serverExtension          = calloc(1, 50); //tentative size
-        ctx->serverExtensionLen       = 0;
-
-        ctx->clientCert               = calloc(1, 256); // need to give address of certificate file
-        ctx->clientCertLen            = 0; // need to revisit
-        ctx->clientCertVerify         = calloc(1, 300); // need to revisit
-        ctx->clientCertVerifyLen      = 300;
-        ctx->serverCert               = calloc(1, 256);
-        ctx->serverCertLen            = 0;
-        ctx->serverCertVerify         = calloc(1, 300);
-        ctx->serverCertVerifyLen      = 300;
-        ctx->clientHandshakeSignature = calloc(1, 128);
-        ctx->clientHandshakeSignLen   = 0;
-        ctx->serverHandshakeSignature = calloc(1, 128);
-        ctx->serverHandshakeSignLen   = 0;
     }
+
+    ctx->clientCapability         = calloc(1, sizeof(clientCapability)); // need to revisit the size
+    ctx->clientCapabilityLen      = sizeof(clientCapability);
+    ctx->serverExtension          = calloc(1, 50); //tentative size
+    ctx->serverExtensionLen       = 0;   
+    ctx->clientCert               = calloc(1, 256); // need to give address of certificate file
+    ctx->clientCertLen            = 0; // need to revisit        ctx->clientCertVerify         = calloc(1, 300); // need to revisit
+    ctx->clientCertVerifyLen      = 300;
+    ctx->serverCert               = calloc(1, 256);
+    ctx->serverCertLen            = 0;
+    ctx->serverCertVerify         = calloc(1, 300);
+    ctx->serverCertVerifyLen      = 300;
+    ctx->clientHandshakeSignature = calloc(1, 128);
+    ctx->clientHandshakeSignLen   = 0;
+    ctx->serverHandshakeSignature = calloc(1, 128);
+    ctx->serverHandshakeSignLen   = 0; 
+
     ctx->clientHandshakeKey    = calloc(1, TLS13_KEY_SIZE);
     ctx->clientHandshakeKeyLen = TLS13_KEY_SIZE;
     ctx->clientHandshakeIV     = calloc(1, 12);
@@ -326,6 +311,15 @@ static tls13_init_ctx(tls13_context_t *ctx)
 
 static tls13_deInit_ctx(tls13_context_t *ctx)
 {
+    memset(ctx->client_random, 0, TLS13_RANDOM_LEN);
+    memset(ctx->server_random, 0, TLS13_RANDOM_LEN);
+    memset(ctx->client_sessionId, 0, TLS13_SESSION_ID_LEN);
+    memset(ctx->server_sessionId, 0, TLS13_SESSION_ID_LEN);
+    memset(ctx->clientHandshakeKey, 0, ctx->clientHandshakeKeyLen);
+    memset(ctx->clientHandshakeIV, 0, ctx->clientHandshakeIVLen);
+    memset(ctx->serverHandshakeKey, 0, ctx->serverHandshakeKeyLen);
+    memset(ctx->serverHandshakeIV, 0, ctx->serverHandshakeIVLen);
+
     free(ctx->client_random);
     free(ctx->server_random);
     free(ctx->client_sessionId);
@@ -479,7 +473,8 @@ static void *__client_handshake_thread(void *arg)
     tls13_prepareClientHello(ctx->client_random, ctx->client_sessionId, ctx->server_hostname, ctx->client_publicKey, ctx->client_publicKey, clientHello_pkt);
 
     /* Send the client hello pkt over TCP to the destined socket */
-    clientHelloLen = (size_t)((((tls13_clientHello_t *)clientHello_pkt)->recordHeader.recordLen) + TLS13_RECORD_HEADER_SIZE);
+    clientHelloLen = (size_t)((((tls13_clientHello_t *)clientHello_pkt)->recordHeader.recordLen));
+    clientHelloLen = tls13_ntohs(clientHelloLen) + TLS13_RECORD_HEADER_SIZE;
     
 #ifndef DEBUG
     printf("Cleint Hello Length is %d\n", clientHelloLen);

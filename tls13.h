@@ -26,7 +26,7 @@
 */
 
 #define TLS13_SESSION_ID_LEN 32
-#define TLS13_CIPHERSUITE_LEN 3
+#define TLS13_CIPHERSUITE_LEN 8
 #define TLS13_COMPRESSIONMETHD_LEN 1U
 #define TLS13_PROTO_VERSION 0x0301
 #define TLS12_PROTO_VERSION 0x0303
@@ -388,37 +388,37 @@ typedef struct {
 /* Macros for Structure element access */
 
 #define CLIENTHELLO_CIPHERSUITE_LEN(clientHelloPtr, sessionIdLen)         \
-               (*(uint16_t *)((&((tls13_clientHello_t *)clientHelloPtr)->cipherSuiteLen) + sessionIdLen))
+               (*(uint16_t *)((&(((tls13_clientHello_t *)clientHelloPtr)->cipherSuiteLen) + sessionIdLen)))
 
 #define GET_CLIENTHELLO_CIPHERSUITELIST_PTR(clientHelloPtr, sessionIdLen)         \
-               ((tls13_cipherSuiteData_t *)(&(((tls13_clientHello_t *)clientHelloPtr)->cipherSuiteList) + sessionIdLen))
+               (tls13_cipherSuiteData_t *)((&(((tls13_clientHello_t *)clientHelloPtr)->cipherSuiteList) + sessionIdLen))
 
 #define CLIENTHELLO_CMPMTHDLIST_LEN(clientHelloPtr, sessionIdLen, cipherSuiteLen)      \
                (*(uint8_t *)((&((tls13_clientHello_t *)clientHelloPtr)->compressionMethodLen) + sessionIdLen + cipherSuiteLen))
 
 #define GET_CLIENTHELLO_CMPMTHDLIST_PTR(clientHelloPtr, sessionIdLen, cipherSuiteLen)      \
-               ((tls13_compressionMethods_t *)(&(((tls13_clientHello_t *)clientHelloPtr)->compressionMethodList) + sessionIdLen + cipherSuiteLen))
+               (tls13_compressionMethods_t *)((&(((tls13_clientHello_t *)clientHelloPtr)->compressionMethodList) + sessionIdLen + cipherSuiteLen))
 
 //#define CLIENTHELLO_CLIENTEXT_LEN(clientHelloPtr, sessionIdLen, cipherSuiteLen, cmpMthdLen)      \
                (*(uint16_t *)((&((tls13_clientHello_t *)clientHelloPtr)->extLen) + sessionIdLen + cipherSuiteLen + cmpMthdLen))
 
 #define GET_CLIENTHELLO_CLIENTEXT_PTR(clientHelloPtr, sessionIdLen, cipherSuiteLen, cmpMthdLen)      \
-               ((tls13_clientExtensions_t *)(&(((tls13_clientHello_t *)clientHelloPtr)->clientExt) + sessionIdLen + cipherSuiteLen + cmpMthdLen))
+               (tls13_clientExtensions_t *)((&(((tls13_clientHello_t *)clientHelloPtr)->clientExt) + sessionIdLen + cipherSuiteLen + cmpMthdLen))
 
 #define SERVERHELLO_CIPHERSUITE_SELECT(serverHelloPtr, sessionIdLen)         \
-               (*(uint16_t *)(&(((tls13_serverHello_t *)serverHelloPtr)->cipherSuiteSelect) + (sessionIdLen)))           
+               (*(uint16_t *)((&(((tls13_serverHello_t *)serverHelloPtr)->cipherSuiteSelect) + sessionIdLen)))           
 
 #define SERVERHELLO_COMPRESSION_METHOD_SELECT(serverHelloPtr, sessionIdLen)         \
-               (*(uint16_t *)(&(((tls13_serverHello_t *)serverHelloPtr)->compressionMethodSelect) + (sessionIdLen)))
+               (*(uint16_t *)((&(((tls13_serverHello_t *)serverHelloPtr)->compressionMethodSelect) + sessionIdLen)))
                
 #define GET_SERVERHELLO_SERVEREXT_PTR(serverHelloPtr, sessionIdLen)         \
-               ((tls13_serverExtensions_t *)(&(((tls13_serverHello_t *)serverHelloPtr)->serverExt) + (sessionIdLen)))
+               ((tls13_serverExtensions_t *)((&(((tls13_serverHello_t *)serverHelloPtr)->serverExt) + sessionIdLen)))
 
 #define SERVERHELLO_SERVEREXT_LEN(serverHelloPtr, sessionIdLen)         \
-               (*(uint16_t *)(&(((tls13_serverHello_t *)serverHelloPtr)->extLen) + (sessionIdLen)))
+               (*(uint16_t *)((&(((tls13_serverHello_t *)serverHelloPtr)->extLen) + sessionIdLen)))
 
 #define REACH_ELEMENT(inPtr, inPtrType, element, offset, retType)         \
-               (*(retType *)(&(((inPtrType *)inPtr)->element) + (offset)))
+               (*(retType *)((&(((inPtrType *)inPtr)->element) + offset)))
 
 /* Prepare pkts to be sent  */
 uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *sessionId, const char *dnsHostname, 
@@ -460,5 +460,22 @@ void tls13_extractSessionTicket(tls13_serverNewSesTkt_t *sessionTkt, const uint8
 void tls13_extractEncryptedAppData(uint8_t *dOut, uint16_t *dOutLen, const uint8_t *tlsPkt);
 
 void tls13_extractAlertRecord(tls13_alert_t *alertData, const uint8_t *tlsPkt);
+
+/* utilities */
+uint16_t tls13_htons(uint16_t dIn);
+
+uint32_t tls13_htonss(uint32_t dIn);
+
+uint32_t tls13_htonl(uint32_t dIn);
+
+uint64_t tls13_htonll(uint64_t dIn);
+
+uint16_t tls13_ntohs(uint16_t dIn);
+
+uint32_t tls13_ntohss(uint32_t dIn);
+
+uint32_t tls13_ntohl(uint32_t dIn);
+
+uint64_t tls13_ntohll(uint64_t dIn);
 
 #endif

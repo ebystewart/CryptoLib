@@ -20,7 +20,7 @@ int generate_random(uint8_t *buff, uint16_t size)
       assert(0);
    /* pseudo- random number generator using XorShift */
    /* ref: https://en.wikipedia.org/wiki/Xorshift */
-#if 1
+#if 0
    while(idx < size){
 
       gettimeofday(&tv, NULL);
@@ -29,5 +29,15 @@ int generate_random(uint8_t *buff, uint16_t size)
       buff[idx] = (uint8_t)(temp | (temp << idx) ^ (temp ^ (!idx)));
       idx++;
    }
+#endif
+#if 1
+for(int i = 0; i < size; i++){
+   if(i%2){
+      buff[i] = 0xAB;
+   }
+   else{
+      buff[i] = 0xCD;
+   }
+}
 #endif
 }
