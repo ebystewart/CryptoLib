@@ -210,15 +210,16 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
     cmpMthd[0] = 0x00;
 
     /* Initialize the extension length */
-    REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, (TLS13_SESSION_ID_LEN + TLS13_SESSION_ID_LEN + TLS13_COMPRESSIONMETHD_LEN), uint16_t) = 0;
+    REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, (TLS13_SESSION_ID_LEN/2 + TLS13_CIPHERSUITE_LEN/2), uint16_t) = 0xCC; /* initialize a pattern to identify */
 
     /* Set up the extensions (offset by ciphersuite length) */
-    tls13_clientExtensions_t *cExts = GET_CLIENTHELLO_CLIENTEXT_PTR(clientHelloTmp, TLS13_SESSION_ID_LEN, TLS13_CIPHERSUITE_LEN, TLS13_COMPRESSIONMETHD_LEN);
+    //tls13_clientExtensions_t *cExts = GET_CLIENTHELLO_CLIENTEXT_PTR(clientHelloTmp, TLS13_SESSION_ID_LEN, TLS13_CIPHERSUITE_LEN, TLS13_COMPRESSIONMETHD_LEN);
+    tls13_clientExtensions_t *cExts = (tls13_clientExtensions_t *)((uint8_t *)&clientHelloTmp->clientExt + TLS13_SESSION_ID_LEN + TLS13_CIPHERSUITE_LEN/2 + TLS13_COMPRESSIONMETHD_LEN);
     {
         {
             /* Set up the SNI extension data */
             tls13_extensionSNI_t *extSni = &cExts->extSNI;
-            extSni->extType = 0x0000; // should be in Big Endian format
+            extSni->extType = 0x0000; // 0x0000 - should be in Big Endian format
             tls13_extSubList_t *sniSub = (tls13_extSubList_t *)&extSni->list;
             {
                 //REACH_ELEMENT(sniSub, tls13_extSubList_t, listType, offset, uint8_t) = 0x00; /* DNS Hostname */
@@ -241,11 +242,11 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
         offset = 0;
         {
             /* Set the EC Point Formats extension data */
-            tls13_extension2211_t *ecPF = &cExts->extECP + offsetExt;
+            tls13_extension2211_t *ecPF = (tls13_extension2211_t *)((uint8_t *)&cExts->extECP + offsetExt);
             ecPF->extType = tls13_htonl(TLS13_EXT_EC_POINTS_FORMAT);
             uint8_t *ecPFList = (uint8_t *)&ecPF->list;
             {
-                ecPFList[0] = TLS13_EC_POINT_UNCOMPRESSED;
+                ecPFList[0] = 0xFE;//TLS13_EC_POINT_UNCOMPRESSED;
                 ecPFList[1] = TLS13_EC_POINT_ANSIX962_COMPRESSED_PRIME;
                 ecPFList[2] = TLS13_EC_POINT_ANSIX962_COMPRESSED_CHAR2;
                 offset += 3;
@@ -262,7 +263,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
         offset = 0;
         {
             /* Set the supported Group extension data */
-            tls13_extension2222_t *supGr = &cExts->extSupprotedGrp + offsetExt;
+            tls13_extension2222_t *supGr = (tls13_extension2222_t *)((uint8_t *)&cExts->extSupprotedGrp + offsetExt);
             supGr->extType = tls13_htonl(TLS13_EXT_SUPPORTED_GROUPS);
             uint16_t *supGrList = (uint16_t *)&supGr->list;
             {
@@ -290,7 +291,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
         offset = 0;
         {
             /* set the Session Ticket extension data */
-            tls13_extensionNULL_t *sesTic = &cExts->extSessionTicket + offsetExt;
+            tls13_extensionNULL_t *sesTic = (tls13_extensionNULL_t *)((uint8_t *)&cExts->extSessionTicket + offsetExt);
             sesTic->extType = tls13_htonl(TLS13_EXT_SESSION_TICKET);
             sesTic->extDataLen = 0x0000;
 
@@ -300,8 +301,8 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
                                                                                                           sizeof(sesTic->extType));
         }
         {
-        /* Set the Encrypt-Then-MAC extension data */
-            tls13_extensionNULL_t *enTM = &cExts->extEncryptThenMAC + offsetExt;
+            /* Set the Encrypt-Then-MAC extension data */
+            tls13_extensionNULL_t *enTM = (tls13_extensionNULL_t *)((uint8_t *)&cExts->extEncryptThenMAC + offsetExt);
             enTM->extType = tls13_htonl(TLS13_EXT_ENCRYPT_THEN_MAC);
             enTM->extDataLen = 0x0000;
 
@@ -312,7 +313,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
         }
         {
             /* Set the extended master secret */
-            tls13_extensionNULL_t *extMS = &cExts->extExtendedMasterSecret + offsetExt;
+            tls13_extensionNULL_t *extMS = (tls13_extensionNULL_t *)((uint8_t *)&cExts->extExtendedMasterSecret + offsetExt);
             extMS->extType = tls13_htonl(TLS13_EXT_EXT_MASTER_SECRET);
             extMS->extDataLen = 0x0000;
 
@@ -323,7 +324,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
         }
         {
             /* Set the Signature Algorithms Extension data */  
-            tls13_extension2222_t *sigAlg = &cExts->extSignatureAlgos;
+            tls13_extension2222_t *sigAlg = (tls13_extension2222_t *)((uint8_t *)&cExts->extSignatureAlgos + offsetExt);
             sigAlg->extType = tls13_htonl(TLS13_EXT_SIGN_AGLORITHM);
             uint16_t *sigAlgList = (uint16_t *)&sigAlg->list;
             {
@@ -355,7 +356,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
         offset = 0;
         {
             /* Set the supported versions extension data */
-            tls13_extension2212_t *supVers = &cExts->extSupportedVers + offsetExt;
+            tls13_extension2212_t *supVers = (tls13_extension2212_t *)((uint8_t *)&cExts->extSupportedVers + offsetExt);
             supVers->extType = tls13_htonl(TLS13_EXT_SUPPORTED_VERSIONS);
             uint16_t *supVersList = (uint16_t *)&supVers->list;
             {
@@ -374,7 +375,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
         offset = 0;
         {
             /* Set the PSK Key exchange modes extension data */
-            tls13_extension2211_t *pskKE = &cExts->extPSKExchangeModes;
+            tls13_extension2211_t *pskKE = (tls13_extension2211_t *)((uint8_t *)&cExts->extPSKExchangeModes + offsetExt);
             pskKE->extType = tls13_htonl(TLS13_EXT_PSK_KEYXCHANGE_MODES);
             uint8_t *pskKEList = (uint8_t *)&pskKE->list;
             {
@@ -393,7 +394,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
         offset = 0;        
         {
             /* Set the key share extension data */
-            tls13_extensionKeyShare_t *keyS = &cExts->extkeyShare + offsetExt;
+            tls13_extensionKeyShare_t *keyS = (tls13_extensionKeyShare_t *)((uint8_t *)&cExts->extkeyShare + offsetExt);
             keyS->extType = tls13_htonl(TLS13_EXT_KEY_SHARE);
             keyS->keyShareType = tls13_htonl(TLS13_SUPPGRP_X25519); /* assigned value for x25519 (key exchange via curve25519) */
             {

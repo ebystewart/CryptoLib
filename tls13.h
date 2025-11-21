@@ -388,22 +388,25 @@ typedef struct {
 /* Macros for Structure element access */
 
 #define CLIENTHELLO_CIPHERSUITE_LEN(clientHelloPtr, sessionIdLen)         \
-               (*(uint16_t *)((&(((tls13_clientHello_t *)clientHelloPtr)->cipherSuiteLen) + sessionIdLen)))
+               (*(uint16_t *)((&(((tls13_clientHello_t *)clientHelloPtr)->cipherSuiteLen) + (sessionIdLen/2))))
 
 #define GET_CLIENTHELLO_CIPHERSUITELIST_PTR(clientHelloPtr, sessionIdLen)         \
-               (tls13_cipherSuiteData_t *)((&(((tls13_clientHello_t *)clientHelloPtr)->cipherSuiteList) + sessionIdLen))
+                      ((&clientHelloPtr->cipherSuiteList[0]) + (sessionIdLen/2))
+               //(tls13_cipherSuiteData_t *)((&(((tls13_clientHello_t *)clientHelloPtr)->cipherSuiteList) + sessionIdLen))
 
 #define CLIENTHELLO_CMPMTHDLIST_LEN(clientHelloPtr, sessionIdLen, cipherSuiteLen)      \
                (*(uint8_t *)((&((tls13_clientHello_t *)clientHelloPtr)->compressionMethodLen) + sessionIdLen + cipherSuiteLen))
 
 #define GET_CLIENTHELLO_CMPMTHDLIST_PTR(clientHelloPtr, sessionIdLen, cipherSuiteLen)      \
-               (tls13_compressionMethods_t *)((&(((tls13_clientHello_t *)clientHelloPtr)->compressionMethodList) + sessionIdLen + cipherSuiteLen))
+                  ((&clientHelloPtr->compressionMethodList[0]) + (sessionIdLen) + (cipherSuiteLen))
+               //(tls13_compressionMethods_t *)((&(((tls13_clientHello_t *)clientHelloPtr)->compressionMethodList) + sessionIdLen + cipherSuiteLen))
 
 //#define CLIENTHELLO_CLIENTEXT_LEN(clientHelloPtr, sessionIdLen, cipherSuiteLen, cmpMthdLen)      \
                (*(uint16_t *)((&((tls13_clientHello_t *)clientHelloPtr)->extLen) + sessionIdLen + cipherSuiteLen + cmpMthdLen))
 
 #define GET_CLIENTHELLO_CLIENTEXT_PTR(clientHelloPtr, sessionIdLen, cipherSuiteLen, cmpMthdLen)      \
-               (tls13_clientExtensions_t *)((&(((tls13_clientHello_t *)clientHelloPtr)->clientExt) + sessionIdLen + cipherSuiteLen + cmpMthdLen))
+                  ((&clientHelloPtr->clientExt) + (sessionIdLen/4) + (cipherSuiteLen/2) + (cmpMthdLen))
+               //(tls13_clientExtensions_t *)((&(((tls13_clientHello_t *)clientHelloPtr)->clientExt) + (sessionIdLen) + (cipherSuiteLen/2) + cmpMthdLen))
 
 #define SERVERHELLO_CIPHERSUITE_SELECT(serverHelloPtr, sessionIdLen)         \
                (*(uint16_t *)((&(((tls13_serverHello_t *)serverHelloPtr)->cipherSuiteSelect) + sessionIdLen)))           
