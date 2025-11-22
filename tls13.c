@@ -177,6 +177,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
     uint8_t offsetExt = 0;
     uint16_t recordLen = 0;
     uint32_t handshakeLen = 0;
+    uint16_t tempLen;
     tls13_clientHello_t *clientHelloTmp = calloc(1, sizeof(tls13_clientHello_t) + 300);
 
     /* Record header update */
@@ -207,172 +208,170 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
     /* copy the compression methods (offset by ciphersuite length) */
     CLIENTHELLO_CMPMTHDLIST_LEN(clientHelloTmp, TLS13_SESSION_ID_LEN, TLS13_CIPHERSUITE_LEN) = 0x01;
     tls13_compressionMethods_t *cmpMthd = GET_CLIENTHELLO_CMPMTHDLIST_PTR(clientHelloTmp, TLS13_SESSION_ID_LEN, TLS13_CIPHERSUITE_LEN);
-    cmpMthd[0] = 0x00;
+    printf("%lx:%lx\n", clientHelloTmp, GET_CLIENTHELLO_CMPMTHDLIST_PTR(clientHelloTmp, TLS13_SESSION_ID_LEN, TLS13_CIPHERSUITE_LEN)); 
+    cmpMthd[0] = 0xBB; //0x00
 
     /* Initialize the extension length */
-    REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, (TLS13_SESSION_ID_LEN/2 + TLS13_CIPHERSUITE_LEN/2), uint16_t) = 0xCC; /* initialize a pattern to identify */
+    printf("%lx:%lx\n", clientHelloTmp, &REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_CLIENT_EXT_OFFSET, uint16_t)); 
+    REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_CLIENT_EXT_OFFSET, uint16_t) = 0x0000; //0xCCCC/* initialize a pattern to identify */
 
     /* Set up the extensions (offset by ciphersuite length) */
-    //tls13_clientExtensions_t *cExts = GET_CLIENTHELLO_CLIENTEXT_PTR(clientHelloTmp, TLS13_SESSION_ID_LEN, TLS13_CIPHERSUITE_LEN, TLS13_COMPRESSIONMETHD_LEN);
-    tls13_clientExtensions_t *cExts = (tls13_clientExtensions_t *)((uint8_t *)&clientHelloTmp->clientExt + TLS13_SESSION_ID_LEN + TLS13_CIPHERSUITE_LEN/2 + TLS13_COMPRESSIONMETHD_LEN);
+    tls13_clientExtensions_t *cExts = GET_CLIENTHELLO_CLIENTEXT_PTR(clientHelloTmp, TLS13_SESSION_ID_LEN, TLS13_CIPHERSUITE_LEN, TLS13_COMPRESSIONMETHD_LEN);
+    printf("%lx:%lx\n", clientHelloTmp, GET_CLIENTHELLO_CLIENTEXT_PTR(clientHelloTmp, TLS13_SESSION_ID_LEN, TLS13_CIPHERSUITE_LEN, TLS13_COMPRESSIONMETHD_LEN)); 
+
+    //tls13_clientExtensions_t *cExts = (tls13_clientExtensions_t *)((uint8_t *)&clientHelloTmp->clientExt + TLS13_CLIENT_EXT_OFFSET);
     {
         {
             /* Set up the SNI extension data */
             tls13_extensionSNI_t *extSni = &cExts->extSNI;
-            extSni->extType = 0x0000; // 0x0000 - should be in Big Endian format
-            tls13_extSubList_t *sniSub = (tls13_extSubList_t *)&extSni->list;
+            extSni->extType = tls13_htons(0x0000); // 0x0000 - should be in Big Endian format
+            extSni->subListSize = 0xDCCD; // for test
+            extSni->extDataLen = 0xAFAF; // for test
+            tls13_extSubList_t *sniSub = (tls13_extSubList_t *)&extSni->list[0];
             {
                 //REACH_ELEMENT(sniSub, tls13_extSubList_t, listType, offset, uint8_t) = 0x00; /* DNS Hostname */
                 sniSub->listType = 0x00; /* DNS Hostname */
-                offset += sizeof(sniSub->listType);
-                //REACH_ELEMENT(sniSub, tls13_extSubList_t, listLen, offset, uint16_t) = strlen(dnsHostname);
-                sniSub->listLen = tls13_htons(strlen(dnsHostname));
-                offset += sizeof(sniSub->listLen);
-                memcpy(sniSub->listData, dnsHostname, strlen(dnsHostname)); /* "dns.google.com" */
                 offset += strlen(dnsHostname);
+                //REACH_ELEMENT(sniSub, tls13_extSubList_t, listLen, offset, uint16_t) = strlen(dnsHostname);
+                sniSub->listLen = tls13_htons(offset);
+                memcpy(sniSub->listData, dnsHostname, offset); /* "dns.google.com" */
+                offset += sizeof(uint16_t);
+                offset += sizeof(uint8_t);
             }
-            extSni->subListSize = sizeof(tls13_extSubList_t) + offset;
-            extSni->extDataLen = extSni->subListSize + sizeof(extSni->subListSize);
+            //tempLen = tls13_htons(offset);//sizeof(tls13_extSubList_t) + offset;
+            extSni->subListSize = tls13_htons(offset); //0xDCCD;
+            tempLen = offset + sizeof(uint16_t);
+            extSni->extDataLen = tls13_htons(tempLen); //0xAFAF;
             /* Update the total extension length so far */
-            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_SESSION_ID_LEN, uint16_t) += (extSni->extDataLen + \
-                                                                                                          sizeof(extSni->extDataLen) + \
-                                                                                                          sizeof(extSni->extType));
+            tempLen +=  sizeof(uint16_t) + sizeof(uint16_t);
+            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_CLIENT_EXT_OFFSET, uint16_t) += tempLen;
         }
         offsetExt += offset;
-        offset = 0;
+        offset = 0;       
         {
             /* Set the EC Point Formats extension data */
             tls13_extension2211_t *ecPF = (tls13_extension2211_t *)((uint8_t *)&cExts->extECP + offsetExt);
-            ecPF->extType = tls13_htonl(TLS13_EXT_EC_POINTS_FORMAT);
-            uint8_t *ecPFList = (uint8_t *)&ecPF->list;
+            ecPF->extType = tls13_htons(TLS13_EXT_EC_POINTS_FORMAT);
+            uint8_t *ecPFList = (uint8_t *)&ecPF->list[0];
             {
-                ecPFList[0] = 0xFE;//TLS13_EC_POINT_UNCOMPRESSED;
+                ecPFList[0] = TLS13_EC_POINT_UNCOMPRESSED;
                 ecPFList[1] = TLS13_EC_POINT_ANSIX962_COMPRESSED_PRIME;
                 ecPFList[2] = TLS13_EC_POINT_ANSIX962_COMPRESSED_CHAR2;
                 offset += 3;
             }
             ecPF->subListSize = offset;
-            ecPF->extDataLen = ecPF->subListSize + sizeof(ecPF->subListSize);
+            tempLen = offset + sizeof(ecPF->subListSize);
+            ecPF->extDataLen = tls13_htons(tempLen);
 
+            tempLen += sizeof(ecPF->extDataLen) + sizeof(ecPF->extType);
             /* Update the total extension length so far */
-            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_SESSION_ID_LEN, uint16_t) += (ecPF->extDataLen + \
-                                                                                                          sizeof(ecPF->extDataLen) + \
-                                                                                                          sizeof(ecPF->extType));
+            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_CLIENT_EXT_OFFSET, uint16_t) += tempLen;
         }
         offsetExt += offset;
-        offset = 0;
+        offset = 0; 
         {
             /* Set the supported Group extension data */
             tls13_extension2222_t *supGr = (tls13_extension2222_t *)((uint8_t *)&cExts->extSupprotedGrp + offsetExt);
-            supGr->extType = tls13_htonl(TLS13_EXT_SUPPORTED_GROUPS);
-            uint16_t *supGrList = (uint16_t *)&supGr->list;
+            supGr->extType = tls13_htons(TLS13_EXT_SUPPORTED_GROUPS);
+            uint16_t *supGrList = (uint16_t *)&supGr->list[0];
             {
-                supGrList[0] = tls13_htonl(TLS13_SUPPGRP_X25519);
-                supGrList[1] = tls13_htonl(TLS13_SUPPGRP_SECP256R1);
-                supGrList[2] = tls13_htonl(TLS13_SUPPGRP_X448);
-                supGrList[3] = tls13_htonl(TLS13_SUPPGRP_SECP521R1);
-                supGrList[4] = tls13_htonl(TLS13_SUPPGRP_SECP384R1);
-                supGrList[5] = tls13_htonl(TLS13_SUPPGRP_FFDHE2048);
-                supGrList[6] = tls13_htonl(TLS13_SUPPGRP_FFDHE3072);
-                supGrList[7] = tls13_htonl(TLS13_SUPPGRP_FFDHE4096);
-                supGrList[8] = tls13_htonl(TLS13_SUPPGRP_FFDHE6144);
-                supGrList[9] = tls13_htonl(TLS13_SUPPGRP_FFDHE8192);
+                supGrList[0] = tls13_htons(TLS13_SUPPGRP_X25519);
+                supGrList[1] = tls13_htons(TLS13_SUPPGRP_SECP256R1);
+                supGrList[2] = tls13_htons(TLS13_SUPPGRP_X448);
+                supGrList[3] = tls13_htons(TLS13_SUPPGRP_SECP521R1);
+                supGrList[4] = tls13_htons(TLS13_SUPPGRP_SECP384R1);
+                supGrList[5] = tls13_htons(TLS13_SUPPGRP_FFDHE2048);
+                supGrList[6] = tls13_htons(TLS13_SUPPGRP_FFDHE3072);
+                supGrList[7] = tls13_htons(TLS13_SUPPGRP_FFDHE4096);
+                supGrList[8] = tls13_htons(TLS13_SUPPGRP_FFDHE6144);
+                supGrList[9] = tls13_htons(TLS13_SUPPGRP_FFDHE8192);
                 offset = 10 * 2;
             }
-            supGr->subListSize = tls13_htonl(offset); /* each entry of 2 Bytes */
-            supGr->extDataLen = supGr->subListSize + sizeof(supGr->subListSize);
-
+            supGr->subListSize = tls13_htons(offset); /* each entry of 2 Bytes */
+            tempLen = offset + sizeof(supGr->subListSize);
+            supGr->extDataLen = tls13_htons(tempLen);
+            tempLen += sizeof(supGr->extDataLen) + sizeof(supGr->extType);
             /* Update the total extension length so far */
-            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_SESSION_ID_LEN, uint16_t) += (supGr->extDataLen + \
-                                                                                                          sizeof(supGr->extDataLen) + \
-                                                                                                          sizeof(supGr->extType));
+            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_SESSION_ID_LEN, uint16_t) += tempLen;
         }
         offsetExt += offset;
         offset = 0;
         {
             /* set the Session Ticket extension data */
             tls13_extensionNULL_t *sesTic = (tls13_extensionNULL_t *)((uint8_t *)&cExts->extSessionTicket + offsetExt);
-            sesTic->extType = tls13_htonl(TLS13_EXT_SESSION_TICKET);
-            sesTic->extDataLen = 0x0000;
-
+            sesTic->extType = tls13_htons(TLS13_EXT_SESSION_TICKET);
+            sesTic->extDataLen = tls13_htons(0x0000);
+            tempLen = sizeof(sesTic->extDataLen) + sizeof(sesTic->extType);
             /* Update the total extension length so far */
-            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_SESSION_ID_LEN, uint16_t) += (sesTic->extDataLen + \
-                                                                                                          sizeof(sesTic->extDataLen) + \
-                                                                                                          sizeof(sesTic->extType));
+            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_SESSION_ID_LEN, uint16_t) += tempLen;
         }
         {
             /* Set the Encrypt-Then-MAC extension data */
             tls13_extensionNULL_t *enTM = (tls13_extensionNULL_t *)((uint8_t *)&cExts->extEncryptThenMAC + offsetExt);
-            enTM->extType = tls13_htonl(TLS13_EXT_ENCRYPT_THEN_MAC);
-            enTM->extDataLen = 0x0000;
-
+            enTM->extType = tls13_htons(TLS13_EXT_ENCRYPT_THEN_MAC);
+            enTM->extDataLen = tls13_htons(0x0000);
+            tempLen = sizeof(enTM->extDataLen) + sizeof(enTM->extType);
             /* Update the total extension length so far */
-            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_SESSION_ID_LEN, uint16_t) += (enTM->extDataLen + \
-                                                                                                          sizeof(enTM->extDataLen) + \
-                                                                                                          sizeof(enTM->extType));
+            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_CLIENT_EXT_OFFSET, uint16_t) += tempLen;
         }
         {
             /* Set the extended master secret */
             tls13_extensionNULL_t *extMS = (tls13_extensionNULL_t *)((uint8_t *)&cExts->extExtendedMasterSecret + offsetExt);
-            extMS->extType = tls13_htonl(TLS13_EXT_EXT_MASTER_SECRET);
-            extMS->extDataLen = 0x0000;
-
+            extMS->extType = tls13_htons(TLS13_EXT_EXT_MASTER_SECRET);
+            extMS->extDataLen = tls13_htons(0x0000);
+            tempLen = sizeof(extMS->extDataLen) + sizeof(extMS->extType);
             /* Update the total extension length so far */
-            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_SESSION_ID_LEN, uint16_t) += (extMS->extDataLen + \
-                                                                                                          sizeof(extMS->extDataLen) + \
-                                                                                                          sizeof(extMS->extType));
+            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_CLIENT_EXT_OFFSET, uint16_t) += tempLen;
         }
         {
             /* Set the Signature Algorithms Extension data */  
             tls13_extension2222_t *sigAlg = (tls13_extension2222_t *)((uint8_t *)&cExts->extSignatureAlgos + offsetExt);
-            sigAlg->extType = tls13_htonl(TLS13_EXT_SIGN_AGLORITHM);
-            uint16_t *sigAlgList = (uint16_t *)&sigAlg->list;
+            sigAlg->extType = tls13_htons(TLS13_EXT_SIGN_AGLORITHM);
+            uint16_t *sigAlgList = (uint16_t *)&sigAlg->list[0];
             {
-                sigAlgList[0] = tls13_htonl(TLS13_SIGNALGOS_ECDSA_SECP256r1_SHA256);
-                sigAlgList[1] = tls13_htonl(TLS13_SIGNALGOS_ECDSA_SECP384r1_SHA384);
-                sigAlgList[2] = tls13_htonl(TLS13_SIGNALGOS_ECDSA_SECP521r1_SHA512);
-                sigAlgList[3] = tls13_htonl(TLS13_SIGNALGOS_ED25519);
-                sigAlgList[4] = tls13_htonl(TLS13_SIGNALGOS_ED448);
-                sigAlgList[5] = tls13_htonl(TLS13_SIGNALGOS_RSA_PSS_PSS_SHA256);
-                sigAlgList[6] = tls13_htonl(TLS13_SIGNALGOS_RSA_PSS_PSS_SHA384);
-                sigAlgList[7] = tls13_htonl(TLS13_SIGNALGOS_RSA_PSS_PSS_SHA512);
-                sigAlgList[8] = tls13_htonl(TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA256);
-                sigAlgList[9] = tls13_htonl(TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA384);
-                sigAlgList[10] = tls13_htonl(TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA512);
-                sigAlgList[11] = tls13_htonl(TLS13_SIGNALGOS_RSA_PKCS1_SHA256);
-                sigAlgList[12] = tls13_htonl(TLS13_SIGNALGOS_RSA_PKCS1_SHA384);
-                sigAlgList[13] = tls13_htonl(TLS13_SIGNALGOS_RSA_PKCS1_SHA512);
+                sigAlgList[0] = tls13_htons(TLS13_SIGNALGOS_ECDSA_SECP256r1_SHA256);
+                sigAlgList[1] = tls13_htons(TLS13_SIGNALGOS_ECDSA_SECP384r1_SHA384);
+                sigAlgList[2] = tls13_htons(TLS13_SIGNALGOS_ECDSA_SECP521r1_SHA512);
+                sigAlgList[3] = tls13_htons(TLS13_SIGNALGOS_ED25519);
+                sigAlgList[4] = tls13_htons(TLS13_SIGNALGOS_ED448);
+                sigAlgList[5] = tls13_htons(TLS13_SIGNALGOS_RSA_PSS_PSS_SHA256);
+                sigAlgList[6] = tls13_htons(TLS13_SIGNALGOS_RSA_PSS_PSS_SHA384);
+                sigAlgList[7] = tls13_htons(TLS13_SIGNALGOS_RSA_PSS_PSS_SHA512);
+                sigAlgList[8] = tls13_htons(TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA256);
+                sigAlgList[9] = tls13_htons(TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA384);
+                sigAlgList[10] = tls13_htons(TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA512);
+                sigAlgList[11] = tls13_htons(TLS13_SIGNALGOS_RSA_PKCS1_SHA256);
+                sigAlgList[12] = tls13_htons(TLS13_SIGNALGOS_RSA_PKCS1_SHA384);
+                sigAlgList[13] = tls13_htons(TLS13_SIGNALGOS_RSA_PKCS1_SHA512);
                 offset = 14 * 2;
             }
-            sigAlg->subListSize = tls13_htonl(offset);
-            sigAlg->extDataLen = sigAlg->subListSize + sizeof(sigAlg->subListSize);
-
+            sigAlg->subListSize = tls13_htons(offset);
+            tempLen = offset + sizeof(sigAlg->subListSize);
+            sigAlg->extDataLen = tls13_htons(tempLen);
+            tempLen += sizeof(sigAlg->extType) + sizeof(sigAlg->extDataLen);
             /* Update the total extension length so far */
-            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_SESSION_ID_LEN, uint16_t) += (sigAlg->extDataLen + \
-                                                                                                          sizeof(sigAlg->extDataLen) + \
-                                                                                                          sizeof(sigAlg->extType));
+            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_CLIENT_EXT_OFFSET, uint16_t) += tempLen;
         }
         offsetExt += offset;
         offset = 0;
         {
             /* Set the supported versions extension data */
             tls13_extension2212_t *supVers = (tls13_extension2212_t *)((uint8_t *)&cExts->extSupportedVers + offsetExt);
-            supVers->extType = tls13_htonl(TLS13_EXT_SUPPORTED_VERSIONS);
+            supVers->extType = tls13_htons(TLS13_EXT_SUPPORTED_VERSIONS);
             uint16_t *supVersList = (uint16_t *)&supVers->list;
             {
-                supVersList[0] = tls13_htonl(TLS13_PROTO_VERSION);
+                supVersList[0] = tls13_htons(TLS13_PROTO_VERSION);
                 offset = 1 * 2;
             }
-            supVers->subListSize = tls13_htonl(offset);
-            supVers->extDataLen = supVers->subListSize + sizeof(supVers->subListSize);
-
+            supVers->subListSize = tls13_htons(offset);
+            tempLen = offset + sizeof(supVers->subListSize);
+            supVers->extDataLen = tls13_htons(tempLen);
+            tempLen += sizeof(supVers->extDataLen) + sizeof(supVers->extType);
             /* Update the total extension length so far */
-            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_SESSION_ID_LEN, uint16_t) += (supVers->extDataLen + \
-                                                                                                          sizeof(supVers->extDataLen) + \
-                                                                                                          sizeof(supVers->extType));
+            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_CLIENT_EXT_OFFSET, uint16_t) += tempLen;
         }
         offsetExt += offset;
-        offset = 0;
+        offset = 0;       
         {
             /* Set the PSK Key exchange modes extension data */
             tls13_extension2211_t *pskKE = (tls13_extension2211_t *)((uint8_t *)&cExts->extPSKExchangeModes + offsetExt);
@@ -382,36 +381,34 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
                 pskKEList[0] = 1; /* 01 - assigned value for "PSK with (EC)DHE key establishment */
                 offset = 1 * 1;
             }
-            pskKE->subListSize = tls13_htonl(offset);
-            pskKE->extDataLen = pskKE->subListSize + sizeof(pskKE->subListSize);
-
+            pskKE->subListSize = tls13_htons(offset);
+            tempLen = offset + sizeof(pskKE->subListSize);
+            pskKE->extDataLen = tls13_htons(tempLen);
+            tempLen += sizeof(pskKE->extDataLen) + sizeof(pskKE->extType);
             /* Update the total extension length so far */
-            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_SESSION_ID_LEN, uint16_t) += (pskKE->extDataLen + \
-                                                                                                          sizeof(pskKE->extDataLen) + \
-                                                                                                          sizeof(pskKE->extType));
+            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_CLIENT_EXT_OFFSET, uint16_t) += tempLen;
         }
         offsetExt += offset;
-        offset = 0;        
+        offset = 0;              
         {
             /* Set the key share extension data */
             tls13_extensionKeyShare_t *keyS = (tls13_extensionKeyShare_t *)((uint8_t *)&cExts->extkeyShare + offsetExt);
-            keyS->extType = tls13_htonl(TLS13_EXT_KEY_SHARE);
-            keyS->keyShareType = tls13_htonl(TLS13_SUPPGRP_X25519); /* assigned value for x25519 (key exchange via curve25519) */
+            keyS->extType = tls13_htons(TLS13_EXT_KEY_SHARE);
+            keyS->keyShareType = tls13_htons(TLS13_SUPPGRP_X25519); /* assigned value for x25519 (key exchange via curve25519) */
             {
                 memcpy(keyS->pubKey, pubKey, pubKeyLen);
                 offset += pubKeyLen;
             }
-            keyS->keyShareLen = sizeof(keyS->keyShareType) + sizeof(keyS->pubKeyLen) + keyS->pubKeyLen; /* key share data length */
-            keyS->pubKeyLen = tls13_htonl(pubKeyLen);  /* 32  Bytes of public key */
-            keyS->extDataLen = keyS->keyShareLen + sizeof(keyS->keyShareLen);
-
+            tempLen = offset + sizeof(keyS->keyShareType) + sizeof(keyS->pubKeyLen);
+            keyS->keyShareLen = tls13_htons(tempLen); /* key share data length */
+            keyS->pubKeyLen = tls13_htons(pubKeyLen);  /* 32  Bytes of public key */
+            tempLen += sizeof(keyS->keyShareLen);
+            keyS->extDataLen = tls13_htons(tempLen);
+            tempLen += sizeof(keyS->extDataLen) + sizeof(keyS->extType);
             /* Update the total extension length so far */
-            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_SESSION_ID_LEN, uint16_t) += (keyS->extDataLen + \
-                                                                                                          sizeof(keyS->extDataLen) + \
-                                                                                                          sizeof(keyS->extType));
-        }
+            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_CLIENT_EXT_OFFSET, uint16_t) += tempLen;
+        }                                                                                                       
     }
-
     //CLIENTHELLO_CLIENTEXT_LEN(clientHelloTmp, TLS13_SESSION_ID_LEN, TLS13_CIPHERSUITE_LEN, 1) = 0; // to be updated
     handshakeLen = sizeof(clientHelloTmp->clientVersion) + \
                                                         sizeof(clientHelloTmp->clientRandom) + \
@@ -422,12 +419,15 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
                                                         sizeof(clientHelloTmp->compressionMethodLen) + \
                                                         TLS13_SESSION_ID_LEN + \
                                                         sizeof(clientHelloTmp->extLen) + \
-                                                        REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_SESSION_ID_LEN, uint16_t);
+                                                        REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_CLIENT_EXT_OFFSET, uint16_t);
     clientHelloTmp->handshakeHeader.handshakeMsgLen = tls13_htonss(handshakeLen);
                                                         
     recordLen = handshakeLen + sizeof(tls13_handshakeHdr_t);
 
     clientHelloTmp->recordHeader.recordLen = tls13_htons(recordLen);
+
+    tempLen = REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_CLIENT_EXT_OFFSET, uint16_t);
+    REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_CLIENT_EXT_OFFSET, uint16_t) = tls13_htons(tempLen);
 
     /* Finally do a memcopy */
     len = recordLen + TLS13_RECORD_HEADER_SIZE;

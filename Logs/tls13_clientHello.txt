@@ -1,0 +1,306 @@
+eby@eby-VirtualBox:~/GIT/CryptoLib$ gdb CryptoLib.bin
+GNU gdb (Ubuntu 15.0.50.20240403-0ubuntu1) 15.0.50.20240403-git
+Copyright (C) 2024 Free Software Foundation, Inc.
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+Type "show copying" and "show warranty" for details.
+This GDB was configured as "x86_64-linux-gnu".
+Type "show configuration" for configuration details.
+For bug reporting instructions, please see:
+<https://www.gnu.org/software/gdb/bugs/>.
+Find the GDB manual and other documentation resources online at:
+    <http://www.gnu.org/software/gdb/documentation/>.
+
+For help, type "help".
+Type "apropos word" to search for commands related to "word"...
+Reading symbols from CryptoLib.bin...
+(gdb) r
+Starting program: /home/eby/GIT/CryptoLib/CryptoLib.bin 
+
+This GDB supports auto-downloading debuginfo from the following URLs:
+  <https://debuginfod.ubuntu.com>
+Enable debuginfod for this session? (y or [n]) y
+Debuginfod has been enabled.
+To make this setting permanent, add 'set debuginfod enabled on' to .gdbinit.
+[Thread debugging using libthread_db enabled]
+Using host libthread_db library "/lib/x86_64-linux-gnu/libthread_db.so.1".
+Setting up the client socket connection......
+Client socket created with fd: 3
+Client socket created
+[New Thread 0x7ffff7bff6c0 (LWP 7237)]
+7ffff00022d0:0
+7ffff00022d0:800
+7ffff00022d0:7ffff000231e
+7ffff00022d0:7ffff0002327
+7ffff00022d0:7ffff0002328
+7ffff00022d0:7ffff000232a
+Cleint Hello Length is 286
+16
+3
+1
+1
+19
+1
+0
+1
+15
+3
+3
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+20
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+cd
+ab
+0
+8
+13
+20
+13
+3
+13
+1
+0
+ff
+1
+bb
+0
+a5
+0
+0
+0
+18
+0
+16
+0
+0
+13
+65
+78
+61
+6d
+70
+6c
+65
+2e
+75
+6c
+66
+68
+65
+69
+6d
+2e
+6e
+65
+74
+0
+b
+0
+4
+3
+0
+1
+2
+0
+a
+0
+16
+0
+14
+0
+1d
+0
+17
+0
+1e
+0
+19
+0
+18
+1
+0
+1
+1
+1
+2
+1
+3
+1
+4
+0
+23
+0
+0
+0
+16
+0
+0
+0
+17
+0
+0
+0
+d
+0
+1e
+0
+1c
+4
+3
+5
+3
+6
+3
+8
+7
+8
+8
+8
+9
+8
+a
+8
+b
+8
+4
+8
+5
+8
+6
+4
+1
+5
+1
+6
+1
+0
+2b
+0
+3
+0
+3
+1
+0
+0
+0
+2
+0
+1
+0
+33
+0
+46
+0
+44
+0
+1d
+d4
+40
+a0
+d4
+56
+55
+55
+55
+0
+0
+70
+d4
+56
+55
+55
+55
+0
+0
+10
+20
+c0
+ff
+fe
+7f
+0
+0
+0
+0
+0
+0
+20
+0
+0
+0
+0
+0
+0
+0
+0
+0
+0
+
+client hello transmission succeeded
+
+Thread 1 "CryptoLib.bin" received signal SIGSEGV, Segmentation fault.
+Download failed: Invalid argument.  Continuing without source file ./nptl/./nptl/pthread_cancel.c.
+__pthread_cancel (th=93824992302610) at ./nptl/pthread_cancel.c:167
+warning: 167	./nptl/pthread_cancel.c: No such file or directory
+(gdb) 

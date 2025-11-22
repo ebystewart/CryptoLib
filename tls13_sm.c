@@ -470,15 +470,15 @@ static void *__client_handshake_thread(void *arg)
     uint8_t *clientFinish_pkt     = calloc(1, TLS13_CLIENT_FINISHED_LEN);
 
     /* Prepare the client hello pkt */
-    tls13_prepareClientHello(ctx->client_random, ctx->client_sessionId, ctx->server_hostname, ctx->client_publicKey, ctx->client_publicKey, clientHello_pkt);
+    tls13_prepareClientHello(ctx->client_random, ctx->client_sessionId, ctx->server_hostname, ctx->client_publicKey, ctx->keyLen, clientHello_pkt);
 
     /* Send the client hello pkt over TCP to the destined socket */
     clientHelloLen = (size_t)((((tls13_clientHello_t *)clientHello_pkt)->recordHeader.recordLen));
     clientHelloLen = tls13_ntohs(clientHelloLen) + TLS13_RECORD_HEADER_SIZE;
     
 #ifndef DEBUG
-    printf("Cleint Hello Length is %d\n", clientHelloLen);
-    for (int i= 0; i < clientHelloLen; i++){
+    printf("Client Hello Length is %d\n", clientHelloLen);
+    for (int i= 0; i < 260; i++){
         printf("%x\n", clientHello_pkt[i]);
     }
     printf("\n");

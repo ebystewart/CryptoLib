@@ -96,6 +96,7 @@ typedef enum {
 }tls13_ecPointFormat_e;
 
 /* Structures */
+#pragma pack(push, 1)
 
 typedef struct{
    uint16_t extType;
@@ -171,5 +172,7 @@ typedef struct{
    uint16_t extDataLen;
    uint16_t extData;
 }tls13_extension222_t;
+
+#pragma pack(pop)
 
 #endif

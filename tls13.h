@@ -34,6 +34,7 @@
 #define TLS13_RECORD_AUTHTAG_LEN 16U
 #define TLS13_RECORD_HEADER_SIZE 5
 #define TLS13_HANDSHAKE_HEADER_SIZE 4
+#define TLS13_CLIENT_EXT_OFFSET (TLS13_SESSION_ID_LEN + TLS13_CIPHERSUITE_LEN + TLS13_COMPRESSIONMETHD_LEN)
 
 typedef enum {
    TLS13_CHANGE_CIPHERSPEC_RECORD = 0x14,
@@ -395,17 +396,17 @@ typedef struct {
                //(tls13_cipherSuiteData_t *)((&(((tls13_clientHello_t *)clientHelloPtr)->cipherSuiteList) + sessionIdLen))
 
 #define CLIENTHELLO_CMPMTHDLIST_LEN(clientHelloPtr, sessionIdLen, cipherSuiteLen)      \
-               (*(uint8_t *)((&((tls13_clientHello_t *)clientHelloPtr)->compressionMethodLen) + sessionIdLen + cipherSuiteLen))
+               (*(((uint8_t *)&((tls13_clientHello_t *)clientHelloPtr)->compressionMethodLen) + sessionIdLen + cipherSuiteLen))
 
 #define GET_CLIENTHELLO_CMPMTHDLIST_PTR(clientHelloPtr, sessionIdLen, cipherSuiteLen)      \
-                  ((&clientHelloPtr->compressionMethodList[0]) + (sessionIdLen) + (cipherSuiteLen))
+                  ((uint8_t *)(&clientHelloPtr->compressionMethodList[0]) + (sessionIdLen) + (cipherSuiteLen))
                //(tls13_compressionMethods_t *)((&(((tls13_clientHello_t *)clientHelloPtr)->compressionMethodList) + sessionIdLen + cipherSuiteLen))
 
 //#define CLIENTHELLO_CLIENTEXT_LEN(clientHelloPtr, sessionIdLen, cipherSuiteLen, cmpMthdLen)      \
                (*(uint16_t *)((&((tls13_clientHello_t *)clientHelloPtr)->extLen) + sessionIdLen + cipherSuiteLen + cmpMthdLen))
 
 #define GET_CLIENTHELLO_CLIENTEXT_PTR(clientHelloPtr, sessionIdLen, cipherSuiteLen, cmpMthdLen)      \
-                  ((&clientHelloPtr->clientExt) + (sessionIdLen/4) + (cipherSuiteLen/2) + (cmpMthdLen))
+                  (tls13_clientExtensions_t *)((uint8_t *)(&clientHelloPtr->clientExt) + (sessionIdLen) + (cipherSuiteLen) + (cmpMthdLen))
                //(tls13_clientExtensions_t *)((&(((tls13_clientHello_t *)clientHelloPtr)->clientExt) + (sessionIdLen) + (cipherSuiteLen/2) + cmpMthdLen))
 
 #define SERVERHELLO_CIPHERSUITE_SELECT(serverHelloPtr, sessionIdLen)         \
@@ -421,7 +422,7 @@ typedef struct {
                (*(uint16_t *)((&(((tls13_serverHello_t *)serverHelloPtr)->extLen) + sessionIdLen)))
 
 #define REACH_ELEMENT(inPtr, inPtrType, element, offset, retType)         \
-               (*(retType *)((&(((inPtrType *)inPtr)->element) + offset)))
+               (*(retType *)((uint8_t *)&(((inPtrType *)inPtr)->element) + offset))
 
 /* Prepare pkts to be sent  */
 uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *sessionId, const char *dnsHostname, 

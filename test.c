@@ -606,6 +606,8 @@ SHAKE128("The quick brown fox jumps over the lazy dof", 256)
 #endif
 
 #if 1
+uint8_t key_256[32] = {0x54, 0x68, 0x61, 0x74, 0x73, 0x20, 0x6D, 0x79, 0x20, 0x4B, 0x75, 0x6E, 0x67, 0x20, 0x46, 0x75,
+                        0x45, 0x86, 0x16, 0x47, 0x37, 0x02, 0xD6, 0x97, 0x02, 0xB4, 0x57, 0xE6, 0x76, 0x02, 0x64, 0x57};
 /* use netcat command to run a server to test: nc -l -s 127.0.0.1 -p 40000 -k */
 #include "tls13_sm.h"
 tls13_context_t *ctx = calloc(1, sizeof(tls13_context_t));
@@ -615,8 +617,10 @@ ctx->server_ip = 0x7F000001;
 ctx->server_port = 40000;
 ctx->client_ip = 0x7F000001; /* Host byte order */
 ctx->client_port = 40001;
-memcpy(ctx->server_hostname, "www.google.com", strlen("www.google.com"));
-ctx->server_hostname_len = strlen("www.google.com");
+memcpy(ctx->server_hostname, "example.ulfheim.net", strlen("example.ulfheim.net"));
+ctx->server_hostname_len = strlen("example.ulfheim.net");
+//memcpy(ctx->client_publicKey, &key_256, sizeof(key_256));
+//ctx->keyLen = sizeof(key_256);
 tls13_init(ctx);
 tls13_close(ctx);
 free(ctx);
