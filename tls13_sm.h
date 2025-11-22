@@ -56,6 +56,8 @@ typedef struct{
     uint16_t           clientCapabilityLen;
     tls13_serverExtensions_t *serverExtension;
     uint16_t                 serverExtensionLen;
+    tls13_clientExtensions_t *clientExtension;
+    uint16_t                 clientExtensionLen;
     tls13_cipherSuite_e serverCipherSuiteSupported;
     uint8_t           *clientCert;
     uint16_t          clientCertLen;
@@ -86,5 +88,12 @@ typedef struct{
 
 void tls13_init(tls13_context_t *ctx);
 
+void print_context(tls13_context_t *ctx);
+
+void print_capability(tls13_capability_t *capability, uint16_t capabilityLen);
+
+void print_server_extensions(tls13_serverExtensions_t *extensions, uint16_t extlen);
+
+void print_client_extensions(tls13_clientExtensions_t *extensions, uint16_t extLen);
 
 #endif

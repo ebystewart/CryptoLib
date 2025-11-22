@@ -627,7 +627,9 @@ static void *__server_handshake_thread(void *arg)
             clientHelloReceived = true;
         }
     }
-    
+    /* send server hello */
+
+    /* Receive client finished */
 }
 
 static void *__tls_transmit_thread(void *arg)
@@ -832,4 +834,172 @@ void tls13_close(tls13_context_t *ctx)
 
 void tls13_stateManager(tls13_context_t *ctx)
 {
+}
+
+
+void print_context(tls13_context_t *ctx){
+
+    int idx;
+    printf("Role      : %d\n", ctx->role);
+    printf("Client fd : %d\n", ctx->client_fd);
+    printf("server fd : %d\n", ctx->server_fd);
+    printf("Client ip : %d\n", ctx->client_ip);
+    printf("Client port : %d\n", ctx->client_port);
+    printf("Server ip: %d\n", ctx->server_ip);
+    printf("Server port : %d\n", ctx->server_port);
+    printf("Instance id : %d\n", ctx->instanceId);
+
+    if(ctx->client_random != NULL){
+        printf("Client Random: ");
+        for(idx = 0; idx < TLS13_RANDOM_LEN; idx++){
+            printf("%d", ctx->client_random[idx]);
+        }
+        printf("\n");
+    }
+    if(ctx->server_random != NULL){
+        printf("Server Random: ");
+        for(idx = 0; idx < TLS13_RANDOM_LEN; idx++){
+            printf("%d", ctx->server_random[idx]);
+        }
+        printf("\n");
+    }
+    if(ctx->client_sessionId != NULL){
+        printf("Client Session Id: ");
+        for(idx = 0; idx < TLS13_SESSION_ID_LEN; idx++){
+            printf("%d", ctx->client_sessionId[idx]);
+        }
+        printf("\n");
+    }
+    if(ctx->server_sessionId != NULL){
+        printf("Server Session Id: ");
+        for(idx = 0; idx < TLS13_SESSION_ID_LEN; idx++){
+            printf("%d", ctx->server_sessionId[idx]);
+        }
+        printf("\n");
+    }
+    if(ctx->client_sessionId != NULL){
+        printf("Client Session Id: ");
+        for(idx = 0; idx < TLS13_SESSION_ID_LEN; idx++){
+            printf("%d", ctx->client_sessionId[idx]);
+        }
+        printf("\n");
+    }
+    if(ctx->server_hostname_len > 0){
+        printf("Server Hostname: %s\n", ctx->server_hostname);
+    }
+
+    printf("Key Type   : %d\n", ctx->keyType);
+    printf("Key Length : %d\n", ctx->keyLen);
+    if(ctx->client_publicKey != NULL){
+        printf("Client Public Key: ");
+        for(idx = 0; idx < ctx->keyLen; idx++){
+            printf("%d", ctx->client_publicKey[idx]);
+        }
+        printf("\n");
+    }
+    if(ctx->server_publicKey != NULL){
+        printf("Server Public Key: ");
+        for(idx = 0; idx < ctx->keyLen; idx++){
+            printf("%d", ctx->server_publicKey[idx]);
+        }
+        printf("\n");
+    }
+
+    print_capability(ctx->clientCapability, ctx->clientCapabilityLen);
+    print_server_extensions(ctx->serverExtension, ctx->serverExtensionLen);
+    print_client_extensions(ctx->clientExtension, ctx->clientExtensionLen);
+
+    printf("Supported Cipher Suite chosen: %d\n", ctx->serverCipherSuiteSupported);
+
+    if(ctx->clientCert!= NULL){
+        printf("Client Certificate: \n");
+        for(idx = 0; idx < ctx->clientCertLen; idx++){
+            printf("%d", ctx->clientCert[idx]);
+        }
+        printf("\n");
+    }
+    if(ctx->clientCertVerify != NULL){
+        printf("Client Certificate Signature: \n");
+        for(idx = 0; idx < ctx->clientCertVerifyLen; idx++){
+            printf("%d", ctx->clientCertVerify[idx]);
+        }
+        printf("\n");
+    }    
+    if(ctx->serverCert!= NULL){
+        printf("Server Certificate: \n");
+        for(idx = 0; idx < ctx->serverCertLen; idx++){
+            printf("%d", ctx->serverCert[idx]);
+        }
+        printf("\n");
+    }
+    if(ctx->serverCertVerify != NULL){
+        printf("Server Certificate Signature: \n");
+        for(idx = 0; idx < ctx->serverCertVerifyLen; idx++){
+            printf("%d", ctx->serverCertVerify[idx]);
+        }
+        printf("\n");
+    } 
+    if(ctx->clientHandshakeSignature != NULL){
+        printf("Client Handshake Signature: \n");
+        for(idx = 0; idx < ctx->clientHandshakeSignLen; idx++){
+            printf("%d", ctx->clientHandshakeSignature[idx]);
+        }
+        printf("\n");
+    }
+    if(ctx->serverHandshakeSignature != NULL){
+        printf("Server Handshake Signature: \n");
+        for(idx = 0; idx < ctx->serverHandshakeSignLen; idx++){
+            printf("%d", ctx->serverHandshakeSignature[idx]);
+        }
+        printf("\n");
+    } 
+
+    printf("Handshake status: %d\n", ctx->handshakeCompleted);
+    printf("Handshake Expiry status: %d\n", ctx->handshakeExpired);
+
+    /* Calculated */
+    if(ctx->serverHandshakeKey != NULL){
+        printf("Server Handshake Key (Generated): ");
+        for(idx = 0; idx < ctx->serverHandshakeKeyLen; idx++){
+            printf("%d", ctx->serverHandshakeKey[idx]);
+        }
+        printf("\n");
+    }
+    if(ctx->serverHandshakeIV != NULL){
+        printf("Server Handshake IV: ");
+        for(idx = 0; idx < ctx->serverHandshakeIVLen; idx++){
+            printf("%d", ctx->serverHandshakeIV[idx]);
+        }
+        printf("\n");
+    }
+ 
+    if(ctx->clientHandshakeKey != NULL){
+        printf("Client Handshake Key (Generated): ");
+        for(idx = 0; idx < ctx->clientHandshakeKeyLen; idx++){
+            printf("%d", ctx->clientHandshakeKey[idx]);
+        }
+        printf("\n");
+    }
+    if(ctx->clientHandshakeIV != NULL){
+        printf("Client Handshake IV: ");
+        for(idx = 0; idx < ctx->clientHandshakeIVLen; idx++){
+            printf("%d", ctx->clientHandshakeIV[idx]);
+        }
+        printf("\n");
+    }
+}
+
+void print_capability(tls13_capability_t *capability, uint16_t capabilityLen)
+{
+
+}
+
+void print_server_extensions(tls13_serverExtensions_t *extensions, uint16_t extlen)
+{
+
+}
+
+void print_client_extensions(tls13_clientExtensions_t *extensions, uint16_t extLen)
+{
+
 }

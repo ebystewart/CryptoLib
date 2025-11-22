@@ -445,9 +445,9 @@ void tls13_extractClientHello(uint8_t *clientRandom, uint8_t *sessionId, uint8_t
     tls13_clientHello_t *cHello = calloc(1, len);
 
     assert(cHello->recordHeader.recordType == TLS13_HANDSHAKE_RECORD);
-    assert(tls13_ntohl(cHello->recordHeader.protoVersion) == TLS13_PROTO_VERSION);
+    assert(tls13_ntohs(cHello->recordHeader.protoVersion) == TLS13_PROTO_VERSION);
     assert(cHello->handshakeHeader.handshakeType == TLS13_HST_CLIENT_HELLO);
-    assert(tls13_ntohl(cHello->clientVersion) == TLS12_PROTO_VERSION);
+    assert(tls13_ntohs(cHello->clientVersion) == TLS12_PROTO_VERSION);
 
     memcpy(clientRandom, cHello->clientRandom, TLS13_RANDOM_LEN);
     memcpy(sessionId, cHello->sessionId, cHello->sessionIdLen);
