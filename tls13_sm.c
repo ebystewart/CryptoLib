@@ -9,6 +9,7 @@
 #include <netinet/in.h>
 #include <netdb.h>
 #include <sys/select.h>
+#include <time.h>
 #include <unistd.h>
 #include "tls13.h"
 #include "tls13_sm.h"
@@ -368,11 +369,19 @@ static tls13_check_ctx(tls13_context_t *ctx)
 {
     assert(ctx->role == TLS13_CLIENT || ctx->role == TLS13_SERVER);
     /* Both client and server needs client and server socket details to send data */
-    assert(ctx->client_ip != 0);
-    assert(ctx->client_port != 0);
-    assert(ctx->server_hostname_len > 0);
-    assert(ctx->server_ip != 0);
-    assert(ctx->server_port != 0);
+
+    if(ctx->role == TLS13_CLIENT){
+        assert(ctx->client_ip != 0);
+        assert(ctx->client_port != 0);
+        assert(ctx->server_hostname_len > 0);
+    }
+    else if (ctx->role == TLS13_SERVER){
+        assert(ctx->server_ip != 0);
+        assert(ctx->server_port != 0);
+    }
+    else{
+        /* Do Nothing */
+    }
 } 
 
 static uint16_t portNum = 27000;
@@ -586,13 +595,20 @@ static void *__server_handshake_thread(void *arg)
     size_t serverHelloLen = 0;
 
     struct sockaddr_in client_addr;
-    client_addr.sin_family = AF_INET;
-    client_addr.sin_port = ctx->client_port;
-    client_addr.sin_addr.s_addr = ctx->client_ip;
+    //client_addr.sin_family = AF_INET;
+    //client_addr.sin_port = ctx->client_port;
+    //client_addr.sin_addr.s_addr = ctx->client_ip;
     socklen_t addr_size = sizeof(client_addr);
 
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
     pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);  // joinable ??
+
+    fd_set read_fds; // Set of file descriptors to monitor for reading
+    FD_ZERO(&read_fds); // Clear the set
+
+    struct timeval timeout;
+    timeout.tv_sec = 10; // 5-second timeout
+    timeout.tv_usec = 0;
 
     /* We need to keep the backup of all the messages for signature calculation for finished record */
     /* assuming the following messages:
@@ -605,22 +621,47 @@ static void *__server_handshake_thread(void *arg)
     uint8_t *serverWrappedRec_pkt = calloc(1, TLS13_SERVER_WRAPPEDREC_MAX_LEN);
     uint8_t *clientFinish_pkt     = calloc(1, TLS13_CLIENT_FINISHED_LEN);
 
-    if (listen(ctx->client_fd, 20) < 0U)
+    /*if (listen(ctx->server_fd, 5) < 0U)
     {
         printf("listen failed \n");
         exit(1);
+    }*/
+    /* Blocking call to accept connection to server's designated socket */
+    printf("waiting to accept connections ....\n");
+    if((ctx->client_fd = accept(ctx->server_fd, (struct sockaddr *)&client_addr, &addr_size)) < 0){
+        perror("Connection not accepted");
+        exit(1);
     }
-    while (clientHelloReceived == false)
+    else{
+        ctx->client_ip = tls13_ntohl(client_addr.sin_addr.s_addr);
+        ctx->client_port = tls13_ntohs(client_addr.sin_port);
+        printf("Connection accepted with comm fd %d from client Ip %d and port %d\n", ctx->client_fd, ctx->client_ip, ctx->client_port);
+    }
+
+    FD_SET(ctx->client_fd, &read_fds); // Add a socket to the set
+    //while (clientHelloReceived == false)
+    while(1)
     {
+        printf("server handshake thread \n");
         pthread_testcancel();
         printf("Waiting for client hello message\n");
-        ctx->client_fd = accept(ctx->server_fd, (struct sockaddr *)&client_addr, &addr_size);
+        
+        select(ctx->client_fd + 1, &read_fds, NULL, NULL, &timeout);
 
         /* recieve client hello first */
+        if (FD_ISSET(ctx->client_fd, &read_fds))      
         {
-            int rc = recv(ctx->client_fd, clientHello_pkt, TLS13_CLIENT_HELLO_MAX_LEN, 0);// (struct sockaddr *)&server_addr, &addr_len);
-
-            tls13_extractClientHello(ctx->client_random, ctx->client_sessionId, NULL, ctx->clientCapability, ctx->client_publicKey, ctx->keyLen, clientHello_pkt);
+            //int rc = recv(ctx->client_fd, clientHello_pkt, TLS13_CLIENT_HELLO_MAX_LEN, 0);// (struct sockaddr *)&server_addr, &addr_len);
+            int rc = recvfrom(ctx->client_fd, clientHello_pkt, TLS13_CLIENT_HELLO_MAX_LEN, 0, 
+                                    (struct sockaddr *)&client_addr, &addr_len);
+#ifndef DEBUG
+    printf("Received Client Hello\n");
+    for (int i= 0; i < 260; i++){
+        printf("%x\n", clientHello_pkt[i]);
+    }
+    printf("\n");
+#endif
+            tls13_extractClientHello(ctx->client_random, ctx->client_sessionId, NULL, ctx->clientCapability, ctx->keyType, ctx->client_publicKey, ctx->keyLen, clientHello_pkt);
 
             tls13_computeHandshakeKeys(ctx, clientHello_pkt, clientHelloLen, serverHello_pkt, serverHelloLen);
             /* Receive the server hello and extract the data */
@@ -744,38 +785,40 @@ static void init_serverSocket(tls13_context_t *ctx)
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_addr.s_addr = htonl(ctx->server_ip);
-    server_addr.sin_port = htons(ctx->client_port);
+    server_addr.sin_port = htons(ctx->server_port);
 
-    ctx->server_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP); // SOCK_DGRAM, IPPROTO_UDP);
+    if((ctx->server_fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0){
+        perror("socket failed");
+        exit(EXIT_FAILURE);
+    } // SOCK_DGRAM, IPPROTO_UDP);
 
     if (setsockopt(ctx->server_fd, SOL_SOCKET, SO_REUSEADDR, (char *)&opt, sizeof(opt)) < 0U)
     {
         printf("%s(): Setting of socket option to reuse address failed.\n", __FUNCTION__);
         exit(1);
     }
-    if (setsockopt(ctx->server_fd, SOL_SOCKET, SO_REUSEPORT, (char *)&opt, sizeof(opt)) > 0U)
+    if (setsockopt(ctx->server_fd, SOL_SOCKET, SO_REUSEPORT, (char *)&opt, sizeof(opt)) < 0U)
     {
         printf("%s(): Setting of sock option to reuse port address failed\n", __FUNCTION__);
         exit(1);
     }
 
     /* IP also needs to be updated */
-
-    if (bind(ctx->server_fd, (const struct sockaddr *)&server_addr, sizeof(struct sockaddr_in)) < 0)
+    if (bind(ctx->server_fd, (const struct sockaddr *)&server_addr, sizeof(server_addr)) < 0)
     {
         printf("socket bind failed for instance %d\n", ctx->instanceId);
         exit(1);
     }
-    printf("Server socket creation successful\n");
+    printf("Server socket creation successful... Listening for new connections from client...\n");
+
+    if(listen(ctx->server_fd, 3) < 0){
+        perror("listen failed");
+        exit(EXIT_FAILURE);
+    }
 }
 
 void tls13_init(tls13_context_t *ctx)
 {
-    assert(ctx->server_ip > 0);
-    assert(ctx->server_port > 0);
-    assert(ctx->client_ip > 0);
-    assert(ctx->client_port > 0);
-
     if(!ctxHead)
         tls13_ctx_queueInit();
         
@@ -786,6 +829,8 @@ void tls13_init(tls13_context_t *ctx)
 
     if (ctx->role == TLS13_CLIENT)
     {
+        assert(ctx->client_ip > 0);
+        assert(ctx->client_port > 0);
         /* Create and bind a socket */
         init_clientSocket(ctx);
         /* Start the client handshake process */
@@ -793,6 +838,8 @@ void tls13_init(tls13_context_t *ctx)
     }
     else if (ctx->role == TLS13_SERVER)
     {
+        assert(ctx->server_ip > 0);
+        assert(ctx->server_port > 0);
         /* Create and bind a socket */
         init_serverSocket(ctx);
         /* Start the server handshake process */

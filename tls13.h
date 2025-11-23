@@ -450,7 +450,7 @@ uint16_t tls13_prepareAlertRecord(const tls13_alert_t *alertData, uint8_t *tlsPk
 /* Deserialize and update data structures based on received pkts */
 
 void tls13_extractClientHello(uint8_t *clientRandom, uint8_t *sessionId, uint8_t *dnsHostname, tls13_capability_t *capability,
-                                    uint8_t *pubKey, uint16_t *pubKeyLen, const uint8_t *tlsPkt);
+                                    uint16_t *keyType, uint8_t *pubKey, uint16_t *pubKeyLen, const uint8_t *tlsPkt);
 
 void tls13_extractServerHello(uint8_t *serverRandom, uint8_t *sessionId, uint16_t *cipherSuite, 
                                     uint8_t *pubKey, uint16_t *pubKeyLen, uint16_t *keyType, uint8_t *encryExt, uint16_t *encryExtLen, const uint8_t *tlsPkt);
