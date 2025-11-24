@@ -468,7 +468,7 @@ void tls13_extractClientHello(uint8_t *clientRandom, uint8_t *sessionId, uint8_t
         /*for(idx = 0; idx < (tempLen/2); idx++){
             capability->cipherSuiteList[idx] = csd[idx];
         }*/
-        capability->cipherSuiteLen = tls13_ntohs(cHello->cipherSuiteLen);
+        capability->cipherSuiteLen = tempLen;
         offset += tempLen;
     }
     /* Copy the supported compression menthod list to the local buffer */

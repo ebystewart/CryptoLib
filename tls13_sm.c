@@ -668,7 +668,7 @@ static void *__server_handshake_thread(void *arg)
             //int rc = recv(ctx->client_fd, clientHello_pkt, TLS13_CLIENT_HELLO_MAX_LEN, 0);// (struct sockaddr *)&server_addr, &addr_len);
             int rc = recvfrom(ctx->client_fd, clientHello_pkt, TLS13_CLIENT_HELLO_MAX_LEN, 0, 
                                     (struct sockaddr *)&client_addr, &addr_len);
-#ifndef DEBUG
+#ifdef DEBUG
     printf("Received Client Hello\n");
     for (int i= 0; i < 260; i++){
         printf("[%d] -> %x\n", i, clientHello_pkt[i]);
@@ -676,7 +676,9 @@ static void *__server_handshake_thread(void *arg)
     printf("\n");
 #endif
             tls13_extractClientHello(ctx->client_random, ctx->client_sessionId, NULL, ctx->clientCapability, ctx->keyType, ctx->client_publicKey, ctx->keyLen, clientHello_pkt);
-
+            #ifndef DEBUG
+                print_capability(ctx->clientCapability, ctx->clientCapabilityLen);
+            #endif
             tls13_computeHandshakeKeys(ctx, clientHello_pkt, clientHelloLen, serverHello_pkt, serverHelloLen);
             /* Receive the server hello and extract the data */
             clientHelloReceived = true;
@@ -690,6 +692,7 @@ static void *__server_handshake_thread(void *arg)
 
         clientFinishedReceived = true;
     }
+    while(1);
 }
 
 static void *__tls_transmit_thread(void *arg)
@@ -883,6 +886,7 @@ void tls13_close(tls13_context_t *ctx)
         pthread_cancel(__server_handshake_thread);
         pthread_join(__server_handshake_thread, NULL);
         close(ctx->server_fd);
+        close(ctx->client_fd);
     }
     else
     {
@@ -973,7 +977,7 @@ void print_context(tls13_context_t *ctx){
 
     print_capability(ctx->clientCapability, ctx->clientCapabilityLen);
     print_server_extensions(ctx->serverExtension, ctx->serverExtensionLen);
-    print_client_extensions(ctx->clientExtension, ctx->clientExtensionLen);
+    //print_client_extensions(ctx->clientExtension, ctx->clientExtensionLen);
 
     printf("Supported Cipher Suite chosen: %d\n", ctx->serverCipherSuiteSupported);
 
@@ -1057,7 +1061,85 @@ void print_context(tls13_context_t *ctx){
 
 void print_capability(tls13_capability_t *capability, uint16_t capabilityLen)
 {
+    uint8_t idx;
+    if (capability == NULL)
+        return;
+    assert(capabilityLen > 0);
 
+    printf("Client Capability:\n");
+    {
+        tls13_cipherSuiteData_t *csd = capability->cipherSuiteList;
+        printf("Supported Cipher Suites: Size(%d)\n", capability->cipherSuiteLen);
+        for(idx = 0; idx < (capability->cipherSuiteLen/2); idx++){
+            printf("[%d] %x\n", idx, tls13_ntohs(csd[idx]));
+        }
+    }
+    ///while(1);
+    {
+        tls13_compressionMethods_t *cml = capability->compressionMethodList;
+        printf("Supported Compression Methods:\n");
+        for(idx = 0; idx < (capability->compressionMethodLen); idx++){
+            printf("[%d] %x\n", idx, cml[idx]);
+        }        
+    }
+    {
+        printf("Server Hostname Requested:\n");
+        for(idx = 0; idx < (capability->hostnameLen); idx++){
+            printf("%c", capability->hostname[idx]);
+        }
+        printf("\n");     
+    }
+    {
+        printf("Supported EC Points:\n");
+        for(idx = 0; idx < (capability->ecFormatsLen); idx++){
+            printf("[%d] %x\n", idx, capability->ecPoints[idx]);
+        }        
+    }    
+    {
+        printf("Supported Groups:\n");
+        for(idx = 0; idx < (capability->supportedGrpLen/2); idx++){
+            printf("[%d] %x\n", idx, capability->supportedGrp[idx]);
+        }        
+    }   
+    {
+        printf("Session Ticket:\n");
+        for(idx = 0; idx < (capability->sessTktLen); idx++){
+            printf("%x", capability->sessTkt[idx]);
+        }
+        printf("\n");      
+    } 
+    {
+        printf("encrypt-then-MAC:\n");
+        for(idx = 0; idx < (capability->eTMLen); idx++){
+            printf("%x", capability->eTM[idx]);
+        }
+        printf("\n");      
+    } 
+    {
+        printf("Extended Master Secret:\n");
+        for(idx = 0; idx < (capability->extMasterSecretLen); idx++){
+            printf("%x", capability->extMasterSecret[idx]);
+        }
+        printf("\n");      
+    }
+    {
+        printf("Signature Algorithms:\n");
+        for(idx = 0; idx < (capability->signAlgoLen/2); idx++){
+            printf("[%d] %x\n", idx, capability->signAlgos[idx]);
+        }        
+    } 
+    {
+        printf("Signature Algorithms:\n");
+        for(idx = 0; idx < (capability->supportedVersionLen/2); idx++){
+            printf("[%d] %x\n", idx, capability->supportedVersions[idx]);
+        }        
+    } 
+    {
+        printf("Signature Algorithms:\n");
+        for(idx = 0; idx < (capability->keyXchangeModesLen); idx++){
+            printf("[%d] %x\n", idx, capability->keyXchangeModes[idx]);
+        }        
+    }
 }
 
 void print_server_extensions(tls13_serverExtensions_t *extensions, uint16_t extlen)
