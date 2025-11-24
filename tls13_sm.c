@@ -279,13 +279,26 @@ static tls13_init_ctx(tls13_context_t *ctx)
     else if (ctx->role == TLS13_SERVER){
         generate_random(ctx->server_random, TLS13_RANDOM_LEN);
         generate_random(ctx->server_sessionId, TLS13_SESSION_ID_LEN);
-        //ctx->server_hostname          = calloc(1, 64); // actual hostname shoudl come from app
+        //ctx->server_hostname          = NULL;//calloc(1, 64); // actual hostname shoudl come from app
         ctx->server_hostname_len      = 0;
         ctx->client_publicKey         = calloc(1, TLS13_RANDOM_LEN);
     }
 
     ctx->clientCapability         = calloc(1, sizeof(clientCapability)); // need to revisit the size
     ctx->clientCapabilityLen      = sizeof(clientCapability);
+    {
+        ctx->clientCapability->cipherSuiteList       = calloc(1, sizeof(clientCapability.cipherSuiteList));
+        ctx->clientCapability->compressionMethodList = calloc(1, sizeof(clientCapability.compressionMethodList));
+        ctx->clientCapability->hostname              = calloc(1, 32);
+        ctx->clientCapability->ecPoints              = calloc(1, sizeof(clientCapability.ecPoints));
+        ctx->clientCapability->supportedGrp          = calloc(1, sizeof(clientCapability.supportedGrp));
+        ctx->clientCapability->sessTkt               = calloc(1, sizeof(clientCapability.sessTkt));
+        ctx->clientCapability->eTM                   = calloc(1, sizeof(clientCapability.eTM)); /* Encrypt-then-MAC */
+        ctx->clientCapability->extMasterSecret       = calloc(1, sizeof(clientCapability.extMasterSecret));
+        ctx->clientCapability->signAlgos             = calloc(1, sizeof(clientCapability.signAlgos));
+        ctx->clientCapability->supportedVersions     = calloc(1, sizeof(clientCapability.supportedVersions));
+        ctx->clientCapability->keyXchangeModes       = calloc(1, sizeof(clientCapability.keyXchangeModes));
+    }
     ctx->serverExtension          = calloc(1, 50); //tentative size
     ctx->serverExtensionLen       = 0;   
     ctx->clientCert               = calloc(1, 256); // need to give address of certificate file
@@ -589,6 +602,7 @@ static void *__server_handshake_thread(void *arg)
     int opt = 1;
     uint8_t addr_len;
     bool clientHelloReceived = false;
+    bool clientFinishedReceived = false;
     tls13_context_t *ctx = (tls13_context_t *)arg;
 
     size_t clientHelloLen  = 0;
@@ -639,8 +653,8 @@ static void *__server_handshake_thread(void *arg)
     }
 
     FD_SET(ctx->client_fd, &read_fds); // Add a socket to the set
-    //while (clientHelloReceived == false)
-    while(1)
+    while (clientHelloReceived == false)
+    //while(1)
     {
         printf("server handshake thread \n");
         pthread_testcancel();
@@ -657,7 +671,7 @@ static void *__server_handshake_thread(void *arg)
 #ifndef DEBUG
     printf("Received Client Hello\n");
     for (int i= 0; i < 260; i++){
-        printf("%x\n", clientHello_pkt[i]);
+        printf("[%d] -> %x\n", i, clientHello_pkt[i]);
     }
     printf("\n");
 #endif
@@ -671,6 +685,11 @@ static void *__server_handshake_thread(void *arg)
     /* send server hello */
 
     /* Receive client finished */
+    while(clientFinishedReceived == false)
+    {
+
+        clientFinishedReceived = true;
+    }
 }
 
 static void *__tls_transmit_thread(void *arg)

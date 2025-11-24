@@ -360,10 +360,10 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
             supVers->extType = tls13_htons(TLS13_EXT_SUPPORTED_VERSIONS);
             uint16_t *supVersList = (uint16_t *)&supVers->list;
             {
-                supVersList[0] = tls13_htons(TLS13_PROTO_VERSION);
+                supVersList[0] = tls13_htons(TLS13_VERSION);
                 offset = 1 * 2;
             }
-            supVers->subListSize = tls13_htons(offset);
+            supVers->subListSize = offset;
             tempLen = offset + sizeof(supVers->subListSize);
             supVers->extDataLen = tls13_htons(tempLen);
             tempLen += sizeof(supVers->extDataLen) + sizeof(supVers->extType);
@@ -375,13 +375,13 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
         {
             /* Set the PSK Key exchange modes extension data */
             tls13_extension2211_t *pskKE = (tls13_extension2211_t *)((uint8_t *)&cExts->extPSKExchangeModes + offsetExt);
-            pskKE->extType = tls13_htonl(TLS13_EXT_PSK_KEYXCHANGE_MODES);
+            pskKE->extType = tls13_htons(TLS13_EXT_PSK_KEYXCHANGE_MODES);
             uint8_t *pskKEList = (uint8_t *)&pskKE->list;
             {
                 pskKEList[0] = 1; /* 01 - assigned value for "PSK with (EC)DHE key establishment */
                 offset = 1 * 1;
             }
-            pskKE->subListSize = tls13_htons(offset);
+            pskKE->subListSize = offset;
             tempLen = offset + sizeof(pskKE->subListSize);
             pskKE->extDataLen = tls13_htons(tempLen);
             tempLen += sizeof(pskKE->extDataLen) + sizeof(pskKE->extType);
@@ -460,40 +460,63 @@ void tls13_extractClientHello(uint8_t *clientRandom, uint8_t *sessionId, uint8_t
 
     /* copy the supported cipher suite list to the local buffer */
     tempLen = tls13_ntohs(REACH_ELEMENT(cHello, tls13_clientHello_t, cipherSuiteLen, offset, uint16_t));
+    printf("cipher Suite Length: %d\n", tempLen);
     if(tempLen > 0){
-        memcpy((uint8_t *)&capability->cipherSuiteList[0], ((uint8_t *)&cHello->cipherSuiteList[0] + offset), tempLen);
+        tls13_cipherSuiteData_t *csd = (tls13_cipherSuiteData_t *)((uint8_t *)&cHello->cipherSuiteList[0] + offset);
+        //printf("%lx : %lx --> cipher suite list address {address:%lx, offset %lx}\n", cHello, csd, &cHello->cipherSuiteList[0], offset);
+        memcpy(capability->cipherSuiteList, csd, tempLen);
+        /*for(idx = 0; idx < (tempLen/2); idx++){
+            capability->cipherSuiteList[idx] = csd[idx];
+        }*/
         capability->cipherSuiteLen = tls13_ntohs(cHello->cipherSuiteLen);
         offset += tempLen;
     }
     /* Copy the supported compression menthod list to the local buffer */
-    tempLen = tls13_ntohs(REACH_ELEMENT(cHello, tls13_clientHello_t, compressionMethodLen, offset, uint8_t));
+    tempLen = REACH_ELEMENT(cHello, tls13_clientHello_t, compressionMethodLen, offset, uint8_t);
     if(cHello->compressionMethodLen > 0){
-        memcpy(capability->compressionMethodList, ((uint8_t *)&cHello->compressionMethodList[0] + offset), tempLen);
+        tls13_compressionMethods_t *cml= ((uint8_t *)&cHello->compressionMethodList[0] + offset);
+        memcpy(capability->compressionMethodList, cml, tempLen);
         capability->compressionMethodLen = tempLen;
         offset += tempLen;
     }
 
     tls13_clientExtensions_t *ext = (tls13_clientExtensions_t *)((uint8_t *)&cHello->clientExt + offset);
+    printf("%lx + %lx----> %lx\n",&cHello->clientExt, offset,  ext);
     offset = 0;
     {
         /* Server Name Indication (SNI) Extension */
         tls13_extensionSNI_t *sni = &ext->extSNI;
-        assert(sni->list->listType == 0x00); /* should be server name - macro needed */
-        assert(tls13_ntohs(sni->extType) == 0x0000); /* should be hostname - macro  needed */
-        tempLen = tls13_ntohs(sni->list->listLen);
-        memcpy(capability->hostname, sni->list->listData, tempLen);
+        #ifdef DEBUG
+        for(int i = 90; i < 120; i++){
+            printf("[%lx --> %d]: [%lx --> %d]", ((uint8_t *)sni + i - 90), *((uint8_t *)sni + i - 90), ((uint8_t *)cHello + i), *((uint8_t *)cHello + i));
+            printf("\n");
+        }
+        #endif
+        assert(tls13_ntohs(sni->extType) == TLS13_EXT_SERVER_NAME); /* should be hostname - macro needed */
+        printf("%lx : %lx : %lx --> Server Name Indication {address:%lx, offset:%lx}\n", cHello, ext, sni, sni, offset);
+        {
+            tls13_extSubList_t *subList = &sni->list[0];
+            assert(subList->listType == 0x00); /* should be server name - macro needed */
+            assert(subList->listLen > 0x00);
+            tempLen = tls13_ntohs(subList->listLen);
+            memcpy(capability->hostname, sni->list->listData, tempLen);
+        }
+        printf("extension type: %d, sublist size: %d, list length: %d\n", tls13_ntohs(sni->extType), tls13_ntohs(sni->subListSize), tempLen);
         offset += tls13_ntohs(sni->subListSize);
                   
         /* EC Point Formats extension */
         tls13_extension2211_t *ecp = (tls13_extension2211_t *)((uint8_t *)&ext->extECP + offset);
+        printf("%lx : %lx : %lx --> EC Points Format {address:%lx, offset:%lx}\n", cHello, ext, ecp, (uint8_t *)&ext->extECP, offset);
+        printf("extension type: %d\n", tls13_ntohs(ecp->extType));
         assert(tls13_ntohs(ecp->extType) == TLS13_EXT_EC_POINTS_FORMAT);
-        tempLen = tls13_ntohs(ecp->subListSize);
+        tempLen = ecp->subListSize;
         memcpy(capability->ecPoints, ecp->list, tempLen);
         capability->ecFormatsLen = tempLen;
         offset += tempLen;
 
         /* Supported Groups Extension */               
         tls13_extension2222_t *sgr = (tls13_extension2222_t *)((uint8_t *)&ext->extSupprotedGrp + offset);
+        printf("extension type: %d\n", tls13_ntohs(sgr->extType));
         assert(tls13_ntohs(sgr->extType) == TLS13_EXT_SUPPORTED_GROUPS);
         tempLen = tls13_ntohs(sgr->subListSize);
         memcpy(capability->supportedGrp, sgr->list, tempLen);
@@ -532,16 +555,17 @@ void tls13_extractClientHello(uint8_t *clientRandom, uint8_t *sessionId, uint8_t
         /* supported versions */       
         tls13_extension2212_t *esv = (tls13_extension2212_t *)((uint8_t *)&ext->extSupportedVers + offset);
         assert(tls13_ntohs(esv->extType) == TLS13_EXT_SUPPORTED_VERSIONS);
-        tempLen = tls13_ntohs(esv->subListSize);
+        tempLen = esv->subListSize;
         memcpy(capability->supportedVersions, esv->list, tempLen);
         capability->supportedVersionLen = tempLen;
         offset += tempLen;
 
         /* PSK key exchange modes */
         tls13_extension2211_t *epskkem = (tls13_extension2211_t *)((uint8_t *)&ext->extPSKExchangeModes + offset);
+        printf("extension type: %d\n", tls13_ntohs(epskkem->extType));
         assert(tls13_ntohs(epskkem->extType) == TLS13_EXT_PSK_KEYXCHANGE_MODES);
         assert(epskkem->list[0] == 1); /* 01 - assigned value for "PSK with (EC)DHE key establishment */
-        tempLen = tls13_ntohs(epskkem->subListSize);
+        tempLen = epskkem->subListSize;
         assert(tempLen == 1);
         memcpy(capability->keyXchangeModes, epskkem->list, tempLen);
         capability->keyXchangeModesLen = tempLen;
@@ -552,9 +576,9 @@ void tls13_extractClientHello(uint8_t *clientRandom, uint8_t *sessionId, uint8_t
         assert(tls13_ntohs(ks->extType) == TLS13_EXT_KEY_SHARE);
         //assert(tls13_ntohs(ks->keyShareType) == 0x001D); /* assigned value for x25519 (key exchange via curve25519) */
         //assert(tls13_ntohs(ks->keyShareLen) == 2);
-        *keyType = tls13_ntohs(ks->keyShareType);
-        *pubKeyLen = tls13_ntohs(ks->keyShareLen);
-        memcpy(pubKey, ks->pubKey, *pubKeyLen);
+        keyType = tls13_ntohs(ks->keyShareType);
+        pubKeyLen = tls13_ntohs(ks->keyShareLen);
+        memcpy(pubKey, ks->pubKey, pubKeyLen);
     }
 }
 
