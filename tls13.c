@@ -209,7 +209,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
     CLIENTHELLO_CMPMTHDLIST_LEN(clientHelloTmp, TLS13_SESSION_ID_LEN, TLS13_CIPHERSUITE_LEN) = 0x01;
     tls13_compressionMethods_t *cmpMthd = GET_CLIENTHELLO_CMPMTHDLIST_PTR(clientHelloTmp, TLS13_SESSION_ID_LEN, TLS13_CIPHERSUITE_LEN);
     printf("%lx:%lx\n", clientHelloTmp, GET_CLIENTHELLO_CMPMTHDLIST_PTR(clientHelloTmp, TLS13_SESSION_ID_LEN, TLS13_CIPHERSUITE_LEN)); 
-    cmpMthd[0] = 0xBB; //0x00
+    cmpMthd[0] = 0x00;//0xBB;
 
     /* Initialize the extension length */
     printf("%lx:%lx\n", clientHelloTmp, &REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_CLIENT_EXT_OFFSET, uint16_t)); 
@@ -499,7 +499,14 @@ void tls13_extractClientHello(uint8_t *clientRandom, uint8_t *sessionId, uint8_t
             assert(subList->listType == 0x00); /* should be server name - macro needed */
             assert(subList->listLen > 0x00);
             tempLen = tls13_ntohs(subList->listLen);
+            printf("Hostname Length: %d\n", tempLen);
             memcpy(capability->hostname, sni->list->listData, tempLen);
+            capability->hostnameLen = tempLen;
+            #ifdef DEBUG
+            for(int i = 0; i < tempLen; i++){
+                printf("[%d] %x - %x\n", i, sni->list->listData[i], capability->hostname[i]);
+            }
+            #endif
         }
         printf("extension type: %d, sublist size: %d, list length: %d\n", tls13_ntohs(sni->extType), tls13_ntohs(sni->subListSize), tempLen);
         offset += tls13_ntohs(sni->subListSize);

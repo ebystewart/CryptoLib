@@ -198,7 +198,7 @@ typedef struct{
    tls13_cipherSuiteData_t    *cipherSuiteList;         /* N_CIPHER_SUITE_SUPPORTED  */
    uint8_t                    compressionMethodLen;
    tls13_compressionMethods_t *compressionMethodList;   /* N_COMPRESSION_METHOD_SUPPORTED         */
-   uint8_t                    hostnameLen;
+   uint16_t                    hostnameLen;
    uint8_t                    *hostname;
    uint8_t                    ecFormatsLen;
    uint8_t                    *ecPoints;

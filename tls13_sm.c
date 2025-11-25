@@ -676,6 +676,7 @@ static void *__server_handshake_thread(void *arg)
     printf("\n");
 #endif
             tls13_extractClientHello(ctx->client_random, ctx->client_sessionId, NULL, ctx->clientCapability, ctx->keyType, ctx->client_publicKey, ctx->keyLen, clientHello_pkt);
+            fix_capability_endianess(ctx->clientCapability, ctx->clientCapabilityLen);
             #ifndef DEBUG
                 print_capability(ctx->clientCapability, ctx->clientCapabilityLen);
             #endif
@@ -1059,6 +1060,41 @@ void print_context(tls13_context_t *ctx){
     }
 }
 
+void fix_capability_endianess(tls13_capability_t *capability, uint16_t capabilityLen)
+{
+    uint8_t idx;
+    if (capability == NULL)
+        return;
+    assert(capabilityLen > 0);
+
+    //printf("Client Capability:\n");
+    {
+        tls13_cipherSuiteData_t *csd = capability->cipherSuiteList;
+        //printf("Supported Cipher Suites: Size(%d)\n", capability->cipherSuiteLen);
+        for(idx = 0; idx < (capability->cipherSuiteLen/2); idx++){
+            csd[idx] = tls13_ntohs(csd[idx]);
+        }
+    }  
+    {
+        //printf("Supported Groups:\n");
+        for(idx = 0; idx < (capability->supportedGrpLen/2); idx++){
+            capability->supportedGrp[idx] = tls13_ntohs(capability->supportedGrp[idx]);
+        }        
+    }   
+    {
+        //printf("Signature Algorithms:\n");
+        for(idx = 0; idx < (capability->signAlgoLen/2); idx++){
+            capability->signAlgos[idx] = tls13_ntohs(capability->signAlgos[idx]);
+        }        
+    } 
+    {
+        //printf("Supported Versions:\n");
+        for(idx = 0; idx < (capability->supportedVersionLen/2); idx++){
+            capability->supportedVersions[idx] = tls13_ntohs(capability->supportedVersions[idx]);
+        }        
+    }
+}
+
 void print_capability(tls13_capability_t *capability, uint16_t capabilityLen)
 {
     uint8_t idx;
@@ -1071,10 +1107,9 @@ void print_capability(tls13_capability_t *capability, uint16_t capabilityLen)
         tls13_cipherSuiteData_t *csd = capability->cipherSuiteList;
         printf("Supported Cipher Suites: Size(%d)\n", capability->cipherSuiteLen);
         for(idx = 0; idx < (capability->cipherSuiteLen/2); idx++){
-            printf("[%d] %x\n", idx, tls13_ntohs(csd[idx]));
+            printf("[%d] %x\n", idx, csd[idx]);
         }
     }
-    ///while(1);
     {
         tls13_compressionMethods_t *cml = capability->compressionMethodList;
         printf("Supported Compression Methods:\n");
@@ -1083,7 +1118,7 @@ void print_capability(tls13_capability_t *capability, uint16_t capabilityLen)
         }        
     }
     {
-        printf("Server Hostname Requested:\n");
+        printf("Server Hostname Requested: size(%d)\n", capability->hostnameLen);
         for(idx = 0; idx < (capability->hostnameLen); idx++){
             printf("%c", capability->hostname[idx]);
         }
@@ -1129,13 +1164,13 @@ void print_capability(tls13_capability_t *capability, uint16_t capabilityLen)
         }        
     } 
     {
-        printf("Signature Algorithms:\n");
+        printf("Supported Versions:\n");
         for(idx = 0; idx < (capability->supportedVersionLen/2); idx++){
             printf("[%d] %x\n", idx, capability->supportedVersions[idx]);
         }        
     } 
     {
-        printf("Signature Algorithms:\n");
+        printf("PSK Key Exchange Modes:\n");
         for(idx = 0; idx < (capability->keyXchangeModesLen); idx++){
             printf("[%d] %x\n", idx, capability->keyXchangeModes[idx]);
         }        
