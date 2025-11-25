@@ -90,6 +90,8 @@ void tls13_init(tls13_context_t *ctx);
 
 void print_context(tls13_context_t *ctx);
 
+void fix_capability_endianess(tls13_capability_t *capability, uint16_t capabilityLen);
+
 void print_capability(tls13_capability_t *capability, uint16_t capabilityLen);
 
 void print_server_extensions(tls13_serverExtensions_t *extensions, uint16_t extlen);

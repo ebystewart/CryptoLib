@@ -35,6 +35,7 @@
 #define TLS13_RECORD_AUTHTAG_LEN 16U
 #define TLS13_RECORD_HEADER_SIZE 5
 #define TLS13_HANDSHAKE_HEADER_SIZE 4
+#define TLS13_HANDSHAKE_LENGTH_FIELD_SIZE 3
 #define TLS13_CLIENT_EXT_OFFSET (TLS13_SESSION_ID_LEN + TLS13_CIPHERSUITE_LEN + TLS13_COMPRESSIONMETHD_LEN)
 
 typedef enum {
@@ -411,16 +412,16 @@ typedef struct {
                //(tls13_clientExtensions_t *)((&(((tls13_clientHello_t *)clientHelloPtr)->clientExt) + (sessionIdLen) + (cipherSuiteLen/2) + cmpMthdLen))
 
 #define SERVERHELLO_CIPHERSUITE_SELECT(serverHelloPtr, sessionIdLen)         \
-               (*(uint16_t *)((&(((tls13_serverHello_t *)serverHelloPtr)->cipherSuiteSelect) + sessionIdLen)))           
+               (*(uint16_t *)((uint8_t *)&(((tls13_serverHello_t *)serverHelloPtr)->cipherSuiteSelect) + sessionIdLen))         
 
 #define SERVERHELLO_COMPRESSION_METHOD_SELECT(serverHelloPtr, sessionIdLen)         \
-               (*(uint16_t *)((&(((tls13_serverHello_t *)serverHelloPtr)->compressionMethodSelect) + sessionIdLen)))
+               (*(uint16_t *)((uint8_t *)&(((tls13_serverHello_t *)serverHelloPtr)->compressionMethodSelect) + sessionIdLen))
                
 #define GET_SERVERHELLO_SERVEREXT_PTR(serverHelloPtr, sessionIdLen)         \
-               ((tls13_serverExtensions_t *)((&(((tls13_serverHello_t *)serverHelloPtr)->serverExt) + sessionIdLen)))
+               ((tls13_serverExtensions_t *)((uint8_t *)&(((tls13_serverHello_t *)serverHelloPtr)->serverExt) + sessionIdLen))
 
 #define SERVERHELLO_SERVEREXT_LEN(serverHelloPtr, sessionIdLen)         \
-               (*(uint16_t *)((&(((tls13_serverHello_t *)serverHelloPtr)->extLen) + sessionIdLen)))
+               (*(uint16_t *)((uint8_t *)&(((tls13_serverHello_t *)serverHelloPtr)->extLen) + sessionIdLen))
 
 #define REACH_ELEMENT(inPtr, inPtrType, element, offset, retType)         \
                (*(retType *)((uint8_t *)&(((inPtrType *)inPtr)->element) + offset))
@@ -430,7 +431,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
                                     const uint8_t *pubKey, const uint16_t pubKeyLen, uint8_t *tlsPkt);
 
 uint16_t tls13_prepareServerHello(const uint8_t *serverRandom, const uint8_t *sessionId, const tls13_cipherSuite_e cipherSuite, 
-                                    const uint8_t *pubKey, const uint16_t pubKeyLen, const uint16_t keyType, const uint8_t *encryExt, const uint16_t encryExtLen, 
+                                    const uint8_t *pubKey, const uint16_t pubKeyLen, const uint16_t keyType, const uint8_t *data, const uint16_t dataLenLen, 
                                     uint8_t *tlsPkt);
 
 uint16_t tls13_prepareServerWrappedRecord(const uint8_t *dCert, const uint16_t dCertLen,
