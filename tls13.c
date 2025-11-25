@@ -292,7 +292,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
             supGr->extDataLen = tls13_htons(tempLen);
             tempLen += sizeof(supGr->extDataLen) + sizeof(supGr->extType);
             /* Update the total extension length so far */
-            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_SESSION_ID_LEN, uint16_t) += tempLen;
+            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_CLIENT_EXT_OFFSET, uint16_t) += tempLen;
         }
         offsetExt += offset;
         offset = 0;
@@ -303,7 +303,7 @@ uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *se
             sesTic->extDataLen = tls13_htons(0x0000);
             tempLen = sizeof(sesTic->extDataLen) + sizeof(sesTic->extType);
             /* Update the total extension length so far */
-            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_SESSION_ID_LEN, uint16_t) += tempLen;
+            REACH_ELEMENT(clientHelloTmp, tls13_clientHello_t, extLen, TLS13_CLIENT_EXT_OFFSET, uint16_t) += tempLen;
         }
         {
             /* Set the Encrypt-Then-MAC extension data */
