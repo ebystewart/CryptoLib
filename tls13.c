@@ -589,26 +589,26 @@ void tls13_extractClientHello(uint8_t *clientRandom, uint8_t *sessionId, uint8_t
     }
 }
 
-uint16_t tls13_prepareServerHello(const uint8_t *serverRandom, const uint8_t *sessionId, const uint16_t cipherSuite, 
+uint16_t tls13_prepareServerHello(const uint8_t *serverRandom, const uint8_t *sessionId, const tls13_cipherSuite_e cipherSuite, 
                                     const uint8_t *pubKey, const uint16_t pubKeyLen, const uint16_t keyType, const uint8_t *encryExt, const uint16_t encryExtLen, 
                                     uint8_t *tlsPkt)
 {
     uint16_t len = 0;
-    tls13_cipherSuite_e cs = tls13_getCipherSuite();
+    //tls13_cipherSuite_e cs = tls13_getCipherSuite();
     tls13_serverHellowCompat_t *serverHelloTmp = calloc(1, sizeof(tls13_serverHellowCompat_t) + 1200);
 
     /* Record header update */
     serverHelloTmp->serverHello.recordHeader.recordType   = TLS13_HANDSHAKE_RECORD;
-    serverHelloTmp->serverHello.recordHeader.protoVersion = TLS13_PROTO_VERSION;
+    serverHelloTmp->serverHello.recordHeader.protoVersion = tls13_htonss(TLS13_PROTO_VERSION);
 
     /* handshake header update */
     serverHelloTmp->serverHello.handshakeHeader.handshakeType = TLS13_HST_SERVER_HELLO;
 
-    serverHelloTmp->serverHello.serverVersion = TLS13_PROTO_VERSION;
+    serverHelloTmp->serverHello.serverVersion = tls13_htons(TLS13_PROTO_VERSION);
     /* get a 32 Byte random value */
     memcpy(serverHelloTmp->serverHello.serverRandom, serverRandom, TLS13_RANDOM_LEN);
     serverHelloTmp->serverHello.sessionIdLen = TLS13_SESSION_ID_LEN;
-    /* Get a 16 Byte Session Id */
+    /* Get a 32 Byte Session Id */
     memcpy(serverHelloTmp->serverHello.sessionId, sessionId, TLS13_SESSION_ID_LEN);
 
     /* copy the Ciphersuite selected */
@@ -667,10 +667,10 @@ uint16_t tls13_prepareServerHello(const uint8_t *serverRandom, const uint8_t *se
         dataTmp->handshakeHdr.handshakeMsgLen = encryExtLen + 0x02;
         dataTmp->extLen = encryExtLen;
   
-        tls13_encrypt((uint8_t *)dataTmp, sizeof(tls13_encryExt_t) + dataTmp->extLen, (uint8_t *)rec->encryptedData, cs);
+        tls13_encrypt((uint8_t *)dataTmp, sizeof(tls13_encryExt_t) + dataTmp->extLen, (uint8_t *)rec->encryptedData, cipherSuite);
         //memcpy(rec->encryptedData, dataTmp, dataLen);     /* encrypted data with server handshake key */
         //memcpy(rec->authTag + dataLen, authTag, TLS13_RECORD_AUTHTAG_LEN);      /* 16 Byte auth tag */
-        tls13_generate_authTag(encryExt, encryExtLen, (rec->authTag + encryExtLen), TLS13_RECORD_AUTHTAG_LEN, cs);
+        tls13_generate_authTag(encryExt, encryExtLen, (rec->authTag + encryExtLen), TLS13_RECORD_AUTHTAG_LEN, cipherSuite);
         rec->recordHeader.recordLen = sizeof(tls13_encryExt_t) + encryExtLen + TLS13_RECORD_AUTHTAG_LEN;
         free(dataTmp);
     }

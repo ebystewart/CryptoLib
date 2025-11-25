@@ -429,7 +429,7 @@ typedef struct {
 uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *sessionId, const char *dnsHostname, 
                                     const uint8_t *pubKey, const uint16_t pubKeyLen, uint8_t *tlsPkt);
 
-uint16_t tls13_prepareServerHello(const uint8_t *serverRandom, const uint8_t *sessionId, const uint16_t cipherSuite, 
+uint16_t tls13_prepareServerHello(const uint8_t *serverRandom, const uint8_t *sessionId, const tls13_cipherSuite_e cipherSuite, 
                                     const uint8_t *pubKey, const uint16_t pubKeyLen, const uint16_t keyType, const uint8_t *encryExt, const uint16_t encryExtLen, 
                                     uint8_t *tlsPkt);
 
