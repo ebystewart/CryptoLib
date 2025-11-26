@@ -506,7 +506,7 @@ static void *__client_handshake_thread(void *arg)
     clientHelloLen = (size_t)((((tls13_clientHello_t *)clientHello_pkt)->recordHeader.recordLen));
     clientHelloLen = tls13_ntohs(clientHelloLen) + TLS13_RECORD_HEADER_SIZE;
     
-#ifndef DEBUG
+#ifdef DEBUG
     printf("Client Hello Length is %d\n", clientHelloLen);
     for (int i= 0; i < 260; i++){
         printf("%x\n", clientHello_pkt[i]);
@@ -696,7 +696,7 @@ static void *__server_handshake_thread(void *arg)
     assert(rc == serverHelloLen);
 #ifndef DEBUG
     printf("Prepared Server Hello\n");
-    for (int i = 0; i < 2100; i++){
+    for (int i = 0; i < 170; i++){
         printf("[%d] -> %x\n", i, serverHello_pkt[i]);
     }
     printf("\n");
@@ -708,7 +708,7 @@ static void *__server_handshake_thread(void *arg)
     assert(rc == serverWrappedRecLen);
 #ifdef DEBUG
     printf("Prepared Server Wrapped record\n");
-    for (int i = 0; i < 150; i++){
+    for (int i = 0; i < 2000; i++){
         printf("[%d] -> %x\n", i, serverHello_pkt[i]);
     }
     printf("\n");

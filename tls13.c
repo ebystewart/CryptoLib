@@ -590,7 +590,7 @@ void tls13_extractClientHello(uint8_t *clientRandom, uint8_t *sessionId, uint8_t
 }
 
 uint16_t tls13_prepareServerHello(const uint8_t *serverRandom, const uint8_t *sessionId, const tls13_cipherSuite_e cipherSuite, 
-                                    const uint8_t *pubKey, const uint16_t pubKeyLen, const uint16_t keyType, const uint8_t *data, const uint16_t dataLen, 
+                                    const uint8_t *pubKey, const uint16_t pubKeyLen, const uint16_t keyType, const uint8_t *extData, const uint16_t extDataLen, 
                                     uint8_t *tlsPkt)
 {
     uint16_t len = 0;
@@ -598,15 +598,16 @@ uint16_t tls13_prepareServerHello(const uint8_t *serverRandom, const uint8_t *se
     uint16_t tempLen = 0;
     //tls13_cipherSuite_e cs = tls13_getCipherSuite();
     tls13_serverHellowCompat_t *serverHelloTmp = calloc(1, (sizeof(tls13_serverHellowCompat_t) + 1200));
+    printf("serverHello temp -> %lx\n", serverHelloTmp);
 
     /* Record header update */
     serverHelloTmp->serverHello.recordHeader.recordType   = TLS13_HANDSHAKE_RECORD;
-    serverHelloTmp->serverHello.recordHeader.protoVersion = tls13_htonss(TLS13_PROTO_VERSION);
+    serverHelloTmp->serverHello.recordHeader.protoVersion = tls13_htons(TLS12_PROTO_VERSION);
 
     /* handshake header update */
     serverHelloTmp->serverHello.handshakeHeader.handshakeType = TLS13_HST_SERVER_HELLO;
 
-    serverHelloTmp->serverHello.serverVersion = tls13_htons(TLS13_PROTO_VERSION);
+    serverHelloTmp->serverHello.serverVersion = tls13_htons(TLS12_PROTO_VERSION);
     /* get a 32 Byte random value */
     memcpy(serverHelloTmp->serverHello.serverRandom, serverRandom, TLS13_RANDOM_LEN);
     serverHelloTmp->serverHello.sessionIdLen = TLS13_SESSION_ID_LEN;
@@ -615,24 +616,24 @@ uint16_t tls13_prepareServerHello(const uint8_t *serverRandom, const uint8_t *se
 
     /* copy the Ciphersuite selected */
     //serverHelloTmp->serverHello.cipherSuiteSelect = cipherSuite;//TLS13_AES_128_GCM_SHA256;
-    SERVERHELLO_CIPHERSUITE_SELECT(&serverHelloTmp->serverHello, TLS13_SESSION_ID_LEN) = tls13_htons(cipherSuite);
+    SERVERHELLO_CIPHERSUITE_SELECT(&serverHelloTmp->serverHello.cipherSuiteSelect, TLS13_SESSION_ID_LEN) = tls13_htons(cipherSuite); //0xCCDD;
     /* copy the compression methods */
-    SERVERHELLO_COMPRESSION_METHOD_SELECT(&serverHelloTmp->serverHello, TLS13_SESSION_ID_LEN) = 0x00U;
+    SERVERHELLO_COMPRESSION_METHOD_SELECT(&serverHelloTmp->serverHello.compressionMethodSelect, TLS13_SESSION_ID_LEN) = 0x00U;//0xBB;
 
     uint16_t extLen = 0;
 
     /* Server Hello Extensions */
     {
-        tls13_serverExtensions_t *serverExts = GET_SERVERHELLO_SERVEREXT_PTR(&serverHelloTmp->serverHello, TLS13_SESSION_ID_LEN);
+        tls13_serverExtensions_t *serverExts = GET_SERVERHELLO_SERVEREXT_PTR(&serverHelloTmp->serverHello.serverExt, TLS13_SESSION_ID_LEN);
         {
-            tls13_extension222_t  *eSV = &serverHelloTmp->serverHello.serverExt.extSupportedVers;
+            tls13_extension222_t  *eSV = &serverExts->extSupportedVers;
             eSV->extType = tls13_htons(TLS13_EXT_SUPPORTED_VERSIONS);
             eSV->extData = tls13_htons(TLS13_VERSION);
             eSV->extDataLen = tls13_htons(sizeof(eSV->extData));
             extLen += sizeof(tls13_extension222_t);
         }
         {
-            tls13_extensionKeyShare_t  *eKS = &serverHelloTmp->serverHello.serverExt.extkeyShare;
+            tls13_extensionKeyShare_t  *eKS = &serverExts->extkeyShare;
             eKS->extType = tls13_htons(TLS13_EXT_KEY_SHARE);
             eKS->keyShareType = tls13_htons(keyType);//0x001D; /* assigned value for x25519 (key exchange via curve25519) */
             memcpy(eKS->pubKey, pubKey, pubKeyLen);
@@ -668,16 +669,21 @@ uint16_t tls13_prepareServerHello(const uint8_t *serverRandom, const uint8_t *se
         tls13_encryExt_t *dataTmp = calloc(1, 100);
         {
             dataTmp->handshakeHdr.handshakeType = TLS13_HST_ENCRYPTED_EXT;
-            tempLen = dataLen + TLS13_HANDSHAKE_LENGTH_FIELD_SIZE;
+            tempLen = extDataLen + TLS13_HANDSHAKE_LENGTH_FIELD_SIZE;
             dataTmp->handshakeHdr.handshakeMsgLen = tls13_htonss(tempLen);
-            dataTmp->extLen = tls13_htons(dataLen);
+            dataTmp->extLen = tls13_htons(extDataLen);
+            if(extDataLen > 0){
+                memcpy(&dataTmp->extList, extData, extDataLen);
+            }
+            REACH_ELEMENT(dataTmp, tls13_encryExt_t, recordType, extDataLen, uint8_t) = TLS13_HANDSHAKE_RECORD;
         }
   
-        tls13_encrypt((uint8_t *)dataTmp, sizeof(tls13_encryExt_t) + dataTmp->extLen, (uint8_t *)rec->encryptedData, cipherSuite);
+        tls13_encrypt((uint8_t *)dataTmp, sizeof(tls13_encryExt_t) + extDataLen, (uint8_t *)rec->encryptedData, cipherSuite);
         //memcpy(rec->encryptedData, dataTmp, dataLen);     /* encrypted data with server handshake key */
         //memcpy(rec->authTag + dataLen, authTag, TLS13_RECORD_AUTHTAG_LEN);      /* 16 Byte auth tag */
-        tls13_generate_authTag(data, dataLen, (rec->authTag + dataLen), TLS13_RECORD_AUTHTAG_LEN, cipherSuite);
-        rec->recordHeader.recordLen = sizeof(tls13_encryExt_t) + dataLen + TLS13_RECORD_AUTHTAG_LEN;
+        len = sizeof(tls13_serverHello_t) + TLS13_SESSION_ID_LEN + pubKeyLen + sizeof(tls13_encryExt_t) + extDataLen - TLS13_RECORD_AUTHTAG_LEN;
+        tls13_generate_authTag((uint8_t *)serverHelloTmp, len, (rec->authTag + sizeof(tls13_encryExt_t) + extDataLen), TLS13_RECORD_AUTHTAG_LEN, cipherSuite);
+        rec->recordHeader.recordLen = tls13_htons(sizeof(tls13_encryExt_t) + extDataLen);
         free(dataTmp);
     }
     len = tls13_ntohs(serverHelloTmp->serverHello.recordHeader.recordLen) + TLS13_RECORD_HEADER_SIZE + \
@@ -685,6 +691,7 @@ uint16_t tls13_prepareServerHello(const uint8_t *serverRandom, const uint8_t *se
                                                                 tls13_ntohs(rec->recordHeader.recordLen) + TLS13_RECORD_HEADER_SIZE;
     /* Finally do a memory copy */
     memcpy(tlsPkt, (uint8_t *)serverHelloTmp, len);
+    //printf("serverHello temp -> %lx\n", serverHelloTmp);
     free(serverHelloTmp);
 
     return len;
