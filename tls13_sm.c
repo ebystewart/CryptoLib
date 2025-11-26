@@ -482,7 +482,19 @@ static void *__client_handshake_thread(void *arg)
     tls13_recordType_e first_record;
     size_t clientHelloLen = 0;
     size_t serverHelloLen = 0;
+    uint8_t addr_len;
     tls13_context_t *ctx = (tls13_context_t *)arg;
+
+    struct sockaddr_in server_addr;
+    socklen_t addr_size = sizeof(server_addr);
+    fd_set read_fds; // Set of file descriptors to monitor for reading
+    FD_ZERO(&read_fds); // Clear the set
+    FD_SET(ctx->client_fd, &read_fds); // Add a socket to the set
+
+    struct timeval timeout;
+    timeout.tv_sec = 10; // 5-second timeout
+    timeout.tv_usec = 0;
+
 
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
     pthread_setcanceltype(PTHREAD_CANCEL_DEFERRED, NULL);
@@ -523,31 +535,46 @@ static void *__client_handshake_thread(void *arg)
     while (serverHelloReceived == false || serverWrappedRecReceived == false)
     {
         pthread_testcancel();
-        {
-            /* wait for the response to receive - Blocking call */
-            rc = recv(ctx->client_fd, temp, sizeof(temp), 0);// NULL, 0);
-            first_record = temp[TLS13_RECORD_HEADER_OFFSET];
-            if (temp[TLS13_HANDSHAKE_HEADER_OFFSET] == TLS13_HST_SERVER_HELLO && first_record == TLS13_HANDSHAKE_RECORD)
-            {
-                memcpy(serverHello_pkt, temp, sizeof(serverHello_pkt));
-                serverHelloLen = (size_t)((((tls13_serverHello_t *)serverHello_pkt)->recordHeader.recordLen) + TLS13_RECORD_HEADER_SIZE);
+        {        
+            printf("Client ready to receive server hello......\n");
+            select(ctx->client_fd + 1, &read_fds, NULL, NULL, &timeout);
 
-                tls13_extractServerHello(ctx->server_random, ctx->client_sessionId, &ctx->serverCipherSuiteSupported, ctx->server_publicKey, \
-                    &ctx->keyLen, &ctx->keyType, (tls13_serverExtensions_t *)ctx->serverExtension, &ctx->serverExtensionLen, serverHello_pkt); // need to update args
-            
-                tls13_computeHandshakeKeys(ctx, clientHello_pkt, clientHelloLen, serverHello_pkt, serverHelloLen);
-                serverHelloReceived == true;
-            }
-            if((temp[TLS13_HANDSHAKE_HEADER_OFFSET] == TLS13_HST_CERTIFICATE || \
-                temp[TLS13_HANDSHAKE_HEADER_OFFSET] == TLS13_HST_CERTIFICATE_VERIFY || \
-                temp[TLS13_HANDSHAKE_HEADER_OFFSET] == TLS13_HST_CERTIFICATE_REQUEST || \
-                temp[TLS13_HANDSHAKE_HEADER_OFFSET] == TLS13_HST_CERTIFICATE_REQUEST) \
-                && first_record == TLS13_APPDATA_RECORD)
+            /* recieve client hello first */
+            if (FD_ISSET(ctx->client_fd, &read_fds))      
             {
+                int rc = recvfrom(ctx->client_fd, temp, sizeof(temp), 0, (struct sockaddr *)&server_addr, &addr_len);
 
-                memcpy(serverWrappedRec_pkt, temp, sizeof(serverWrappedRec_pkt));
-                tls13_extractServerWrappedRecord(serverWrappedRec_pkt, ctx->serverCert, ctx->serverHandshakeSignature, ctx->serverCertVerify, &ctx->serverCertVerifyLen);
-                serverWrappedRecReceived = true;
+                /* wait for the response to receive - Blocking call */
+                //rc = recv(ctx->client_fd, temp, sizeof(temp), 0);// NULL, 0);
+                first_record = temp[TLS13_RECORD_HEADER_OFFSET];
+                if (temp[TLS13_HANDSHAKE_HEADER_OFFSET] == TLS13_HST_SERVER_HELLO && first_record == TLS13_HANDSHAKE_RECORD)
+                {
+                    memcpy(serverHello_pkt, temp, sizeof(serverHello_pkt));
+                    serverHelloLen = (size_t)((((tls13_serverHello_t *)serverHello_pkt)->recordHeader.recordLen) + TLS13_RECORD_HEADER_SIZE);
+                    #ifndef DEBUG
+                        printf("Received Server Hello Length is %d\n", serverHelloLen);
+                        for (int i= 0; i < 160; i++){
+                            printf("%x\n", serverHello_pkt[i]);
+                        }
+                        printf("\n");
+                    #endif
+                    tls13_extractServerHello(ctx->server_random, ctx->client_sessionId, &ctx->serverCipherSuiteSupported, ctx->server_publicKey, \
+                        &ctx->keyLen, &ctx->keyType, (tls13_serverExtensions_t *)ctx->serverExtension, &ctx->serverExtensionLen, serverHello_pkt); // need to update args
+                
+                    tls13_computeHandshakeKeys(ctx, clientHello_pkt, clientHelloLen, serverHello_pkt, serverHelloLen);
+                    serverHelloReceived == true;
+                }
+                if((temp[TLS13_HANDSHAKE_HEADER_OFFSET] == TLS13_HST_CERTIFICATE || \
+                    temp[TLS13_HANDSHAKE_HEADER_OFFSET] == TLS13_HST_CERTIFICATE_VERIFY || \
+                    temp[TLS13_HANDSHAKE_HEADER_OFFSET] == TLS13_HST_CERTIFICATE_REQUEST || \
+                    temp[TLS13_HANDSHAKE_HEADER_OFFSET] == TLS13_HST_CERTIFICATE_REQUEST) \
+                    && first_record == TLS13_APPDATA_RECORD)
+                {
+
+                    memcpy(serverWrappedRec_pkt, temp, sizeof(serverWrappedRec_pkt));
+                    tls13_extractServerWrappedRecord(serverWrappedRec_pkt, ctx->serverCert, ctx->serverHandshakeSignature, ctx->serverCertVerify, &ctx->serverCertVerifyLen);
+                    serverWrappedRecReceived = true;
+                }
             }
         }
     }

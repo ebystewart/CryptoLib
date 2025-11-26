@@ -709,36 +709,37 @@ void tls13_extractServerHello(uint8_t *serverRandom, uint8_t *sessionId, uint16_
     tls13_serverHellowCompat_t *tmp = calloc(1, helloLen + changeCSLen + appDataLen);
     {
         tls13_serverHello_t *sHello = &tmp->serverHello;
-        assert(sHello->recordHeader.recordType == TLS13_HST_SERVER_HELLO);
-        assert(sHello->recordHeader.protoVersion == TLS12_PROTO_VERSION || sHello->recordHeader.protoVersion == TLS13_PROTO_VERSION);
-        assert(sHello->serverVersion == TLS13_PROTO_VERSION);
+        assert(sHello->recordHeader.recordType == TLS13_HANDSHAKE_RECORD);
+        assert(sHello->recordHeader.protoVersion == tls13_ntohs(TLS12_PROTO_VERSION) || sHello->recordHeader.protoVersion == tls13_ntohs(TLS13_PROTO_VERSION));
+        assert(sHello->serverVersion == tls13_ntohs(TLS12_PROTO_VERSION));
         memcpy(serverRandom, sHello->serverRandom, TLS13_RANDOM_LEN);
         memcpy(sessionId, sHello->sessionId, sHello->sessionIdLen);
         offset += sHello->sessionIdLen;
         *cipherSuite = REACH_ELEMENT(sHello, tls13_serverHello_t, cipherSuiteSelect, offset, uint16_t);
         //REACH_ELEMENT(sHello, tls13_serverHello_t, compressionMethodSelect, offset, uint16_t);
-        tls13_serverExtensions_t *serExt = &sHello->serverExt + offset;
+        tls13_serverExtensions_t *serExt = (tls13_serverExtensions_t *)((uint8_t *)&sHello->serverExt + offset);
         {
-            assert(serExt->extSupportedVers.extType == TLS13_EXT_SUPPORTED_VERSIONS);
-            assert(serExt->extSupportedVers.extData == TLS13_PROTO_VERSION);
+            assert(serExt->extSupportedVers.extType == tls13_ntohs(TLS13_EXT_SUPPORTED_VERSIONS));
+            assert(serExt->extSupportedVers.extData == tls13_ntohs(TLS13_VERSION));
             assert(serExt->extSupportedVers.extDataLen == 2);
-            assert(serExt->extkeyShare.extType == TLS13_EXT_KEY_SHARE);
-            *keyType = serExt->extkeyShare.keyShareType;
-            *pubKeyLen = serExt->extkeyShare.pubKeyLen;
+            assert(serExt->extkeyShare.extType == tls13_ntohs(TLS13_EXT_KEY_SHARE));
+            *keyType = tls13_ntohs(serExt->extkeyShare.keyShareType);
+            *pubKeyLen = tls13_ntohs(serExt->extkeyShare.pubKeyLen);
             memcpy(pubKey, serExt->extkeyShare.pubKey, *pubKeyLen);
+            offset += tls13_ntohs(serExt->extkeyShare.pubKeyLen);
         }
     }
     /* Server change cipher spec */
     {
-        tls13_changeCipherSpec_t *ccs = &tmp->serverCCS + offset;
+        tls13_changeCipherSpec_t *ccs = (tls13_changeCipherSpec_t *)((uint8_t *)&tmp->serverCCS + offset);
         assert(ccs->recordHeader.recordType == TLS13_CHANGE_CIPHERSPEC_RECORD);
         assert(ccs->recordHeader.protoVersion == TLS12_PROTO_VERSION || ccs->recordHeader.protoVersion == TLS13_PROTO_VERSION);
         assert(ccs->payload == 0x01);
-        assert(ccs->recordHeader.recordLen == 0x0001);
+        assert(ccs->recordHeader.recordLen == tls13_ntohs(0x0001));
     }
     /* Server encrypted extension */
     {
-        tls13_wrappedRecord_t *data = &tmp->record1 + offset;
+        tls13_wrappedRecord_t *data = (tls13_wrappedRecord_t *)((uint8_t *)&tmp->record1 + offset);
         assert(data->recordHeader.recordType == TLS13_APPDATA_RECORD);
         assert(data->recordHeader.protoVersion == TLS12_PROTO_VERSION || data->recordHeader.protoVersion == TLS13_PROTO_VERSION);
 
