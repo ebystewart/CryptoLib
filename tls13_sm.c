@@ -542,19 +542,21 @@ static void *__client_handshake_thread(void *arg)
             /* recieve client hello first */
             if (FD_ISSET(ctx->client_fd, &read_fds))      
             {
-                int rc = recvfrom(ctx->client_fd, temp, sizeof(temp), 0, (struct sockaddr *)&server_addr, &addr_len);
+                int rc = recvfrom(ctx->client_fd, temp, TLS13_SERVER_HELLO_MAX_LEN, 0, (struct sockaddr *)&server_addr, &addr_len);
+                printf("received data from server of length %d\n", rc);
 
                 /* wait for the response to receive - Blocking call */
                 //rc = recv(ctx->client_fd, temp, sizeof(temp), 0);// NULL, 0);
                 first_record = temp[TLS13_RECORD_HEADER_OFFSET];
                 if (temp[TLS13_HANDSHAKE_HEADER_OFFSET] == TLS13_HST_SERVER_HELLO && first_record == TLS13_HANDSHAKE_RECORD)
                 {
-                    memcpy(serverHello_pkt, temp, sizeof(serverHello_pkt));
-                    serverHelloLen = (size_t)((((tls13_serverHello_t *)serverHello_pkt)->recordHeader.recordLen) + TLS13_RECORD_HEADER_SIZE);
+                    memcpy(serverHello_pkt, temp, rc);
+                    serverHelloLen = (size_t)(tls13_ntohs((((tls13_serverHello_t *)serverHello_pkt)->recordHeader.recordLen)) + TLS13_RECORD_HEADER_SIZE);
+                    //assert(rc == serverHelloLen);
                     #ifndef DEBUG
                         printf("Received Server Hello Length is %d\n", serverHelloLen);
-                        for (int i= 0; i < 160; i++){
-                            printf("%x\n", serverHello_pkt[i]);
+                        for (int i= 0; i < 170; i++){
+                            printf("[%d] %x\n", i, serverHello_pkt[i]);
                         }
                         printf("\n");
                     #endif
@@ -722,7 +724,7 @@ static void *__server_handshake_thread(void *arg)
     int rc = send(ctx->client_fd, serverHello_pkt, serverHelloLen, 0);
     assert(rc == serverHelloLen);
 #ifndef DEBUG
-    printf("Prepared Server Hello\n");
+    printf("Prepared Server Hello (size: %d)\n",serverHelloLen);
     for (int i = 0; i < 170; i++){
         printf("[%d] -> %x\n", i, serverHello_pkt[i]);
     }
