@@ -66,6 +66,7 @@ typedef struct{
     uint16_t          clientCertVerifyLen;
     uint8_t           *serverCert;
     uint16_t          serverCertLen;
+    int               servedCertfd;
     uint8_t           *serverCertVerify;
     uint16_t          serverCertVerifyLen;
     uint8_t           *clientHandshakeSignature;

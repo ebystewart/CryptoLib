@@ -11,6 +11,7 @@
 #include <sys/select.h>
 #include <time.h>
 #include <unistd.h>
+#include <fcntl.h>
 #include "tls13.h"
 #include "tls13_sm.h"
 #include "math.h"
@@ -333,6 +334,12 @@ static tls13_init_ctx(tls13_context_t *ctx)
     ctx->clientCertLen            = 0; // need to revisit        ctx->clientCertVerify         = calloc(1, 300); // need to revisit
     ctx->clientCertVerifyLen      = 300;
     ctx->serverCert               = calloc(1, 256);
+    {
+        ctx->servedCertfd = open("certs/server.der", O_RDONLY);
+        read(ctx->servedCertfd, ctx->serverCert, 835);
+        ctx->serverCertLen = 835;
+        close(ctx->servedCertfd);
+    }
     ctx->serverCertLen            = 0;
     ctx->serverCertVerify         = calloc(1, 300);
     ctx->serverCertVerifyLen      = 300;
@@ -361,6 +368,8 @@ static tls13_deInit_ctx(tls13_context_t *ctx)
     memset(ctx->clientHandshakeIV, 0, ctx->clientHandshakeIVLen);
     memset(ctx->serverHandshakeKey, 0, ctx->serverHandshakeKeyLen);
     memset(ctx->serverHandshakeIV, 0, ctx->serverHandshakeIVLen);
+    memset(ctx->serverCert, 0, ctx->serverCertLen);
+    //close(ctx->servedCertfd);
 
     free(ctx->client_random);
     free(ctx->server_random);
@@ -765,8 +774,8 @@ static void *__server_handshake_thread(void *arg)
     assert(rc == serverWrappedRecLen);
 #ifndef DEBUG
     printf("Prepared Server Wrapped record\n");
-    for (int i = 0; i < 2000; i++){
-        printf("[%d] -> %x\n", i, serverHello_pkt[i]);
+    for (int i = 0; i < 2400; i++){
+        printf("[%d] -> %x\n", i, serverWrappedRec_pkt[i]);
     }
     printf("\n");
 #endif

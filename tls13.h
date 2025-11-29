@@ -278,7 +278,9 @@ typedef struct {
 typedef struct {
    uint32_t     certLen : 24;
    uint8_t      cert[0];
-   uint16_t     certExtension;
+   uint16_t     certExtLen;
+   uint16_t     certExtension[0];
+   uint8_t      recordType
 }tls13_cert_t;
 
 typedef struct {

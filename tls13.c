@@ -760,7 +760,8 @@ uint16_t tls13_prepareServerWrappedRecord(const uint8_t *dCert, const uint16_t d
 {
     uint32_t len = 0;
     uint16_t offset = 0;
-    tls13_serverWrappedRecord_t *record = calloc(1, (sizeof(tls13_serverWrappedRecord_t) + 1200));
+    uint32_t tempLen;
+    tls13_serverWrappedRecord_t *record = calloc(1, (sizeof(tls13_serverWrappedRecord_t) + 2400));
 
     // should be able to send certificate request, if certificate is expected from the client
     /* certificate */
@@ -768,27 +769,38 @@ uint16_t tls13_prepareServerWrappedRecord(const uint8_t *dCert, const uint16_t d
     {
         uint16_t certRecordLen = 0;
         certRecord->recordHeader.recordType   = TLS13_APPDATA_RECORD;
-        certRecord->recordHeader.protoVersion = TLS12_PROTO_VERSION; /* Legacy TLS 1.2 */
+        certRecord->recordHeader.protoVersion = tls13_htons(TLS12_PROTO_VERSION); /* Legacy TLS 1.2 */
 
-        tls13_certRecordDataDecrypt_t *certR = calloc(1, dCertLen + TLS13_HANDSHAKE_HEADER_SIZE + 3 + 2);
-        certR->certificate.handshakeHdr.handshakeType = TLS13_HST_CERTIFICATE;
-        certR->certificate.requestContext = 0x00;
-        certR->certificate.cert->certLen = dCertLen;
-        memcpy(certR->certificate.cert->cert, dCert, dCertLen);
-        certR->certificate.cert->certExtension = 0x0000;
-        certR->certificate.payloadLen = dCertLen + 3 + 2;
-        //certR->recordType = /* No footer for handshake (record type)
-        certR->certificate.handshakeHdr.handshakeMsgLen = certR->certificate.payloadLen;
-        certRecordLen = certR->certificate.handshakeHdr.handshakeMsgLen + TLS13_HANDSHAKE_HEADER_SIZE;
+        tls13_serverCert_t *certR = calloc(1, dCertLen + TLS13_HANDSHAKE_HEADER_SIZE + 3 + 2);
+        {
+            certR->handshakeHdr.handshakeType = TLS13_HST_CERTIFICATE;
+            certR->requestContext = 0x00;
+            tls13_cert_t *cert = &certR->cert;
+            {
+                cert->certLen = tls13_htonss(dCertLen);
+                memcpy(certR->cert, dCert, dCertLen);
+                cert->certExtLen = tls13_htons(0x0000);
+                if(cert->certExtLen > 0){
+                    /* copy extension data */
+                }
+                cert->recordType = TLS13_HANDSHAKE_RECORD;
+            }
+            offset += dCertLen + sizeof(tls13_cert_t);
+            tempLen = offset + 3 + sizeof(certR->requestContext);
+            certR->payloadLen = tls13_htonl(tempLen);
+            tempLen += 3;
+            certR->handshakeHdr.handshakeMsgLen = tls13_htonss(tempLen);
+            certRecordLen = tempLen + TLS13_HANDSHAKE_HEADER_SIZE;
+        }
         /* Encrypt the data before copying */
-        tls13_encrypt((uint8_t *)certRecord->encryptedData, certRecordLen, (uint8_t *)certR, cs);  // encrypted data length to be standardised. data encrypted with the server handshake key
-        offset += dCertLen;
+        tls13_encrypt((uint8_t *)certR, certRecordLen, (uint8_t *)certRecord->encryptedData, cs);  // encrypted data length to be standardised. data encrypted with the server handshake key
+        tempLen = certRecordLen + TLS13_RECORD_HEADER_SIZE;
+        certRecord->recordHeader.recordLen = tls13_htons(tempLen);
         //memcpy(certRecord->authTag + offset, authTag, TLS13_RECORD_AUTHTAG_LEN);
-        tls13_generate_authTag(certRecord->encryptedData, dCertLen, (certRecord->authTag + offset), TLS13_RECORD_AUTHTAG_LEN, cs);
-        offset += TLS13_RECORD_AUTHTAG_LEN;  
-        certRecord->recordHeader.recordLen = offset + sizeof(tls13_certRecordDataDecrypt_t);
+        tls13_generate_authTag(certRecord, (tempLen - TLS13_RECORD_AUTHTAG_LEN), &certRecord->authTag[0], TLS13_RECORD_AUTHTAG_LEN, cs); 
+
         /* Number of bytes so far */
-        len += certRecord->recordHeader.recordLen + TLS13_RECORD_HEADER_SIZE;
+        len += tempLen;
         free(certR);
     }
     offset = 0;
@@ -875,7 +887,8 @@ void tls13_extractServerWrappedRecord(const uint8_t *tlsPkt, tls13_cert_t *dCert
             /* Certificate will be in ASN.1 DER encoding and unencrypted */
             memcpy(dCert->cert, dCertTemp->certificate.cert->cert, dCert->certLen);
         }
-        dCert->certExtension = REACH_ELEMENT(dCertTemp->certificate.cert, tls13_cert_t, certExtension, dCert->certLen, uint16_t);
+        if(dCert->certExtLen != 0)
+            dCert->certExtension[0] = REACH_ELEMENT(dCertTemp->certificate.cert, tls13_cert_t, certExtension, dCert->certLen, uint16_t);
         free(dCertTemp);
     }
     if(tlsPkt[6 + certLen] == TLS13_HST_CERTIFICATE_VERIFY)
