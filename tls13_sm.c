@@ -118,6 +118,23 @@ const tls13_cipherSuite_e serverSupportedSuites[] = {
     TLS13_EMPTY_RENEGOTIATION_INFO_SCSV
 };
 
+const tls13_signAlgos_e serverSupportedSignAlgms[] = {
+    TLS13_SIGNALGOS_ECDSA_SECP256r1_SHA256,
+    TLS13_SIGNALGOS_ECDSA_SECP384r1_SHA384,
+    TLS13_SIGNALGOS_ECDSA_SECP521r1_SHA512,
+    TLS13_SIGNALGOS_ED25519,
+    TLS13_SIGNALGOS_ED448,
+    TLS13_SIGNALGOS_RSA_PSS_PSS_SHA256,
+    TLS13_SIGNALGOS_RSA_PSS_PSS_SHA384,
+    TLS13_SIGNALGOS_RSA_PSS_PSS_SHA512,
+    TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA256,
+    TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA384,
+    TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA512,
+    TLS13_SIGNALGOS_RSA_PKCS1_SHA256,
+    TLS13_SIGNALGOS_RSA_PKCS1_SHA384,
+    TLS13_SIGNALGOS_RSA_PKCS1_SHA512
+};
+
 static void tls13_cxt_queueInit(void);
 
 static tls13_ctxDatabase_t *tls13_cxt_queueFind(tls13_context_t *ctx);
@@ -135,6 +152,9 @@ static void tls13_hash_and_sign(uint8_t *clientHelloRec, uint16_t clientHelloRec
                         tls13_cipherSuite_e cipherSuite, uint8_t *handshakeSign);
 
 static tls13_cipherSuite_e tls13_selectCipherSuite(tls13_cipherSuite_e *cs, uint16_t csLen);
+static tls13_signAlgos_e tls13_selectSignatureAlgo(tls13_signAlgos_e *sAlg, uint16_t sAlgLen);
+static tls13_cipherSuite_e tls13_getCipherSuite(const tls13_context_t *ctx);
+static tls13_signAlgos_e tls13_getSignatureType(const tls13_context_t *ctx);
 
 static void tls13_ctx_queueDestroy(void)
 {
@@ -561,7 +581,7 @@ static void *__client_handshake_thread(void *arg)
                         printf("\n");
                     #endif
                     tls13_extractServerHello(ctx->server_random, ctx->client_sessionId, &ctx->serverCipherSuiteSupported, ctx->server_publicKey, \
-                        &ctx->keyLen, &ctx->keyType, (tls13_serverExtensions_t *)ctx->serverExtension, &ctx->serverExtensionLen, serverHello_pkt); // need to update args
+                        &ctx->keyLen, &ctx->keyType, (tls13_serverExtensions_t *)ctx->serverExtension, &ctx->serverExtensionLen, serverHello_pkt);
                 
                     tls13_computeHandshakeKeys(ctx, clientHello_pkt, clientHelloLen, serverHello_pkt, serverHelloLen);
                     serverHelloReceived == true;
@@ -574,7 +594,8 @@ static void *__client_handshake_thread(void *arg)
                 {
 
                     memcpy(serverWrappedRec_pkt, temp, sizeof(serverWrappedRec_pkt));
-                    tls13_extractServerWrappedRecord(serverWrappedRec_pkt, ctx->serverCert, ctx->serverHandshakeSignature, ctx->serverCertVerify, &ctx->serverCertVerifyLen);
+                    tls13_extractServerWrappedRecord(serverWrappedRec_pkt, ctx->serverCert, ctx->serverHandshakeSignature, ctx->serverCertVerify, &ctx->serverCertVerifyLen, \
+                                                     ctx->serverCipherSuiteSupported, ctx->signatureAlgoSupported);
                     serverWrappedRecReceived = true;
                 }
             }
@@ -601,9 +622,10 @@ static void *__client_handshake_thread(void *arg)
                         clientFinish_pkt, TLS13_CLIENT_FINISHED_LEN - handshakeSignLen, //should use an offset to exclude the handshake record completely
                         ctx->serverCipherSuiteSupported, handshakeSign);
 
+    tls13_cipherSuite_e cs = tls13_getCipherSuite(ctx);
     /* Prepare the wrapped record (certificate, certificateVerify, finished)*/
     // need to handle if certificate and certverify also needs to be sent
-    tls13_prepareClientWrappedRecord(handshakeSign, handshakeSignLen, "hello", strlen("hello"), clientFinish_pkt);
+    tls13_prepareClientWrappedRecord(handshakeSign, handshakeSignLen, "hello", strlen("hello"), cs, clientFinish_pkt);
 
     /* check if the handshake is successful */
     // actually server handshake signature is calculated and compared with the received one
@@ -612,7 +634,7 @@ static void *__client_handshake_thread(void *arg)
         uint8_t *alert_pkt = calloc(1, TLS13_ALERT_LEN);
         alert.level = TLS13_ALERT_FATAL;
         alert.description = TLS13_HANDSHAKE_FAILURE;
-        tls13_prepareAlertRecord(&alert, alert_pkt);
+        tls13_prepareAlertRecord(&alert, cs, alert_pkt);
         send(ctx->client_fd, alert_pkt, TLS13_ALERT_LEN, 0);
         ctx->handshakeExpired = false;
         
@@ -709,6 +731,7 @@ static void *__server_handshake_thread(void *arg)
 #endif
             tls13_extractClientHello(ctx->client_random, ctx->client_sessionId, NULL, ctx->clientCapability, ctx->keyType, ctx->client_publicKey, ctx->keyLen, clientHello_pkt);
             fix_capability_endianess(ctx->clientCapability, ctx->clientCapabilityLen);
+            ctx->signatureAlgoSupported = tls13_selectSignatureAlgo(ctx->clientCapability->signAlgos, ctx->clientCapability->signAlgoLen);
             #ifndef DEBUG
                 print_capability(ctx->clientCapability, ctx->clientCapabilityLen);
             #endif
@@ -717,25 +740,30 @@ static void *__server_handshake_thread(void *arg)
             clientHelloReceived = true;
         }
     }
+    /* Choose cipher suite and signature algorithm from clients list based on priority */
     tls13_cipherSuite_e cs_supported = tls13_selectCipherSuite(ctx->clientCapability->cipherSuiteList, ctx->clientCapability->cipherSuiteLen);
+    ctx->serverCipherSuiteSupported = cs_supported;
+    tls13_signAlgos_e sigAlg_supported = tls13_selectSignatureAlgo(ctx->clientCapability->signAlgos, ctx->clientCapability->signAlgoLen);
+    ctx->serverCipherSuiteSupported = sigAlg_supported;
+
     /* send server hello */
     serverHelloLen = tls13_prepareServerHello(ctx->server_random, ctx->server_sessionId, cs_supported, ctx->server_publicKey, ctx->keyLen, ctx->keyType, \
                               ctx->serverExtension, ctx->serverExtensionLen, serverHello_pkt);
     int rc = send(ctx->client_fd, serverHello_pkt, serverHelloLen, 0);
     assert(rc == serverHelloLen);
-#ifndef DEBUG
+#ifdef DEBUG
     printf("Prepared Server Hello (size: %d)\n",serverHelloLen);
     for (int i = 0; i < 170; i++){
         printf("[%d] -> %x\n", i, serverHello_pkt[i]);
     }
     printf("\n");
-    while(true);
 #endif
     serverWrappedRecLen = tls13_prepareServerWrappedRecord(ctx->serverCert, ctx->serverCertLen, ctx->serverCertVerify, ctx->serverCertVerifyLen, \
-                                        ctx->serverHandshakeSignature, ctx->serverHandshakeSignLen, serverWrappedRec_pkt);
-    rc = send(ctx->client_fd, serverHello_pkt, serverHelloLen, 0);
+                                        ctx->serverHandshakeSignature, ctx->serverHandshakeSignLen, ctx->serverCipherSuiteSupported, \
+                                        ctx->signatureAlgoSupported, serverWrappedRec_pkt);
+    rc = send(ctx->client_fd, serverWrappedRec_pkt, serverWrappedRecLen, 0);
     assert(rc == serverWrappedRecLen);
-#ifdef DEBUG
+#ifndef DEBUG
     printf("Prepared Server Wrapped record\n");
     for (int i = 0; i < 2000; i++){
         printf("[%d] -> %x\n", i, serverHello_pkt[i]);
@@ -744,9 +772,25 @@ static void *__server_handshake_thread(void *arg)
 #endif
     /* Receive client finished */
     while(clientFinishedReceived == false)
-    {
-
-        clientFinishedReceived = true;
+    {        
+        select(ctx->client_fd + 1, &read_fds, NULL, NULL, &timeout);
+        /* recieve client hello first */
+        if (FD_ISSET(ctx->client_fd, &read_fds))      
+        {
+            //int rc = recv(ctx->client_fd, clientHello_pkt, TLS13_CLIENT_HELLO_MAX_LEN, 0);// (struct sockaddr *)&server_addr, &addr_len);
+            int rc = recvfrom(ctx->client_fd, clientFinish_pkt, TLS13_CLIENT_FINISHED_LEN, 0, 
+                                    (struct sockaddr *)&client_addr, &addr_len);
+#ifdef DEBUG
+    printf("Received Client Finish\n");
+    for (int i= 0; i < 260; i++){
+        printf("[%d] -> %x\n", i, clientFinish_pkt[i]);
+    }
+    printf("\n");
+#endif
+            tls13_extractClientWrappedRecord(clientFinish_pkt, ctx->clientHandshakeSignature, ctx->clientHandshakeSignLen, \
+                                             NULL, 0, cs_supported); //app data to be paassed to application
+            clientFinishedReceived = true;
+        }
     }
 }
 
@@ -975,6 +1019,33 @@ static tls13_cipherSuite_e tls13_selectCipherSuite(tls13_cipherSuite_e *cs, uint
         }
     }
     return TLS13_EMPTY_RENEGOTIATION_INFO_SCSV;
+}
+
+static tls13_signAlgos_e tls13_selectSignatureAlgo(tls13_signAlgos_e *sAlg, uint16_t sAlgLen)
+{
+    uint8_t idx1;
+    uint8_t idx2;
+    uint8_t len = sizeof(serverSupportedSignAlgms)/2;
+    for(idx1 = 0; idx1 < len; idx1++){
+        for(idx2 = 0; idx2 < sAlgLen; idx2++){
+            if(serverSupportedSignAlgms[idx1] == sAlg[idx2])
+            {
+                return serverSupportedSignAlgms[idx1];
+            }
+        }
+    }
+    return TLS13_EMPTY_RENEGOTIATION_INFO_SCSV;
+}
+
+static tls13_cipherSuite_e tls13_getCipherSuite(const tls13_context_t *ctx)
+{
+    return ctx->serverCipherSuiteSupported;
+}
+
+static tls13_signAlgos_e tls13_getSignatureType(const tls13_context_t *ctx)
+{
+    //return TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA256;
+    return ctx->signatureAlgoSupported;
 }
 
 void print_context(tls13_context_t *ctx){

@@ -437,18 +437,20 @@ uint16_t tls13_prepareServerHello(const uint8_t *serverRandom, const uint8_t *se
 
 uint16_t tls13_prepareServerWrappedRecord(const uint8_t *dCert, const uint16_t dCertLen,
                                         const uint8_t *dCertVerf, const uint16_t dCertVerfLen, 
-                                        const uint8_t *dVerify, const uint16_t dVerifyLen,  uint8_t *tlsPkt);
+                                        const uint8_t *dVerify, const uint16_t dVerifyLen, tls13_cipherSuite_e cs, 
+                                        tls13_signAlgos_e signType, uint8_t *tlsPkt);
 
 uint16_t tls13_prepareClientWrappedRecord(const uint8_t *dVerify, const uint16_t dVerifyLen,
-                                            const uint8_t *appData, const uint8_t appDataLen, uint8_t *tlsPkt);
+                                            const uint8_t *appData, const uint8_t appDataLen, tls13_cipherSuite_e cs, uint8_t *tlsPkt);
 
 uint16_t tls13_prepareServerSessionTicketRecord(const uint8_t *sessionTkt, \
                                                 const uint8_t sessionTktLen, \
+                                                tls13_cipherSuite_e cs, \
                                                 uint8_t *tlsPkt);
 
-uint16_t tls13_prepareAppData(const uint8_t *dIn, const uint16_t dInLen, uint8_t *tlsPkt);
+uint16_t tls13_prepareAppData(const uint8_t *dIn, const uint16_t dInLen, tls13_cipherSuite_e cs, uint8_t *tlsPkt);
 
-uint16_t tls13_prepareAlertRecord(const tls13_alert_t *alertData, uint8_t *tlsPkt);
+uint16_t tls13_prepareAlertRecord(const tls13_alert_t *alertData, tls13_cipherSuite_e cs, uint8_t *tlsPkt);
 
 /* Deserialize and update data structures based on received pkts */
 
@@ -458,15 +460,17 @@ void tls13_extractClientHello(uint8_t *clientRandom, uint8_t *sessionId, uint8_t
 void tls13_extractServerHello(uint8_t *serverRandom, uint8_t *sessionId, uint16_t *cipherSuite, 
                                     uint8_t *pubKey, uint16_t *pubKeyLen, uint16_t *keyType, uint8_t *encryExt, uint16_t *encryExtLen, const uint8_t *tlsPkt);
 
-void tls13_extractServerWrappedRecord(const uint8_t *tlsPkt, tls13_cert_t *dCert, tls13_signature_t *sign, uint8_t *dVerify, uint16_t *dVerifyLen);
+void tls13_extractServerWrappedRecord(const uint8_t *tlsPkt, tls13_cert_t *dCert, tls13_signature_t *sign, uint8_t *dVerify, uint16_t *dVerifyLen,
+                                           tls13_cipherSuite_e cs, tls13_signAlgos_e signType);
 
-void tls13_extractClientWrappedRecord(const uint8_t *tlsPkt, uint8_t *dVerify, uint16_t *dVerifyLen, uint8_t *appData, uint16_t *appDataLen);
+void tls13_extractClientWrappedRecord(const uint8_t *tlsPkt, uint8_t *dVerify, uint16_t *dVerifyLen, uint8_t *appData, \
+                                            uint16_t *appDataLen, tls13_cipherSuite_e cs);
 
-void tls13_extractSessionTicket(tls13_serverNewSesTkt_t *sessionTkt, const uint8_t *tlsPkt);
+void tls13_extractSessionTicket(tls13_serverNewSesTkt_t *sessionTkt, tls13_cipherSuite_e cs, const uint8_t *tlsPkt);
 
-void tls13_extractEncryptedAppData(uint8_t *dOut, uint16_t *dOutLen, const uint8_t *tlsPkt);
+void tls13_extractEncryptedAppData(uint8_t *dOut, uint16_t *dOutLen, tls13_cipherSuite_e cs, const uint8_t *tlsPkt);
 
-void tls13_extractAlertRecord(tls13_alert_t *alertData, const uint8_t *tlsPkt);
+void tls13_extractAlertRecord(tls13_alert_t *alertData, tls13_cipherSuite_e cs, const uint8_t *tlsPkt);
 
 /* utilities */
 uint16_t tls13_htons(uint16_t dIn);

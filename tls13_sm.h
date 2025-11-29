@@ -59,6 +59,7 @@ typedef struct{
     tls13_clientExtensions_t *clientExtension;
     uint16_t                 clientExtensionLen;
     tls13_cipherSuite_e serverCipherSuiteSupported;
+    tls13_signAlgos_e   signatureAlgoSupported;
     uint8_t           *clientCert;
     uint16_t          clientCertLen;
     uint8_t           *clientCertVerify;
@@ -73,7 +74,7 @@ typedef struct{
     uint16_t          serverHandshakeSignLen;
     bool              handshakeCompleted;
     bool              handshakeExpired;
-    /* Calculated */
+    /* Calculated for verification */
     uint8_t           *serverHandshakeKey;
     uint16_t          serverHandshakeKeyLen;
     uint8_t           *serverHandshakeIV;
