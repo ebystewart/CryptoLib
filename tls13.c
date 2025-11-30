@@ -760,8 +760,9 @@ uint16_t tls13_prepareServerWrappedRecord(const uint8_t *dCert, const uint16_t d
 {
     uint32_t len = 0;
     uint16_t offset = 0;
-    uint32_t tempLen;
-    tls13_serverWrappedRecord_t *record = calloc(1, (sizeof(tls13_serverWrappedRecord_t) + 2400));
+    uint32_t tempLen = 0;
+    tempLen = sizeof(tls13_serverWrappedRecord_t) + dCertLen + dCertVerfLen + dVerifyLen;
+    tls13_serverWrappedRecord_t *record = calloc(1, tempLen); //need to fix magic numbers
 
     // should be able to send certificate request, if certificate is expected from the client
     /* certificate */
@@ -784,21 +785,20 @@ uint16_t tls13_prepareServerWrappedRecord(const uint8_t *dCert, const uint16_t d
                     /* copy extension data */
                 }
                 cert->recordType = TLS13_HANDSHAKE_RECORD;
+                offset += (dCertLen + sizeof(tls13_cert_t));
             }
-            offset += dCertLen + sizeof(tls13_cert_t);
-            tempLen = offset + 3 + sizeof(certR->requestContext);
-            certR->payloadLen = tls13_htonl(tempLen);
-            tempLen += 3;
+            certR->payloadLen = tls13_htonl(offset);
+            tempLen = offset + sizeof(certR->requestContext);
             certR->handshakeHdr.handshakeMsgLen = tls13_htonss(tempLen);
             certRecordLen = tempLen + TLS13_HANDSHAKE_HEADER_SIZE;
         }
         /* Encrypt the data before copying */
         tls13_encrypt((uint8_t *)certR, certRecordLen, (uint8_t *)certRecord->encryptedData, cs);  // encrypted data length to be standardised. data encrypted with the server handshake key
-        tempLen = certRecordLen + TLS13_RECORD_HEADER_SIZE;
-        certRecord->recordHeader.recordLen = tls13_htons(tempLen);
+        certRecord->recordHeader.recordLen = tls13_htons(certRecordLen);
+        tempLen += TLS13_RECORD_HEADER_SIZE;
         //memcpy(certRecord->authTag + offset, authTag, TLS13_RECORD_AUTHTAG_LEN);
-        tls13_generate_authTag(certRecord, (tempLen - TLS13_RECORD_AUTHTAG_LEN), ((uint8_t*)&certRecord->authTag[0] + offset), TLS13_RECORD_AUTHTAG_LEN, cs); 
-
+        tls13_generate_authTag(certRecord, tempLen, ((uint8_t*)&certRecord->authTag[0] + offset), TLS13_RECORD_AUTHTAG_LEN, cs); 
+        tempLen += TLS13_RECORD_AUTHTAG_LEN;
         /* Number of bytes so far */
         len += tempLen;
         free(certR);

@@ -156,6 +156,7 @@ static tls13_cipherSuite_e tls13_selectCipherSuite(tls13_cipherSuite_e *cs, uint
 static tls13_signAlgos_e tls13_selectSignatureAlgo(tls13_signAlgos_e *sAlg, uint16_t sAlgLen);
 static tls13_cipherSuite_e tls13_getCipherSuite(const tls13_context_t *ctx);
 static tls13_signAlgos_e tls13_getSignatureType(const tls13_context_t *ctx);
+static int tls13_getFileSize(const char *filepath);
 
 static void tls13_ctx_queueDestroy(void)
 {
@@ -290,6 +291,30 @@ static void tls13_ctx_queue(tls13_context_t *ctx, tls13_ctxOperation_e op)
     }
 }
 
+static int tls13_getFileSize(const char *filepath)
+{
+    FILE *fp = NULL;
+    int size;
+
+    fp = fopen(filepath, "rb");
+    if(fp == NULL){
+        perror("File couldn't be opened");
+        return -1;
+    }
+    /* Seek to the end of the file */
+    if(fseek(fp, 0, SEEK_END) != 0){
+        perror("Couldn't seek over the file");
+        fclose(fp);
+        return -1;
+    }
+    size = ftell(fp);
+    if(size == -1)
+        perror("Couldn't get the seek location");
+
+    fclose(fp);
+    return size;
+}
+
 /* Initialize all teh context elements except for key-pair */
 static tls13_init_ctx(tls13_context_t *ctx)
 {
@@ -333,11 +358,13 @@ static tls13_init_ctx(tls13_context_t *ctx)
     ctx->clientCert               = calloc(1, 256); // need to give address of certificate file
     ctx->clientCertLen            = 0; // need to revisit        ctx->clientCertVerify         = calloc(1, 300); // need to revisit
     ctx->clientCertVerifyLen      = 300;
-    ctx->serverCert               = calloc(1, 835);
+    ctx->serverCertLen = tls13_getFileSize("certs/server.der");
+    ctx->serverCert               = calloc(1, ctx->serverCertLen);
     {
         ctx->servedCertfd = open("certs/server.der", O_RDONLY);
-        read(ctx->servedCertfd, ctx->serverCert, 835);
-        ctx->serverCertLen = 835; // logic to be arrived for actual length of certificate
+        ctx->serverCertLen = tls13_getFileSize("certs/server.der");
+        read(ctx->servedCertfd, ctx->serverCert, ctx->serverCertLen); //error handling
+        //ctx->serverCertLen = 835; // logic to be arrived for actual length of certificate
         close(ctx->servedCertfd);
     }
     //ctx->serverCertLen            = 0;
