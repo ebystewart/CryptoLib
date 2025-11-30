@@ -615,7 +615,7 @@ uint8_t key_256[32] = {0x54, 0x68, 0x61, 0x74, 0x73, 0x20, 0x6D, 0x79, 0x20, 0x4
 tls13_context_t *ctx = calloc(1, sizeof(tls13_context_t));
 ctx->server_ip = 0x7F000001;
 ctx->server_port = 40000;
-#if 1
+#if 0
 ctx->role = TLS13_CLIENT;
 ctx->client_ip = 0x7F000001; /* Host byte order */
 ctx->client_port = 40000;
