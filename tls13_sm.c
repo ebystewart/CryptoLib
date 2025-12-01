@@ -562,7 +562,7 @@ static void *__client_handshake_thread(void *arg)
      *  3. Client Finished (this has the signature)
     */
     uint8_t *clientHello_pkt      = calloc(1, TLS13_CLIENT_HELLO_MAX_LEN);
-    uint8_t *temp                 = calloc(1, TLS13_SERVER_HELLO_MAX_LEN);
+    uint8_t *temp                 = calloc(1, TLS13_SERVER_WRAPPEDREC_MAX_LEN);
     uint8_t *serverHello_pkt      = calloc(1, TLS13_SERVER_HELLO_MAX_LEN); // If pkt is more than max size, we may receive as 2 pkts; need to handle this
     uint8_t *serverWrappedRec_pkt = calloc(1, TLS13_SERVER_WRAPPEDREC_MAX_LEN);
     uint8_t *clientFinish_pkt     = calloc(1, TLS13_CLIENT_FINISHED_LEN);
@@ -588,14 +588,14 @@ static void *__client_handshake_thread(void *arg)
         printf("client hello transmission succeeded\n");
 
     /* Wait for the server hello response to be received */
-    while (serverHelloReceived == false )
+    while (serverHelloReceived == false)
     {
         pthread_testcancel();
         {        
-            printf("Client ready to receive server hello......\n");
+            //printf("Client ready to receive server hello......\n");
             select(ctx->client_fd + 1, &read_fds, NULL, NULL, &timeout);
 
-            /* recieve client hello first */
+            /* recieve server hello first */
             if (FD_ISSET(ctx->client_fd, &read_fds))      
             {
                 int rc = recvfrom(ctx->client_fd, temp, TLS13_SERVER_HELLO_MAX_LEN, 0, (struct sockaddr *)&server_addr, &addr_len);
@@ -609,7 +609,7 @@ static void *__client_handshake_thread(void *arg)
                     memcpy(serverHello_pkt, temp, rc);
                     serverHelloLen = (size_t)(tls13_ntohs((((tls13_serverHello_t *)serverHello_pkt)->recordHeader.recordLen)) + TLS13_RECORD_HEADER_SIZE);
                     //assert(rc == serverHelloLen);
-                    #ifdef DEBUG
+                    #ifndef DEBUG
                         printf("Received Server Hello Length is %d\n", serverHelloLen);
                         for (int i= 0; i < 170; i++){
                             printf("[%d] %x\n", i, serverHello_pkt[i]);
@@ -620,30 +620,33 @@ static void *__client_handshake_thread(void *arg)
                         &ctx->keyLen, &ctx->keyType, (tls13_serverExtensions_t *)ctx->serverExtension, &ctx->serverExtensionLen, serverHello_pkt);
                 
                     tls13_computeHandshakeKeys(ctx, clientHello_pkt, clientHelloLen, serverHello_pkt, serverHelloLen);
-                    serverHelloReceived == true;
+                    serverHelloReceived = true;
                 }
             }
         }
     }
+    printf("Server hello received...\n");
+    memset(temp, 0, TLS13_SERVER_WRAPPEDREC_MAX_LEN);
+    FD_SET(ctx->client_fd, &read_fds); // Add a socket to the set
     while (serverWrappedRecReceived == false)
     {
         pthread_testcancel();
         {        
-            printf("Client ready to receive server hello......\n");
+            printf("Client ready to receive server wrapped record......\n");
             select(ctx->client_fd + 1, &read_fds, NULL, NULL, &timeout);
 
-            /* recieve client hello first */
+            /* recieve server wrapped record now */
             if (FD_ISSET(ctx->client_fd, &read_fds))      
             {
                 int rc = recvfrom(ctx->client_fd, temp, TLS13_SERVER_WRAPPEDREC_MAX_LEN, 0, (struct sockaddr *)&server_addr, &addr_len);
                 printf("received data from server of length %d\n", rc);
+                first_record = temp[TLS13_RECORD_HEADER_OFFSET];
                 if(first_record == TLS13_APPDATA_RECORD)
                 {
-
-                    memcpy(serverWrappedRec_pkt, temp, TLS13_SERVER_WRAPPEDREC_MAX_LEN);
+                    memcpy(serverWrappedRec_pkt, temp, rc);
                     #ifndef DEBUG
                         printf("Received Server Wrapped Record Length is %d\n", rc);
-                        for (int i= 0; i < 600; i++){
+                        for (int i= 0; i < 825; i++){
                             printf("[%d] %x\n", i, serverWrappedRec_pkt[i]);
                         }
                         printf("\n");
@@ -658,14 +661,15 @@ static void *__client_handshake_thread(void *arg)
     }
     /* Extract the hash length from the cipher suite supported 
        This will be helpful to compute the signature */
-    if (ctx->serverCipherSuiteSupported == TLS13_AES_128_GCM_SHA256 || ctx->serverCipherSuiteSupported == TLS13_CHACHA20_POLY1305_SHA256){
+    if (tls13_ntohs(ctx->serverCipherSuiteSupported) == TLS13_AES_128_GCM_SHA256 || tls13_ntohs(ctx->serverCipherSuiteSupported) == TLS13_CHACHA20_POLY1305_SHA256){
         handshakeSignLen = 256U;
-    }else if(ctx->serverCipherSuiteSupported == TLS13_AES_256_GCM_SHA384){
+    }else if(tls13_ntohs(ctx->serverCipherSuiteSupported) == TLS13_AES_256_GCM_SHA384){
         handshakeSignLen = 384U;
     }
     else{
         /* assert error as unspoorted TLS 1.3 cupher suiite is used */
-        assert(0);
+        printf("Server cipher suite selected is %d\n", ctx->serverCipherSuiteSupported);
+        //assert(0);
     }
 
     uint8_t *handshakeSign = calloc(1, handshakeSignLen);
@@ -681,7 +685,14 @@ static void *__client_handshake_thread(void *arg)
     /* Prepare the wrapped record (certificate, certificateVerify, finished)*/
     // need to handle if certificate and certverify also needs to be sent
     tls13_prepareClientWrappedRecord(handshakeSign, handshakeSignLen, "hello", strlen("hello"), cs, clientFinish_pkt);
-
+#ifndef DEBUG
+    printf("Prepared client Wrapped Record Length is %d\n", rc);
+    for (int i = 0; i < 825; i++)
+    {
+        printf("[%d] %x\n", i, clientFinish_pkt[i]);
+    }
+    printf("\n");
+#endif
     /* check if the handshake is successful */
     // actually server handshake signature is calculated and compared with the received one
     if (0 != memcmp(ctx->clientHandshakeSignature, ctx->serverHandshakeSignature, ctx->clientHandshakeSignLen)){
@@ -806,7 +817,7 @@ static void *__server_handshake_thread(void *arg)
                               ctx->serverExtension, ctx->serverExtensionLen, serverHello_pkt);
     int rc = send(ctx->client_fd, serverHello_pkt, serverHelloLen, 0);
     assert(rc == serverHelloLen);
-#ifdef DEBUG
+#ifndef DEBUG
     printf("Prepared Server Hello (size: %d)\n",serverHelloLen);
     for (int i = 0; i < 170; i++){
         printf("[%d] -> %x\n", i, serverHello_pkt[i]);
@@ -819,13 +830,14 @@ static void *__server_handshake_thread(void *arg)
     rc = send(ctx->client_fd, serverWrappedRec_pkt, serverWrappedRecLen, 0);
     assert(rc == serverWrappedRecLen);
 #ifndef DEBUG
-    printf("Prepared Server Wrapped record\n");
-    for (int i = 0; i < 2400; i++){
+    printf("Prepared Server Wrapped record: size (%d)\n", serverWrappedRecLen);
+    for (int i = 0; i < 600; i++){
         printf("[%d] -> %x\n", i, serverWrappedRec_pkt[i]);
     }
     printf("\n");
 #endif
     /* Receive client finished */
+    FD_SET(ctx->client_fd, &read_fds); // Add a socket to the set
     while(clientFinishedReceived == false)
     {        
         select(ctx->client_fd + 1, &read_fds, NULL, NULL, &timeout);

@@ -954,28 +954,32 @@ uint16_t tls13_prepareClientWrappedRecord(const uint8_t *dVerify, const uint16_t
 {
     uint32_t len = 0;
     uint16_t offset = 0;
-    tls13_clientWrappedRecord_t *record = calloc(1, (sizeof(tls13_clientWrappedRecord_t) + 1200));
+    uint32_t tempLen = 0;
+    tempLen = sizeof(tls13_clientWrappedRecord_t) + dVerifyLen + appDataLen;
+    tls13_clientWrappedRecord_t *record = calloc(1, tempLen);
 
     /* Fill and serialize the change cipher spec structure */
-    tls13_changeCipherSpec_t *cCCS = &record->clientCCS;
+    tls13_changeCipherSpec_t *cCCS = (tls13_changeCipherSpec_t *)&record->clientCCS;
     {
         cCCS->recordHeader.recordType   = TLS13_CHANGE_CIPHERSPEC_RECORD;
-        cCCS->recordHeader.protoVersion = TLS12_PROTO_VERSION; /* Legacy TLS 1.2 */
+        cCCS->recordHeader.protoVersion = tls13_htons(TLS12_PROTO_VERSION); /* Legacy TLS 1.2 */
         cCCS->payload                   = 0x01;
-        cCCS->recordHeader.recordLen    = 0x0001;
-        len += cCCS->recordHeader.recordLen + TLS13_RECORD_HEADER_SIZE;
+        cCCS->recordHeader.recordLen    = tls13_ntohs(0x0001);
+        len += sizeof(tls13_changeCipherSpec_t);
     }
     // If client also wands to respond to a certificate request, it should be able to send certificate and cert verify records
-    tls13_finishedRecord_t *finishedRecord = &record->finishedRecord + len;
+    tls13_finishedRecord_t *finishedRecord = (tls13_finishedRecord_t *)((uint8_t *)&record->finishedRecord);
     {
         finishedRecord->recordHeader.recordType   = TLS13_APPDATA_RECORD;
-        finishedRecord->recordHeader.protoVersion = TLS12_PROTO_VERSION; /* Legacy TLS 1.2 */
+        finishedRecord->recordHeader.protoVersion = tls13_htons(TLS12_PROTO_VERSION); /* Legacy TLS 1.2 */
         
         tsl13_finishedRecordDataDecrypted_t *verif = calloc(1, 200);
-        verif->finished.handshakeHdr.handshakeType = TLS13_HST_FINISHED;
-        verif->finished.handshakeHdr.handshakeMsgLen = dVerifyLen;
-        /* Data to be encrypted before copying */
-        memcpy(verif->finished.verifyData, dVerify, dVerifyLen);  // encrypted data length to be standardised. data encrypted with the server handshake key
+        {
+            verif->finished.handshakeHdr.handshakeType = TLS13_HST_FINISHED;
+            verif->finished.handshakeHdr.handshakeMsgLen = tls13_htonss(dVerifyLen);
+            /* Data to be encrypted before copying */
+            memcpy(verif->finished.verifyData, dVerify, dVerifyLen);  // encrypted data length to be standardised. data encrypted with the server handshake key
+        }
         tls13_encrypt((uint8_t *)verif, dVerifyLen + TLS13_HANDSHAKE_HEADER_SIZE, (uint8_t *)finishedRecord->encryptedData, cs);
         offset += dVerifyLen;
         //memcpy(finishedRecord->authTag + offset, authTag, TLS13_RECORD_AUTHTAG_LEN);
@@ -987,7 +991,7 @@ uint16_t tls13_prepareClientWrappedRecord(const uint8_t *dVerify, const uint16_t
         free(verif);
     }
     offset = 0;
-    tls13_appDataRecord_t *aDR = &record->appDataRecord + len;
+    tls13_appDataRecord_t *aDR = (tls13_appDataRecord_t *)((uint8_t *)&record->appDataRecord + offset);
     if(appData != NULL && appDataLen > 0)
     {
         aDR->recordHeader.recordType   = TLS13_APPDATA_RECORD;

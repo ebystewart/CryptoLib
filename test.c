@@ -9,6 +9,7 @@
 #include "math.h"
 #include "tls13.h"
 #include "tls13_sm.h"
+#include <assert.h>
 
 #if 0
 uint8_t in[16] = {0x63, 0x2F, 0xAF, 0xA2,
@@ -613,17 +614,24 @@ uint8_t key_256[32] = {0x54, 0x68, 0x61, 0x74, 0x73, 0x20, 0x6D, 0x79, 0x20, 0x4
 /*                       run a client with data: echo "Hello from the client!" | nc 127.0.0.1 40001   */
 #include "tls13_sm.h"
 tls13_context_t *ctx = calloc(1, sizeof(tls13_context_t));
+int role = atoi(argv[1]);
+printf("Client Or Server -> %d\n", role);
 ctx->server_ip = 0x7F000001;
 ctx->server_port = 40000;
-#if 0
-ctx->role = TLS13_CLIENT;
-ctx->client_ip = 0x7F000001; /* Host byte order */
-ctx->client_port = 40000;
-memcpy(ctx->server_hostname, "example.ulfheim.net", strlen("example.ulfheim.net"));
-ctx->server_hostname_len = strlen("example.ulfheim.net");
-#else
-ctx->role = TLS13_SERVER;
-#endif
+
+if(role == TLS13_CLIENT){
+    ctx->role = TLS13_CLIENT;
+    ctx->client_ip = 0x7F000001; /* Host byte order */
+    ctx->client_port = 40000;
+    memcpy(ctx->server_hostname, "example.ulfheim.net", strlen("example.ulfheim.net"));
+    ctx->server_hostname_len = strlen("example.ulfheim.net");
+}
+else if (role == TLS13_SERVER){
+    ctx->role = TLS13_SERVER;
+}
+else
+    assert(0);
+
 //memcpy(ctx->client_publicKey, &key_256, sizeof(key_256));
 //ctx->keyLen = sizeof(key_256);
 tls13_init(ctx);
