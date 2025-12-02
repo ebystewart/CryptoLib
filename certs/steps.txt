@@ -1,3 +1,6 @@
+
+##Server
+
 openssl ecparam -genkey -name prime256v1 -out server.key
 
 openssl req -new -key server.key -out server.csr -subj "/C=US/ST=State/L=City/O=Organization/CN=your_domain.com"
@@ -7,3 +10,16 @@ openssl x509 -req -days 365 -in server.csr -signkey server.key -out server.crt
 
 
 openssl x509 -in server.crt -outform DER -out server.der
+
+
+##Client
+
+openssl ecparam -genkey -name prime256v1 -out client.key
+
+openssl req -new -key client.key -out client.csr -subj "/C=US/ST=State/L=City/O=Organization/CN=your_domain.com"
+
+
+openssl x509 -req -days 365 -in client.csr -signkey client.key -out client.crt
+
+
+openssl x509 -in client.crt -outform DER -out client.der

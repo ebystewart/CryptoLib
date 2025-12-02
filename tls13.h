@@ -36,6 +36,7 @@
 #define TLS13_RECORD_HEADER_SIZE 5
 #define TLS13_HANDSHAKE_HEADER_SIZE 4
 #define TLS13_HANDSHAKE_LENGTH_FIELD_SIZE 3
+#define TLS13_HANDSHSKE_TYPE_OFFSET (TLS13_RECORD_HEADER_SIZE)
 #define TLS13_CLIENT_EXT_OFFSET (TLS13_SESSION_ID_LEN + TLS13_CIPHERSUITE_LEN + TLS13_COMPRESSIONMETHD_LEN)
 
 typedef enum {
@@ -299,7 +300,7 @@ typedef struct {
 
 typedef struct {
    tls13_serverCert_t   certificate;      /* could be Server Certificate  (tls13_serverCert_t) */
-   //uint8_t              recordType;       /* 0x16 (handshake record) */   
+   uint8_t              recordType;       /* 0x16 (handshake record) */   
 }tls13_certRecordDataDecrypt_t;
 
 typedef struct {
@@ -462,7 +463,7 @@ void tls13_extractClientHello(uint8_t *clientRandom, uint8_t *sessionId, uint8_t
 void tls13_extractServerHello(uint8_t *serverRandom, uint8_t *sessionId, uint16_t *cipherSuite, 
                                     uint8_t *pubKey, uint16_t *pubKeyLen, uint16_t *keyType, uint8_t *encryExt, uint16_t *encryExtLen, const uint8_t *tlsPkt);
 
-void tls13_extractServerWrappedRecord(const uint8_t *tlsPkt, tls13_cert_t *dCert, tls13_signature_t *sign, uint8_t *dVerify, uint16_t *dVerifyLen,
+void tls13_extractServerWrappedRecord(const uint8_t *tlsPkt, uint8_t *dCert, uint16_t *dCertLen, tls13_signature_t *sign, uint8_t *dVerify, uint16_t *dVerifyLen,
                                            tls13_cipherSuite_e cs, tls13_signAlgos_e signType);
 
 void tls13_extractClientWrappedRecord(const uint8_t *tlsPkt, uint8_t *dVerify, uint16_t *dVerifyLen, uint8_t *appData, \

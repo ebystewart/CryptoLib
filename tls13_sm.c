@@ -355,19 +355,32 @@ static tls13_init_ctx(tls13_context_t *ctx)
     }
     ctx->serverExtension          = calloc(1, 50); //tentative size
     ctx->serverExtensionLen       = 0;   
-    ctx->clientCert               = calloc(1, 256); // need to give address of certificate file
-    ctx->clientCertLen            = 0; // need to revisit        ctx->clientCertVerify         = calloc(1, 300); // need to revisit
-    ctx->clientCertVerifyLen      = 300;
-    ctx->serverCertLen = tls13_getFileSize("certs/server.der");
-    ctx->serverCert               = calloc(1, ctx->serverCertLen);
+    if(ctx->role == TLS13_CLIENT)
     {
-        ctx->servedCertfd = open("certs/server.der", O_RDONLY);
-        ctx->serverCertLen = tls13_getFileSize("certs/server.der");
-        read(ctx->servedCertfd, ctx->serverCert, ctx->serverCertLen); //error handling
-        //ctx->serverCertLen = 835; // logic to be arrived for actual length of certificate
-        close(ctx->servedCertfd);
+        ctx->certfd = open("certs/client.der", O_RDONLY);
+        ctx->clientCertLen = tls13_getFileSize("certs/client.der");
+        read(ctx->certfd, ctx->clientCert, ctx->clientCertLen); //error handling
+        close(ctx->certfd);
     }
-    //ctx->serverCertLen            = 0;
+    else{
+        ctx->clientCert               = calloc(1, 256); // need to give address of certificate file
+        ctx->clientCertLen            = 0; // need to revisit        
+    }
+    ctx->clientCertVerify         = calloc(1, 300); // need to revisit
+    ctx->clientCertVerifyLen      = 300;
+    if (ctx->role == TLS13_SERVER)
+    {
+        ctx->serverCertLen = tls13_getFileSize("certs/server.der");
+        ctx->serverCert               = calloc(1, ctx->serverCertLen);
+        ctx->certfd = open("certs/server.der", O_RDONLY);
+        read(ctx->certfd, ctx->serverCert, ctx->serverCertLen); //error handling
+        close(ctx->certfd);
+    }
+    else{
+        ctx->serverCert               = calloc(1, 256); // need to give address of certificate file
+        ctx->serverCertLen            = 0; // need to revisit   
+    }
+
     ctx->serverCertVerify         = calloc(1, 300);
     ctx->serverCertVerifyLen      = 300;
     ctx->clientHandshakeSignature = calloc(1, 128);
@@ -479,12 +492,13 @@ static size_t tls13_getWrappedRecPktLength(uint8_t *tls_pkt){
     uint8_t idx = 0;
     uint16_t recordLen = 0;
 
-    tls13_recordHdr_t *pkt = tls_pkt;
-    recordLen = pkt->recordLen;
-    while(recordLen != 0)
+    tls13_recordHdr_t *rHdr = calloc(1, sizeof(tls13_recordHdr_t));
+    memcpy(rHdr, tls_pkt, sizeof(tls13_recordHdr_t));
+    recordLen = tls13_ntohs(rHdr->recordLen);
+    if(recordLen != 0)
     {
-        if(pkt->recordType == TLS13_CHANGE_CIPHERSPEC_RECORD || pkt->recordType == TLS13_APPDATA_RECORD){
-            recordLen = pkt->recordLen;
+        if(rHdr->recordType == TLS13_CHANGE_CIPHERSPEC_RECORD || rHdr->recordType == TLS13_APPDATA_RECORD){
+            recordLen = rHdr->recordLen;
             if(recordLen != 0)
                 length = recordLen + TLS13_RECORD_HEADER_SIZE;
         }
@@ -492,8 +506,9 @@ static size_t tls13_getWrappedRecPktLength(uint8_t *tls_pkt){
             recordLen = 0;
             return length;
         }
-        pkt += length;
+        //rHdr += length;
     }
+    free(rHdr);
 
     return length;
 }
@@ -538,6 +553,7 @@ static void *__client_handshake_thread(void *arg)
     tls13_recordType_e first_record;
     size_t clientHelloLen = 0;
     size_t serverHelloLen = 0;
+    size_t serverWrappedRecLen = 0;
     uint8_t addr_len;
     tls13_context_t *ctx = (tls13_context_t *)arg;
 
@@ -632,7 +648,7 @@ static void *__client_handshake_thread(void *arg)
     {
         pthread_testcancel();
         {        
-            printf("Client ready to receive server wrapped record......\n");
+            //printf("Client ready to receive server wrapped record......\n");
             select(ctx->client_fd + 1, &read_fds, NULL, NULL, &timeout);
 
             /* recieve server wrapped record now */
@@ -640,6 +656,7 @@ static void *__client_handshake_thread(void *arg)
             {
                 int rc = recvfrom(ctx->client_fd, temp, TLS13_SERVER_WRAPPEDREC_MAX_LEN, 0, (struct sockaddr *)&server_addr, &addr_len);
                 printf("received data from server of length %d\n", rc);
+                serverWrappedRecLen = rc;
                 first_record = temp[TLS13_RECORD_HEADER_OFFSET];
                 if(first_record == TLS13_APPDATA_RECORD)
                 {
@@ -652,24 +669,25 @@ static void *__client_handshake_thread(void *arg)
                         printf("\n");
                     #endif
 
-                    tls13_extractServerWrappedRecord(serverWrappedRec_pkt, ctx->serverCert, ctx->serverHandshakeSignature, ctx->serverCertVerify, &ctx->serverCertVerifyLen, \
+                    tls13_extractServerWrappedRecord(serverWrappedRec_pkt, ctx->serverCert, ctx->serverCertLen, ctx->serverHandshakeSignature, ctx->serverCertVerify, &ctx->serverCertVerifyLen, \
                                                      ctx->serverCipherSuiteSupported, ctx->signatureAlgoSupported);
                     serverWrappedRecReceived = true;
                 }
             }
         }
     }
+    print_context(ctx);
     /* Extract the hash length from the cipher suite supported 
        This will be helpful to compute the signature */
-    if (tls13_ntohs(ctx->serverCipherSuiteSupported) == TLS13_AES_128_GCM_SHA256 || tls13_ntohs(ctx->serverCipherSuiteSupported) == TLS13_CHACHA20_POLY1305_SHA256){
+    if (ctx->serverCipherSuiteSupported == TLS13_AES_128_GCM_SHA256 || ctx->serverCipherSuiteSupported == TLS13_CHACHA20_POLY1305_SHA256){
         handshakeSignLen = 256U;
-    }else if(tls13_ntohs(ctx->serverCipherSuiteSupported) == TLS13_AES_256_GCM_SHA384){
+    }else if(ctx->serverCipherSuiteSupported == TLS13_AES_256_GCM_SHA384){
         handshakeSignLen = 384U;
     }
     else{
-        /* assert error as unspoorted TLS 1.3 cupher suiite is used */
+        /* assert error as unspoorted TLS 1.3 cupher suite is used */
         printf("Server cipher suite selected is %d\n", ctx->serverCipherSuiteSupported);
-        //assert(0);
+        assert(0);
     }
 
     uint8_t *handshakeSign = calloc(1, handshakeSignLen);
@@ -677,7 +695,7 @@ static void *__client_handshake_thread(void *arg)
     /* At this point, we should be able to calculate the hash and sign it */
     tls13_hash_and_sign(clientHello_pkt, clientHelloLen,
                         serverHello_pkt, serverHelloLen,
-                        serverWrappedRec_pkt, tls13_getWrappedRecPktLength(serverWrappedRec_pkt),
+                        serverWrappedRec_pkt, serverWrappedRecLen,
                         clientFinish_pkt, TLS13_CLIENT_FINISHED_LEN - handshakeSignLen, //should use an offset to exclude the handshake record completely
                         ctx->serverCipherSuiteSupported, handshakeSign);
 
@@ -1075,12 +1093,16 @@ void tls13_stateManager(tls13_context_t *ctx)
 static tls13_cipherSuite_e tls13_selectCipherSuite(tls13_cipherSuite_e *cs, uint16_t csLen)
 {
     uint8_t idx1;
-    uint8_t idx2;
-    uint8_t len = sizeof(serverSupportedSuites)/2;
-    for(idx1 = 0; idx1 < len; idx1++){
-        for(idx2 = 0; idx2 < csLen; idx2++){
-            if(serverSupportedSuites[idx1] == cs[idx2])
+    uint8_t idx2;;
+
+    uint16_t *ptr2 = (uint16_t *)cs;
+
+    for(idx1 = 0; idx1 < 4; idx1++){
+        for(idx2 = 0; idx2 < (csLen/2); idx2++){
+            printf("serverSupportedSuites[%d] --> %d compares with clientList[%d] --> %d\n",idx1, serverSupportedSuites[idx1], idx2, ptr2[idx2]);
+            if(serverSupportedSuites[idx1] == ptr2[idx2])
             {
+                printf("The opt choice for cipher suite is %d\n", serverSupportedSuites[idx1]);
                 return serverSupportedSuites[idx1];
             }
         }
