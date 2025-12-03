@@ -654,8 +654,12 @@ static void *__client_handshake_thread(void *arg)
             /* recieve server wrapped record now */
             if (FD_ISSET(ctx->client_fd, &read_fds))      
             {
-                int rc = recvfrom(ctx->client_fd, temp, TLS13_SERVER_WRAPPEDREC_MAX_LEN, 0, (struct sockaddr *)&server_addr, &addr_len);
-                printf("received data from server of length %d\n", rc);
+                //int rc = recvfrom(ctx->client_fd, serverWrappedRec_pkt, TLS13_SERVER_WRAPPEDREC_MAX_LEN, 0, (struct sockaddr *)&server_addr, &addr_len);
+                int rc = recv(ctx->client_fd, serverWrappedRec_pkt, TLS13_SERVER_WRAPPEDREC_MAX_LEN, 0);
+                if(rc == -1)
+                    perror("socket reception failed");
+                else
+                    printf("received data from server of length %d\n", rc);
                 serverWrappedRecLen = rc;
                 first_record = temp[TLS13_RECORD_HEADER_OFFSET];
                 if(first_record == TLS13_APPDATA_RECORD)
@@ -663,7 +667,7 @@ static void *__client_handshake_thread(void *arg)
                     memcpy(serverWrappedRec_pkt, temp, rc);
                     #ifndef DEBUG
                         printf("Received Server Wrapped Record Length is %d\n", rc);
-                        for (int i= 0; i < 825; i++){
+                        for (int i= 0; i < rc; i++){
                             printf("[%d] %x\n", i, serverWrappedRec_pkt[i]);
                         }
                         printf("\n");
@@ -753,9 +757,6 @@ static void *__server_handshake_thread(void *arg)
     size_t serverWrappedRecLen = 0;
 
     struct sockaddr_in client_addr;
-    //client_addr.sin_family = AF_INET;
-    //client_addr.sin_port = ctx->client_port;
-    //client_addr.sin_addr.s_addr = ctx->client_ip;
     socklen_t addr_size = sizeof(client_addr);
 
     pthread_setcancelstate(PTHREAD_CANCEL_ENABLE, NULL);
@@ -837,7 +838,7 @@ static void *__server_handshake_thread(void *arg)
     assert(rc == serverHelloLen);
 #ifndef DEBUG
     printf("Prepared Server Hello (size: %d)\n",serverHelloLen);
-    for (int i = 0; i < 170; i++){
+    for (int i = 0; i < serverHelloLen; i++){
         printf("[%d] -> %x\n", i, serverHello_pkt[i]);
     }
     printf("\n");
@@ -846,10 +847,11 @@ static void *__server_handshake_thread(void *arg)
                                         ctx->serverHandshakeSignature, ctx->serverHandshakeSignLen, ctx->serverCipherSuiteSupported, \
                                         ctx->signatureAlgoSupported, serverWrappedRec_pkt);
     rc = send(ctx->client_fd, serverWrappedRec_pkt, serverWrappedRecLen, 0);
+    //rc = sendto(ctx->client_fd, serverWrappedRec_pkt, serverWrappedRecLen, 0,(struct sockaddr *)&client_addr, &addr_len);
     assert(rc == serverWrappedRecLen);
 #ifndef DEBUG
-    printf("Prepared Server Wrapped record: size (%d)\n", serverWrappedRecLen);
-    for (int i = 0; i < 600; i++){
+    printf("Prepared Server Wrapped record: size (%d)/sent bytes (%d)\n", serverWrappedRecLen, rc);
+    for (int i = 0; i < serverWrappedRecLen; i++){
         printf("[%d] -> %x\n", i, serverWrappedRec_pkt[i]);
     }
     printf("\n");
