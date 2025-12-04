@@ -363,11 +363,11 @@ static tls13_init_ctx(tls13_context_t *ctx)
         close(ctx->certfd);
     }
     else{
-        ctx->clientCert               = calloc(1, 256); // need to give address of certificate file
+        ctx->clientCert               = calloc(1, 1536); // need to give address of certificate file
         ctx->clientCertLen            = 0; // need to revisit        
     }
-    ctx->clientCertVerify         = calloc(1, 300); // need to revisit
-    ctx->clientCertVerifyLen      = 300;
+    ctx->clientCertVerify         = calloc(1, 512); // need to revisit
+    ctx->clientCertVerifyLen      = 0;
     if (ctx->role == TLS13_SERVER)
     {
         ctx->serverCertLen = tls13_getFileSize("certs/server.der");
@@ -377,15 +377,15 @@ static tls13_init_ctx(tls13_context_t *ctx)
         close(ctx->certfd);
     }
     else{
-        ctx->serverCert               = calloc(1, 256); // need to give address of certificate file
+        ctx->serverCert               = calloc(1, 1536); // need to give address of certificate file
         ctx->serverCertLen            = 0; // need to revisit   
     }
 
-    ctx->serverCertVerify         = calloc(1, 300);
-    ctx->serverCertVerifyLen      = 300;
-    ctx->clientHandshakeSignature = calloc(1, 128);
+    ctx->serverCertVerify         = calloc(1, 512);
+    ctx->serverCertVerifyLen      = 0;
+    ctx->clientHandshakeSignature = calloc(1, 512);
     ctx->clientHandshakeSignLen   = 0;
-    ctx->serverHandshakeSignature = calloc(1, 128);
+    ctx->serverHandshakeSignature = calloc(1, 512);
     ctx->serverHandshakeSignLen   = 0; 
 
     ctx->clientHandshakeKey    = calloc(1, TLS13_KEY_SIZE);
@@ -614,8 +614,11 @@ static void *__client_handshake_thread(void *arg)
             /* recieve server hello first */
             if (FD_ISSET(ctx->client_fd, &read_fds))      
             {
-                int rc = recvfrom(ctx->client_fd, temp, TLS13_SERVER_HELLO_MAX_LEN, 0, (struct sockaddr *)&server_addr, &addr_len);
-                printf("received data from server of length %d\n", rc);
+                int rc = recvfrom(ctx->client_fd, temp, TLS13_SERVER_HELLO_MAX_LEN, 0, (struct sockaddr *)&server_addr, &addr_size);
+                if(rc == -1)
+                    perror("reception failed");
+                else
+                    printf("received data from server of length %d\n", rc);
 
                 /* wait for the response to receive - Blocking call */
                 //rc = recv(ctx->client_fd, temp, sizeof(temp), 0);// NULL, 0);
@@ -627,7 +630,7 @@ static void *__client_handshake_thread(void *arg)
                     //assert(rc == serverHelloLen);
                     #ifndef DEBUG
                         printf("Received Server Hello Length is %d\n", serverHelloLen);
-                        for (int i= 0; i < 170; i++){
+                        for (int i= 0; i < serverHelloLen; i++){
                             printf("[%d] %x\n", i, serverHello_pkt[i]);
                         }
                         printf("\n");
@@ -654,8 +657,8 @@ static void *__client_handshake_thread(void *arg)
             /* recieve server wrapped record now */
             if (FD_ISSET(ctx->client_fd, &read_fds))      
             {
-                //int rc = recvfrom(ctx->client_fd, serverWrappedRec_pkt, TLS13_SERVER_WRAPPEDREC_MAX_LEN, 0, (struct sockaddr *)&server_addr, &addr_len);
-                int rc = recv(ctx->client_fd, serverWrappedRec_pkt, TLS13_SERVER_WRAPPEDREC_MAX_LEN, 0);
+                int rc = recvfrom(ctx->client_fd, temp, TLS13_SERVER_WRAPPEDREC_MAX_LEN, 0, (struct sockaddr *)&server_addr, &addr_size);
+                //int rc = recv(ctx->client_fd, serverWrappedRec_pkt, TLS13_SERVER_WRAPPEDREC_MAX_LEN, 0);
                 if(rc == -1)
                     perror("socket reception failed");
                 else
@@ -806,9 +809,13 @@ static void *__server_handshake_thread(void *arg)
         {
             //int rc = recv(ctx->client_fd, clientHello_pkt, TLS13_CLIENT_HELLO_MAX_LEN, 0);// (struct sockaddr *)&server_addr, &addr_len);
             int rc = recvfrom(ctx->client_fd, clientHello_pkt, TLS13_CLIENT_HELLO_MAX_LEN, 0, 
-                                    (struct sockaddr *)&client_addr, &addr_len);
+                                    (struct sockaddr *)&client_addr, &addr_size);
+            if(rc == -1)
+                perror("reception failed");
+            else
+               printf("Received Client Hello -> size (%d) \n", rc); 
 #ifdef DEBUG
-    printf("Received Client Hello\n");
+    //printf("Received Client Hello\n");
     for (int i= 0; i < 260; i++){
         printf("[%d] -> %x\n", i, clientHello_pkt[i]);
     }
@@ -842,7 +849,13 @@ static void *__server_handshake_thread(void *arg)
         printf("[%d] -> %x\n", i, serverHello_pkt[i]);
     }
     printf("\n");
+    ctx->serverCertVerifyLen = 256;
+    //ctx->serverHandshakeSignLen = 512;
+    memset(ctx->serverCertVerify, 0xCA, 256);
+    //memset(ctx->serverHandshakeSignature, 0xBF, 512);
+    printf("Server certificate Length is %d; cert signature length is %d; server handshake signature length is %d\n", ctx->serverCertLen, ctx->serverCertVerifyLen, ctx->serverHandshakeSignLen);
 #endif
+
     serverWrappedRecLen = tls13_prepareServerWrappedRecord(ctx->serverCert, ctx->serverCertLen, ctx->serverCertVerify, ctx->serverCertVerifyLen, \
                                         ctx->serverHandshakeSignature, ctx->serverHandshakeSignLen, ctx->serverCipherSuiteSupported, \
                                         ctx->signatureAlgoSupported, serverWrappedRec_pkt);

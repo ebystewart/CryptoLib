@@ -280,7 +280,9 @@ typedef struct {
    uint32_t     certLen : 24;
    uint8_t      cert[0];
    uint16_t     certExtLen;
+#if CERT_EXT_SUPPORTED
    uint16_t     certExtension[0];
+#endif
    uint8_t      recordType
 }tls13_cert_t;
 
