@@ -283,7 +283,6 @@ typedef struct {
 #if CERT_EXT_SUPPORTED
    uint16_t     certExtension[0];
 #endif
-   uint8_t      recordType
 }tls13_cert_t;
 
 typedef struct {
@@ -342,7 +341,7 @@ typedef struct {
 
 typedef struct {
    tls13_finished_t           finished;         /* server finished  */
-   //uint8_t                    recordType;       /* 0x16 (handshake record) */
+uint8_t                    recordType;       /* 0x16 (handshake record) */
 }tsl13_finishedRecordDataDecrypted_t;
 
 typedef struct {

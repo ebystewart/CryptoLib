@@ -850,9 +850,9 @@ static void *__server_handshake_thread(void *arg)
     }
     printf("\n");
     ctx->serverCertVerifyLen = 256;
-    //ctx->serverHandshakeSignLen = 512;
+    ctx->serverHandshakeSignLen = 48;
     memset(ctx->serverCertVerify, 0xCA, 256);
-    //memset(ctx->serverHandshakeSignature, 0xBF, 512);
+    memset(ctx->serverHandshakeSignature, 0xBF, 48);
     printf("Server certificate Length is %d; cert signature length is %d; server handshake signature length is %d\n", ctx->serverCertLen, ctx->serverCertVerifyLen, ctx->serverHandshakeSignLen);
 #endif
 
