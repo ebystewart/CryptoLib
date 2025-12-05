@@ -341,7 +341,7 @@ typedef struct {
 
 typedef struct {
    tls13_finished_t           finished;         /* server finished  */
-uint8_t                    recordType;       /* 0x16 (handshake record) */
+   uint8_t                    recordType;       /* 0x16 (handshake record) */
 }tsl13_finishedRecordDataDecrypted_t;
 
 typedef struct {
