@@ -554,6 +554,7 @@ static void *__client_handshake_thread(void *arg)
     size_t clientHelloLen = 0;
     size_t serverHelloLen = 0;
     size_t serverWrappedRecLen = 0;
+    size_t clientWrappedRecLen = 0;
     uint8_t addr_len;
     tls13_context_t *ctx = (tls13_context_t *)arg;
 
@@ -709,10 +710,16 @@ static void *__client_handshake_thread(void *arg)
     tls13_cipherSuite_e cs = tls13_getCipherSuite(ctx);
     /* Prepare the wrapped record (certificate, certificateVerify, finished)*/
     // need to handle if certificate and certverify also needs to be sent
-    tls13_prepareClientWrappedRecord(handshakeSign, handshakeSignLen, "hello", strlen("hello"), cs, clientFinish_pkt);
 #ifndef DEBUG
-    printf("Prepared client Wrapped Record Length is %d\n", rc);
-    for (int i = 0; i < 825; i++)
+    ctx->clientCertVerifyLen = 256;
+    ctx->clientHandshakeSignLen = 48;
+    memset(ctx->clientCertVerify, 0xCA, 256);
+    memset(ctx->clientHandshakeSignature, 0xFA, 48);
+#endif
+    clientWrappedRecLen = tls13_prepareClientWrappedRecord(ctx->clientHandshakeSignature, ctx->clientHandshakeSignLen, "hello", strlen("hello"), cs, clientFinish_pkt);
+#ifndef DEBUG
+    printf("Prepared client Wrapped Record Length is %d\n", clientWrappedRecLen);
+    for (int i = 0; i < clientWrappedRecLen; i++)
     {
         printf("[%d] %x\n", i, clientFinish_pkt[i]);
     }
@@ -732,9 +739,11 @@ static void *__client_handshake_thread(void *arg)
         /* handshake failed - terminate the thread */
         pthread_exit(0);
     }
-    send(ctx->client_fd, clientFinish_pkt, TLS13_CLIENT_FINISHED_LEN, 0);
-    ctx->handshakeCompleted = true;
-    ctx->handshakeExpired = false;
+    else{
+        send(ctx->client_fd, clientFinish_pkt, TLS13_CLIENT_FINISHED_LEN, 0);
+        ctx->handshakeCompleted = true;
+        ctx->handshakeExpired = false;
+    }
 
     free(clientHello_pkt);
     free(temp);
