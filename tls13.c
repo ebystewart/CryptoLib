@@ -1067,7 +1067,9 @@ void tls13_extractClientWrappedRecord(const uint8_t *tlsPkt, uint8_t *dVerify, u
     uint16_t verifLen = ((uint16_t)tlsPkt[ccspLen + 3] << 8 | tlsPkt[ccspLen + 4]) + TLS13_RECORD_HEADER_SIZE;
     uint16_t dataLen = ((uint16_t)tlsPkt[ccspLen + verifLen + 3] << 8 | tlsPkt[ccspLen + verifLen + 4]) + TLS13_RECORD_HEADER_SIZE;
 
+    tempLen = ccspLen + verifLen + dataLen;
     tls13_clientWrappedRecord_t *tmp = calloc(1, ccspLen + ccspLen + verifLen);
+    memcpy(tmp, tlsPkt, tempLen);
 
     if(tlsPkt[0] == TLS13_CHANGE_CIPHERSPEC_RECORD)
     {
