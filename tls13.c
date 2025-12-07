@@ -1049,8 +1049,8 @@ uint16_t tls13_prepareClientWrappedRecord(const uint8_t *dVerify, const uint16_t
             aDR->recordHeader.recordLen = tls13_htons(tempLen);
         }
         free(data);
-        tempLen = (appDataLen + TLS13_RECORD_HEADER_SIZE - TLS13_RECORD_AUTHTAG_LEN);
-        tls13_generate_authTag(aDR->encryptedData, tempLen, ((uint8_t *)&aDR->authTag[0] + appDataLen), TLS13_RECORD_AUTHTAG_LEN, cs);
+        tempLen += (TLS13_RECORD_HEADER_SIZE - TLS13_RECORD_AUTHTAG_LEN);
+        tls13_generate_authTag(aDR, tempLen, ((uint8_t *)&aDR->authTag[0] + appDataLen + 1), TLS13_RECORD_AUTHTAG_LEN, cs);
  
         len += (tempLen + TLS13_RECORD_AUTHTAG_LEN);
     }
@@ -1062,6 +1062,7 @@ uint16_t tls13_prepareClientWrappedRecord(const uint8_t *dVerify, const uint16_t
 void tls13_extractClientWrappedRecord(const uint8_t *tlsPkt, uint8_t *dVerify, uint16_t *dVerifyLen, uint8_t *appData, uint16_t *appDataLen, tls13_cipherSuite_e cs)
 {
     uint16_t authTagOffset = 0;
+    uint16_t tempLen = 0;
     uint16_t ccspLen = ((uint16_t)tlsPkt[3] << 8 | tlsPkt[4]) + TLS13_RECORD_HEADER_SIZE;
     uint16_t verifLen = ((uint16_t)tlsPkt[ccspLen + 3] << 8 | tlsPkt[ccspLen + 4]) + TLS13_RECORD_HEADER_SIZE;
     uint16_t dataLen = ((uint16_t)tlsPkt[ccspLen + verifLen + 3] << 8 | tlsPkt[ccspLen + verifLen + 4]) + TLS13_RECORD_HEADER_SIZE;
@@ -1070,50 +1071,61 @@ void tls13_extractClientWrappedRecord(const uint8_t *tlsPkt, uint8_t *dVerify, u
 
     if(tlsPkt[0] == TLS13_CHANGE_CIPHERSPEC_RECORD)
     {
-        tls13_changeCipherSpec_t *recvdChangeCipherSpec = &tmp->clientCCS;
+        tls13_changeCipherSpec_t *recvdChangeCipherSpec = (tls13_changeCipherSpec_t *)&tmp->clientCCS;
         assert(recvdChangeCipherSpec->recordHeader.recordType == TLS13_CHANGE_CIPHERSPEC_RECORD);
-        assert(recvdChangeCipherSpec->recordHeader.protoVersion == TLS12_PROTO_VERSION || recvdChangeCipherSpec->recordHeader.protoVersion == TLS13_PROTO_VERSION);    
+        assert(tls13_ntohs(recvdChangeCipherSpec->recordHeader.protoVersion) == TLS12_PROTO_VERSION || \
+               tls13_ntohs(recvdChangeCipherSpec->recordHeader.protoVersion) == TLS13_PROTO_VERSION);    
 
         /* Ignore the payload */
         assert(recvdChangeCipherSpec->payload == 1);
     }  
 
-    if(tlsPkt[6 + ccspLen] == TLS13_HST_FINISHED)
+    if(tlsPkt[ccspLen] == TLS13_APPDATA_RECORD)
     {
-        tls13_finishedRecord_t *recvdFinRecord = &tmp->finishedRecord + ccspLen;
+        tls13_finishedRecord_t *recvdFinRecord = (tls13_finishedRecord_t *)((uint8_t *)&tmp->finishedRecord + ccspLen);
         assert(recvdFinRecord->recordHeader.recordType == TLS13_APPDATA_RECORD);
-        assert(recvdFinRecord->recordHeader.protoVersion == TLS12_PROTO_VERSION || recvdFinRecord->recordHeader.protoVersion == TLS13_PROTO_VERSION);
+        assert(tls13_ntohs(recvdFinRecord->recordHeader.protoVersion) == TLS12_PROTO_VERSION || \
+               tls13_ntohs(recvdFinRecord->recordHeader.protoVersion) == TLS13_PROTO_VERSION);
         /* Verify the auth Tag */
-        authTagOffset = recvdFinRecord->recordHeader.recordLen - TLS13_RECORD_AUTHTAG_LEN;
-        assert(true == tls13_verify_authTag(recvdFinRecord->encryptedData, authTagOffset, 
-                                            (recvdFinRecord->authTag + authTagOffset), TLS13_RECORD_AUTHTAG_LEN, cs));  
+        authTagOffset = tls13_ntohs(recvdFinRecord->recordHeader.recordLen) - TLS13_RECORD_AUTHTAG_LEN;
+        assert(true == tls13_verify_authTag(recvdFinRecord, authTagOffset, 
+                                            ((uint8_t *)&recvdFinRecord->authTag[0] + authTagOffset), TLS13_RECORD_AUTHTAG_LEN, cs));  
         
         //tsl13_finishedRecordDataDecrypted_t *verf = (tsl13_finishedRecordDataDecrypted_t *)&recvdFinRecord->encryptedData;
-        tsl13_finishedClientRecordDataDecrypted_t *verf = calloc(1, verifLen);
-        tls13_decrypt((uint8_t *)recvdFinRecord->encryptedData, verifLen - TLS13_RECORD_HEADER_SIZE, (uint8_t *)verf, cs);
+        tempLen = (verifLen - TLS13_RECORD_AUTHTAG_LEN - TLS13_RECORD_HEADER_SIZE);
+        tsl13_finishedClientRecordDataDecrypted_t *verf = calloc(1, tempLen);
+        {
+            tls13_decrypt((uint8_t *)recvdFinRecord->encryptedData, tempLen, (uint8_t *)verf, cs);
+        }
         assert(verf->recordType == TLS13_HANDSHAKE_RECORD);
         assert(verf->finished.handshakeHdr.handshakeType == TLS13_HST_FINISHED);
 
         if(dVerify != NULL){
-            memcpy(dVerify, verf->finished.verifyData, verifLen - TLS13_RECORD_HEADER_SIZE); // decrypt before copying
-            *dVerifyLen = verifLen - TLS13_RECORD_HEADER_SIZE;
+            memcpy(dVerify, verf->finished.verifyData, (tempLen -1)); // decrypt before copying
+            dVerifyLen = (tempLen - 1);
         }
         free(verf);
     }
     if(tlsPkt[ccspLen + verifLen] == TLS13_APPDATA_RECORD)
     {
-        tls13_appDataRecord_t *recvdAppData = (tls13_appDataRecord_t *)(&tmp->appDataRecord + ccspLen + verifLen);       
+        tls13_appDataRecord_t *recvdAppData = (tls13_appDataRecord_t *)((uint8_t *)&tmp->appDataRecord + ccspLen + verifLen);       
         assert(recvdAppData->recordHeader.recordType == TLS13_APPDATA_RECORD);
-        assert(recvdAppData->recordHeader.protoVersion == TLS12_PROTO_VERSION || recvdAppData->recordHeader.protoVersion == TLS13_PROTO_VERSION);
+        assert(tls13_ntohs(recvdAppData->recordHeader.protoVersion) == TLS12_PROTO_VERSION || \
+               tls13_ntohs(recvdAppData->recordHeader.protoVersion) == TLS13_PROTO_VERSION);
         /* Verify the auth Tag */
-        authTagOffset = recvdAppData->recordHeader.recordLen - TLS13_RECORD_AUTHTAG_LEN;
-        assert(true == tls13_verify_authTag(recvdAppData->encryptedData, authTagOffset, 
-                                            (recvdAppData->authTag + authTagOffset), TLS13_RECORD_AUTHTAG_LEN, cs)); 
-        if(dVerify != NULL){
-            //memcpy(appData, recvdAppData->encryptedData, verifLen - TLS13_RECORD_HEADER_SIZE); // need to decrypt data before copying
-            tls13_decrypt(recvdAppData->encryptedData, verifLen - TLS13_RECORD_HEADER_SIZE, appData, cs);
-            *appDataLen = dataLen - TLS13_RECORD_HEADER_SIZE;
+        authTagOffset = tls13_ntohs(recvdAppData->recordHeader.recordLen) - TLS13_RECORD_AUTHTAG_LEN;
+        assert(true == tls13_verify_authTag(recvdAppData, authTagOffset, 
+                                            ((uint8_t *)&recvdAppData->authTag[0] + authTagOffset), TLS13_RECORD_AUTHTAG_LEN, cs)); 
+
+        tempLen = (dataLen - TLS13_RECORD_AUTHTAG_LEN - TLS13_RECORD_HEADER_SIZE);
+        uint8_t *appDaTa = calloc(1, tempLen);
+        tls13_decrypt(recvdAppData->encryptedData, tempLen, appDaTa, cs);
+        if(appData != NULL){
+            
+            memcpy(appData, appDaTa, (tempLen - 1)); // need to decrypt data before copying
+            appDataLen = tempLen - 1;
         }
+        free(appDaTa);
     }      
     free(tmp);
 }

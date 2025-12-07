@@ -727,15 +727,18 @@ static void *__client_handshake_thread(void *arg)
 #endif
     /* check if the handshake is successful */
     // actually server handshake signature is calculated and compared with the received one
-    if (0 != memcmp(ctx->clientHandshakeSignature, ctx->serverHandshakeSignature, ctx->clientHandshakeSignLen)){
+    if (0 != memcmp(ctx->clientHandshakeSignature, ctx->serverHandshakeSignature, ctx->clientHandshakeSignLen) && (ctx->serverHandshakeSignLen != 0)){
         tls13_alert_t alert;
+        size_t alertLen;
         uint8_t *alert_pkt = calloc(1, TLS13_ALERT_LEN);
-        alert.level = TLS13_ALERT_FATAL;
-        alert.description = TLS13_HANDSHAKE_FAILURE;
-        tls13_prepareAlertRecord(&alert, cs, alert_pkt);
-        send(ctx->client_fd, alert_pkt, TLS13_ALERT_LEN, 0);
-        ctx->handshakeExpired = false;
-        
+        {
+            alert.level = TLS13_ALERT_FATAL;
+            alert.description = TLS13_HANDSHAKE_FAILURE;
+            alertLen = tls13_prepareAlertRecord(&alert, cs, alert_pkt);
+            send(ctx->client_fd, alert_pkt, alertLen, 0);
+            ctx->handshakeExpired = true;
+        }
+        free(alert_pkt);
         /* handshake failed - terminate the thread */
         pthread_exit(0);
     }
