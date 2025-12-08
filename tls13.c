@@ -1063,12 +1063,13 @@ void tls13_extractClientWrappedRecord(const uint8_t *tlsPkt, uint8_t *dVerify, u
 {
     uint16_t authTagOffset = 0;
     uint16_t tempLen = 0;
+    uint16_t offset = 0;
     uint16_t ccspLen = ((uint16_t)tlsPkt[3] << 8 | tlsPkt[4]) + TLS13_RECORD_HEADER_SIZE;
     uint16_t verifLen = ((uint16_t)tlsPkt[ccspLen + 3] << 8 | tlsPkt[ccspLen + 4]) + TLS13_RECORD_HEADER_SIZE;
     uint16_t dataLen = ((uint16_t)tlsPkt[ccspLen + verifLen + 3] << 8 | tlsPkt[ccspLen + verifLen + 4]) + TLS13_RECORD_HEADER_SIZE;
 
     tempLen = ccspLen + verifLen + dataLen;
-    tls13_clientWrappedRecord_t *tmp = calloc(1, ccspLen + ccspLen + verifLen);
+    tls13_clientWrappedRecord_t *tmp = calloc(1, tempLen);
     memcpy(tmp, tlsPkt, tempLen);
 
     if(tlsPkt[0] == TLS13_CHANGE_CIPHERSPEC_RECORD)
@@ -1084,7 +1085,7 @@ void tls13_extractClientWrappedRecord(const uint8_t *tlsPkt, uint8_t *dVerify, u
 
     if(tlsPkt[ccspLen] == TLS13_APPDATA_RECORD)
     {
-        tls13_finishedRecord_t *recvdFinRecord = (tls13_finishedRecord_t *)((uint8_t *)&tmp->finishedRecord + ccspLen);
+        tls13_finishedRecord_t *recvdFinRecord = (tls13_finishedRecord_t *)((uint8_t *)&tmp->finishedRecord);
         assert(recvdFinRecord->recordHeader.recordType == TLS13_APPDATA_RECORD);
         assert(tls13_ntohs(recvdFinRecord->recordHeader.protoVersion) == TLS12_PROTO_VERSION || \
                tls13_ntohs(recvdFinRecord->recordHeader.protoVersion) == TLS13_PROTO_VERSION);
@@ -1097,20 +1098,21 @@ void tls13_extractClientWrappedRecord(const uint8_t *tlsPkt, uint8_t *dVerify, u
         tempLen = (verifLen - TLS13_RECORD_AUTHTAG_LEN - TLS13_RECORD_HEADER_SIZE);
         tsl13_finishedClientRecordDataDecrypted_t *verf = calloc(1, tempLen);
         {
-            tls13_decrypt((uint8_t *)recvdFinRecord->encryptedData, tempLen, (uint8_t *)verf, cs);
+            tls13_decrypt((uint8_t *)&recvdFinRecord->encryptedData[0], tempLen, (uint8_t *)verf, cs);
         }
-        assert(verf->recordType == TLS13_HANDSHAKE_RECORD);
+        offset += (tempLen - TLS13_HANDSHAKE_HEADER_SIZE - 1);
+        assert(REACH_ELEMENT(verf, tsl13_finishedClientRecordDataDecrypted_t, recordType, offset, uint8_t) == TLS13_HANDSHAKE_RECORD);
         assert(verf->finished.handshakeHdr.handshakeType == TLS13_HST_FINISHED);
 
         if(dVerify != NULL){
-            memcpy(dVerify, verf->finished.verifyData, (tempLen -1)); // decrypt before copying
-            dVerifyLen = (tempLen - 1);
+            memcpy(dVerify, (uint8_t *)&verf->finished.verifyData[0], offset); // decrypt before copying
+            dVerifyLen = offset;
         }
         free(verf);
     }
     if(tlsPkt[ccspLen + verifLen] == TLS13_APPDATA_RECORD)
     {
-        tls13_appDataRecord_t *recvdAppData = (tls13_appDataRecord_t *)((uint8_t *)&tmp->appDataRecord + ccspLen + verifLen);       
+        tls13_appDataRecord_t *recvdAppData = (tls13_appDataRecord_t *)((uint8_t *)&tmp->appDataRecord + tempLen);       
         assert(recvdAppData->recordHeader.recordType == TLS13_APPDATA_RECORD);
         assert(tls13_ntohs(recvdAppData->recordHeader.protoVersion) == TLS12_PROTO_VERSION || \
                tls13_ntohs(recvdAppData->recordHeader.protoVersion) == TLS13_PROTO_VERSION);

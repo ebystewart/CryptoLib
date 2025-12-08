@@ -582,7 +582,7 @@ static void *__client_handshake_thread(void *arg)
     uint8_t *temp                 = calloc(1, TLS13_SERVER_WRAPPEDREC_MAX_LEN);
     uint8_t *serverHello_pkt      = calloc(1, TLS13_SERVER_HELLO_MAX_LEN); // If pkt is more than max size, we may receive as 2 pkts; need to handle this
     uint8_t *serverWrappedRec_pkt = calloc(1, TLS13_SERVER_WRAPPEDREC_MAX_LEN);
-    uint8_t *clientFinish_pkt     = calloc(1, TLS13_CLIENT_FINISHED_LEN);
+    uint8_t *clientFinish_pkt     = calloc(1, TLS13_CLIENT_FINISHED_MAX_LEN);
 
     /* Prepare the client hello pkt */
     tls13_prepareClientHello(ctx->client_random, ctx->client_sessionId, ctx->server_hostname, ctx->client_publicKey, ctx->keyLen, clientHello_pkt);
@@ -743,7 +743,7 @@ static void *__client_handshake_thread(void *arg)
         pthread_exit(0);
     }
     else{
-        send(ctx->client_fd, clientFinish_pkt, TLS13_CLIENT_FINISHED_LEN, 0);
+        send(ctx->client_fd, clientFinish_pkt, clientWrappedRecLen, 0);
         ctx->handshakeCompleted = true;
         ctx->handshakeExpired = false;
     }
@@ -770,6 +770,7 @@ static void *__server_handshake_thread(void *arg)
     size_t clientHelloLen  = 0;
     size_t serverHelloLen = 0;
     size_t serverWrappedRecLen = 0;
+    size_t clientFinishRecLen = 0;
 
     struct sockaddr_in client_addr;
     socklen_t addr_size = sizeof(client_addr);
@@ -793,7 +794,7 @@ static void *__server_handshake_thread(void *arg)
     uint8_t *clientHello_pkt = calloc(1, TLS13_CLIENT_HELLO_MAX_LEN);
     uint8_t *serverHello_pkt = calloc(1, TLS13_SERVER_HELLO_MAX_LEN); // If pkt is more than max size, we may receive as 2 pkts; need to handle this
     uint8_t *serverWrappedRec_pkt = calloc(1, TLS13_SERVER_WRAPPEDREC_MAX_LEN);
-    uint8_t *clientFinish_pkt     = calloc(1, TLS13_CLIENT_FINISHED_LEN);
+    uint8_t *clientFinish_pkt     = calloc(1, TLS13_CLIENT_FINISHED_MAX_LEN);
 
     /* Blocking call to accept connection to server's designated socket */
     printf("waiting to accept connections ....\n");
@@ -890,11 +891,11 @@ static void *__server_handshake_thread(void *arg)
         if (FD_ISSET(ctx->client_fd, &read_fds))      
         {
             //int rc = recv(ctx->client_fd, clientHello_pkt, TLS13_CLIENT_HELLO_MAX_LEN, 0);// (struct sockaddr *)&server_addr, &addr_len);
-            int rc = recvfrom(ctx->client_fd, clientFinish_pkt, TLS13_CLIENT_FINISHED_LEN, 0, 
+           clientFinishRecLen = recvfrom(ctx->client_fd, clientFinish_pkt, TLS13_CLIENT_FINISHED_MAX_LEN, 0, 
                                     (struct sockaddr *)&client_addr, &addr_len);
-#ifdef DEBUG
-    printf("Received Client Finish\n");
-    for (int i= 0; i < 260; i++){
+#ifndef DEBUG
+    printf("Received Client Finish - size (%d)\n", clientFinishRecLen);
+    for (int i= 0; i < clientFinishRecLen; i++){
         printf("[%d] -> %x\n", i, clientFinish_pkt[i]);
     }
     printf("\n");
