@@ -176,5 +176,4 @@ void sha3_compute_hash(uint8_t *message, uint64_t messageLen, sha3_type_e sha_ty
         }
         remainingLen -= r_bytes;
     }
-
 }

@@ -518,20 +518,47 @@ static size_t tls13_getWrappedRecPktLength(uint8_t *tls_pkt){
 static void tls13_computeHandshakeKeys(tls13_context_t *ctx, const uint8_t *clientHello_pkt, const uint16_t clientHelloLen, \
                                       const uint8_t *serverHello_pkt, const uint16_t serverHelloLen)
 {
-    if(ctx->role == TLS13_CLIENT){
+    size_t helloLen = 0;
+    if(!clientHello_pkt && !serverHello_pkt){
+        helloLen = clientHelloLen + serverHelloLen - TLS13_RECORD_HEADER_SIZE - TLS13_RECORD_HEADER_SIZE;
+        uint8_t *message = calloc(1, helloLen);
+        memcpy(message, (clientHello_pkt + TLS13_RECORD_HEADER_SIZE), (clientHelloLen - TLS13_RECORD_HEADER_SIZE));
+        memcpy((message + clientHelloLen), (serverHello_pkt + TLS13_RECORD_HEADER_SIZE), (serverHelloLen - TLS13_RECORD_HEADER_SIZE));
+
         if(ctx->serverCipherSuiteSupported == TLS13_AES_256_GCM_SHA384){
 
-            uint8_t *message = calloc(1, clientHelloLen + serverHelloLen);
             uint8_t *digest = calloc(1, 384);
-            memcpy(message, clientHello_pkt, clientHelloLen);
-            memcpy(message + (clientHelloLen - 1), serverHello_pkt, serverHelloLen);
-            sha3_compute_hash(message, (clientHelloLen + serverHelloLen), SHA3_384, digest);
-
+            sha3_compute_hash(message, helloLen, SHA3_384, digest);
+            #ifndef DEBUG
+            printf("The sha-384 hash of server and client hello excluding the record header is:\n");
+            for(int i=0; i < helloLen; i++){
+                printf("[%d]: %x\n", i, digest[i]);
+            }
+            printf("\n");
+            #endif
             /* logic to be implemented */
 
-            free(message);
             free(digest);
         }
+        else if(ctx->serverCipherSuiteSupported == TLS13_AES_128_GCM_SHA256 || ctx->serverCipherSuiteSupported == TLS13_CHACHA20_POLY1305_SHA256){
+            uint8_t *digest = calloc(1, 256);
+            sha256_compute_hash(message, helloLen, digest);
+            #ifndef DEBUG
+            printf("The sha-256 hash of server and client hello excluding the record header is:\n");
+            for(int i=0; i < helloLen; i++){
+                printf("[%d]: %x\n", i, digest[i]);
+            }
+            printf("\n");
+            #endif
+            /* logic to be implemented */
+            
+            free(digest);
+        }
+        else{
+            free(message);
+            assert(0);
+        }
+        free(message);
     }
 }
 
@@ -755,7 +782,7 @@ static void *__client_handshake_thread(void *arg)
     free(clientFinish_pkt);
     free(handshakeSign);
 
-    /* This thread should terminate when the handshake is complete */
+    /* This thread should terminated when the handshake is complete */
     pthread_exit(0);
 }
 
