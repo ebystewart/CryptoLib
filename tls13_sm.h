@@ -51,7 +51,10 @@ typedef struct{
     uint16_t         keyType;
     uint16_t         keyLen;
     uint8_t          *client_publicKey;
+    uint8_t          *client_privateKey;
     uint8_t          *server_publicKey;
+    uint8_t          *server_privateKey;
+    uint8_t          *sharedSecret;  
     tls13_capability_t *clientCapability;
     uint16_t           clientCapabilityLen;
     tls13_serverExtensions_t *serverExtension;

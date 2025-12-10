@@ -207,6 +207,17 @@ bool ecc_validate_Secret(const ecc_point_t *exchangedData, const ecc_keypair_t *
     return retVal;
 }
 
+
+void ecc_extract_secret(const uint8_t *dIn1, uint8_t *dIn2, uint32_t dInLen, uint32_t a_param, uint8_t *dOut)
+{
+    ecc_point_t dKeyPair;
+    dKeyPair.x = dIn1;
+    dKeyPair.xLen = dInLen;
+    dKeyPair.y = NULL;
+    dKeyPair.yLen = 0;
+    point_multiplication(&dKeyPair, dIn2, dInLen, &a_param, dOut);
+}
+
 void ecc_encrypt(const uint8_t *dIn, const uint8_t *key, uint8_t *dOut)
 {
 

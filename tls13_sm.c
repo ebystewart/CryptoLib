@@ -328,15 +328,18 @@ static tls13_init_ctx(tls13_context_t *ctx)
         generate_random(ctx->client_sessionId, TLS13_SESSION_ID_LEN);
         //ctx->server_hostname          = calloc(1, 64); // tentative size
         //ctx->server_hostname_len      = 0;
-        ctx->server_publicKey         = calloc(1, TLS13_RANDOM_LEN);
     }
     else if (ctx->role == TLS13_SERVER){
         generate_random(ctx->server_random, TLS13_RANDOM_LEN);
         generate_random(ctx->server_sessionId, TLS13_SESSION_ID_LEN);
         //ctx->server_hostname          = NULL;//calloc(1, 64); // actual hostname shoudl come from app
         ctx->server_hostname_len      = 0;
-        ctx->client_publicKey         = calloc(1, TLS13_RANDOM_LEN);
     }
+    ctx->server_publicKey         = calloc(1, TLS13_RANDOM_LEN);
+    ctx->server_privateKey        = calloc(1, TLS13_RANDOM_LEN);
+    ctx->client_publicKey         = calloc(1, TLS13_RANDOM_LEN);
+    ctx->client_privateKey        = calloc(1, TLS13_RANDOM_LEN);
+    ctx->sharedSecret             = calloc(1, TLS13_RANDOM_LEN);
 
     ctx->clientCapability         = calloc(1, sizeof(clientCapability)); // need to revisit the size
     ctx->clientCapabilityLen      = sizeof(clientCapability);
@@ -536,8 +539,14 @@ static void tls13_computeHandshakeKeys(tls13_context_t *ctx, const uint8_t *clie
             }
             printf("\n");
             #endif
-            /* logic to be implemented */
-
+            /* extract the shared secret */
+            if(ctx->role == TLS13_CLIENT){
+                ecc_extract_secret(ctx->server_publicKey, ctx->client_privateKey, ctx->keyLen, 486662, ctx->sharedSecret);
+            }
+            else if (ctx->role == TLS13_SERVER){
+                ecc_extract_secret(ctx->client_publicKey, ctx->server_privateKey, ctx->keyLen, 486662, ctx->sharedSecret);
+            }
+            /* Employ a series of key Derivation actions */
             free(digest);
         }
         else if(ctx->serverCipherSuiteSupported == TLS13_AES_128_GCM_SHA256 || ctx->serverCipherSuiteSupported == TLS13_CHACHA20_POLY1305_SHA256){

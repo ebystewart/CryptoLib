@@ -46,4 +46,6 @@ void ecc_encrypt(const uint8_t *dIn, const uint8_t *key, uint8_t *dOut);
 
 void ecc_decrypt(const uint8_t *dIn, const uint8_t *key, uint8_t *dOut);
 
+void ecc_extract_secret(const uint8_t *dIn1, uint8_t *dIn2, uint32_t dInLen, uint32_t a_param, uint8_t *dOut);
+
 #endif
