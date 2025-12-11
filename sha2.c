@@ -577,3 +577,15 @@ void sha384_compute_hash(uint8_t *message, uint64_t messageLen, uint8_t *digest)
 {
     sha512t_compute_hash(message, messageLen, SHA_384, digest);
 }
+
+void sha2_compute_hash(uint8_t *message, uint64_t messageLen, sha2_type_e sha_type, uint8_t *digest)
+{
+    if(sha_type == SHA_384 || sha_type == SHA_512 || sha_type == SHA_512_224 || sha_type == SHA_512_256)
+        sha512t_compute_hash(message, messageLen, sha_type, digest);
+    else if(sha_type == SHA_224)
+        sha224_compute_hash(message, messageLen, digest);
+    else if(sha_type == SHA_256)
+        sha256_compute_hash(message, messageLen, digest);
+    else
+        assert(0);
+}
