@@ -18,6 +18,7 @@
 #include "rand.h"
 #include "ecc.h"
 #include "sha.h"
+#include "hmac.h"
 
 typedef struct tls13_ctxDatabase_ tls13_ctxDatabase_t;
 
@@ -522,6 +523,7 @@ static void tls13_computeHandshakeKeys(tls13_context_t *ctx, const uint8_t *clie
                                       const uint8_t *serverHello_pkt, const uint16_t serverHelloLen)
 {
     size_t helloLen = 0;
+    size_t shaLen = 0;
     if(!clientHello_pkt && !serverHello_pkt){
         helloLen = clientHelloLen + serverHelloLen - TLS13_RECORD_HEADER_SIZE - TLS13_RECORD_HEADER_SIZE;
         uint8_t *message = calloc(1, helloLen);
@@ -529,13 +531,13 @@ static void tls13_computeHandshakeKeys(tls13_context_t *ctx, const uint8_t *clie
         memcpy((message + clientHelloLen), (serverHello_pkt + TLS13_RECORD_HEADER_SIZE), (serverHelloLen - TLS13_RECORD_HEADER_SIZE));
 
         if(ctx->serverCipherSuiteSupported == TLS13_AES_256_GCM_SHA384){
-
-            uint8_t *digest = calloc(1, 384);
-            sha3_compute_hash(message, helloLen, SHA3_384, digest);
+            shaLen = 48;
+            uint8_t *helloHash = calloc(1, shaLen);
+            sha3_compute_hash(message, helloLen, SHA3_384, helloHash);
             #ifndef DEBUG
             printf("The sha-384 hash of server and client hello excluding the record header is:\n");
             for(int i=0; i < helloLen; i++){
-                printf("[%d]: %x\n", i, digest[i]);
+                printf("[%d]: %x\n", i, helloHash[i]);
             }
             printf("\n");
             #endif
@@ -546,10 +548,42 @@ static void tls13_computeHandshakeKeys(tls13_context_t *ctx, const uint8_t *clie
             else if (ctx->role == TLS13_SERVER){
                 ecc_extract_secret(ctx->client_publicKey, ctx->server_privateKey, ctx->keyLen, 486662, ctx->sharedSecret);
             }
+            uint8_t *early_secret      = calloc(1, shaLen);
+            uint8_t *empty_hash        = calloc(1, shaLen);
+            uint8_t *empty_key         = calloc(1, ctx->keyLen);
+            uint8_t *derived_secret    = calloc(1, shaLen);
+            uint8_t *handshake_secret  = calloc(1, shaLen);
+            uint8_t *client_secret     = calloc(1, shaLen);
+            uint8_t *server_secret     = calloc(1, shaLen);
+            uint8_t salt = 0x00;
+
             /* Employ a series of key Derivation actions */
-            free(digest);
+            hmac_hkdf_extract(&salt, 1, empty_key, ctx->keyLen, early_secret, shaLen);
+            sha3_compute_hash("", sizeof(""), SHA3_384, empty_hash);
+            hmac_hkdf_expand_label(early_secret, shaLen, "derived", empty_hash, shaLen, derived_secret, shaLen);
+            hmac_hkdf_extract(derived_secret, shaLen, ctx->sharedSecret, shaLen, handshake_secret, shaLen);
+            hmac_hkdf_expand_label(handshake_secret, shaLen, "c hs traffic", helloHash, shaLen, client_secret, shaLen);
+            hmac_hkdf_expand_label(handshake_secret, shaLen, "s hs traffic", helloHash, shaLen, server_secret, shaLen);
+            hmac_hkdf_expand_label(client_secret, shaLen, "key", "", strlen(""), ctx->clientHandshakeKey, ctx->keyLen);
+            ctx->clientHandshakeKeyLen = ctx->keyLen;
+            hmac_hkdf_expand_label(server_secret, shaLen, "key", "", strlen(""), ctx->serverHandshakeKey, ctx->keyLen);
+            ctx->serverHandshakeKeyLen = ctx->keyLen;
+            hmac_hkdf_expand_label(client_secret, shaLen, "iv", "", strlen(""), ctx->clientHandshakeIV, 12);
+            ctx->clientHandshakeIVLen = 12;
+            hmac_hkdf_expand_label(server_secret, shaLen, "iv", "", strlen(""), ctx->serverHandshakeIV, 12);
+            ctx->serverHandshakeIVLen = 12;
+
+            free(helloHash);
+            free(early_secret); 
+            free(empty_hash);
+            free(empty_key);
+            free(derived_secret);
+            free(handshake_secret);
+            free(client_secret);
+            free(server_secret);
         }
         else if(ctx->serverCipherSuiteSupported == TLS13_AES_128_GCM_SHA256 || ctx->serverCipherSuiteSupported == TLS13_CHACHA20_POLY1305_SHA256){
+            shaLen = 32;
             uint8_t *digest = calloc(1, 256);
             sha256_compute_hash(message, helloLen, digest);
             #ifndef DEBUG

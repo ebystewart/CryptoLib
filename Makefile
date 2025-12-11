@@ -7,6 +7,7 @@ OBJS= aes.o	\
 	test.o \
 	sha2.o \
 	sha3.o \
+	hmac.o	\
 	math.o \
 	ecc.o 	\
 	ecdh.o 	\
@@ -38,6 +39,9 @@ sha2.o:sha2.c
 
 sha3.o:sha3.c
 	${CC} ${CFLAGS} -c sha3.c -I . -o sha3.o
+
+hmac.o:hmac.c
+	${CC} ${CFLAGS} -c hmac.c -I . -o hmac.o
 
 math.o:math.c
 	${CC} ${CFLAGS} -c math.c -I . -o math.o
