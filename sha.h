@@ -4,13 +4,13 @@
 #include <stdint.h>
 
 typedef enum {
-   SHA_1   = 16,
+   //SHA_1   = 16,
    SHA_224 = 28,
    SHA_256 = 32,
    SHA_384 = 48,
    SHA_512 = 64,
-   SHA_512_224 = 6428,
-   SHA_512_256 = 6432
+   SHA_512_224 = 0x401C,
+   SHA_512_256 = 0x4020
 }sha2_type_e; 
 
 typedef enum {
@@ -32,6 +32,8 @@ void sha384_compute_hash(uint8_t *message, uint64_t messageLen, uint8_t *digest)
 void sha512_compute_hash(uint8_t *message, uint64_t messageLen, uint8_t *digest);
 
 void sha512t_compute_hash(uint8_t *message, uint64_t messageLen, sha2_type_e type, uint8_t *digest);
+
+void sha2_compute_hash(uint8_t *message, uint64_t messageLen, sha2_type_e sha_type, uint8_t *digest);
 
 /* SHA3 
    Ref: https://en.wikipedia.org/wiki/SHA-3

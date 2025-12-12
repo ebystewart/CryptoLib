@@ -84,7 +84,7 @@ void hmac_generate(const uint8_t *message, size_t msgLen, const uint8_t *key, si
         sha3_compute_hash(outerHashIn, (macLen + macLen), (sha3_type_e)macLen, outerHashOut);
     }
     memcpy(digest, outerHashOut, macLen);
-    digestLen = macLen;
+    *digestLen = macLen;
 }
 
 void hmac_hkdf_extract(const uint8_t *salt, uint32_t saltLen, const uint8_t *keyIn, uint32_t keyInLen, uint8_t *keyOut, uint32_t *keyOutLen)
