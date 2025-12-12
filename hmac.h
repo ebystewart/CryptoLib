@@ -5,7 +5,7 @@
 #include <stdlib.h>
 
 typedef enum {
-    HMAC_SHA1_1    = 0x0110,
+    //HMAC_SHA1_1    = 0x0110,
     HMAC_SHA2_224  = 0x021C,
     HMAC_SHA2_256  = 0x0220,
     HMAC_SHA2_384  = 0x0230,

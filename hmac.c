@@ -53,8 +53,12 @@ void hmac_generate(const uint8_t *message, size_t msgLen, const uint8_t *key, si
         if(macType == 0x02){
             sha2_compute_hash(key, keyLen, (sha2_type_e)macLen, tmpKey);
         }
-        else if (macType == 0x03 || macType == 0x33){
+        else if (macType == 0x03){
             sha3_compute_hash(key, keyLen, (sha3_type_e)macLen, tmpKey);
+        }
+        else if(macType == 0x33)
+        {
+            sha3_compute_hash(key, keyLen, (sha3_type_e)type, tmpKey);
         }
     }
     else{
@@ -85,6 +89,13 @@ void hmac_generate(const uint8_t *message, size_t msgLen, const uint8_t *key, si
     }
     memcpy(digest, outerHashOut, macLen);
     *digestLen = macLen;
+    /* Free allocated memories */
+    free(tmpKey);
+    free(tmpMsg);
+    free(innerHashIn);
+    free(innerHashOut);
+    free(outerHashIn);
+    free(outerHashOut);
 }
 
 void hmac_hkdf_extract(const uint8_t *salt, uint32_t saltLen, const uint8_t *keyIn, uint32_t keyInLen, uint8_t *keyOut, uint32_t *keyOutLen)
