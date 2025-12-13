@@ -32,60 +32,82 @@ void hmac_generate(const uint8_t *message, size_t msgLen, const uint8_t *key, si
     /* for HMAC, the key length should be greater than 128 bits */
     assert(keyLen >= 16);
     uint8_t idx = 0;
+    uint8_t diff = 0;
     uint8_t macLen = (uint8_t)type;
-    uint8_t macType = (uint8_t)(type >> 8);
-    uint8_t *tmpKey = calloc(1, macLen);
+    uint8_t hashClass = (uint8_t)(type >> 8);
+    uint8_t tmpKeyLen = 0;
+
+    if(hashClass == 0x02 && macLen <= 32){
+        tmpKeyLen = 64;
+    }
+    else if (hashClass == 0x02 && macLen > 32){
+        tmpKeyLen = 128;
+    }
+    else if (hashClass == 0x03 || hashClass == 0x33){
+        if (macLen == 28)
+            tmpKeyLen = 144;
+        if (macLen == 32)
+            tmpKeyLen = 136;
+        if (macLen == 48)
+            tmpKeyLen = 104;
+        if (macLen == 64)
+            tmpKeyLen = 72;                        
+    }
+
+    uint8_t *tmpKey = calloc(1, tmpKeyLen);
     uint8_t *tmpMsg = calloc(1, msgLen);
-    uint8_t *innerHashIn  = calloc(1, (macLen + msgLen));
+    uint8_t *innerHashIn  = calloc(1, (tmpKeyLen + msgLen));
     uint8_t *innerHashOut = calloc(1, macLen);
-    uint8_t *outerHashIn = calloc(1, (macLen + macLen));
+    uint8_t *outerHashIn  = calloc(1, (tmpKeyLen + macLen));
     uint8_t *outerHashOut = calloc(1, macLen);
 
-    if(keyLen < macLen)
+    if(keyLen < tmpKeyLen)
     {
-        uint8_t diff = macLen - keyLen;
+        diff = tmpKeyLen - keyLen;
         memcpy(tmpKey, key, keyLen);
         /* Pad it with zeros at the end to match the block size */
         memset((tmpKey + keyLen), 0, diff);
     }
     /* Need to revisit */
-    else if(keyLen > macLen){
-        if(macType == 0x02){
+    else if(keyLen > tmpKeyLen){
+        diff = tmpKeyLen - macLen;
+        if(hashClass == 0x02){
             sha2_compute_hash(key, keyLen, (sha2_type_e)macLen, tmpKey);
         }
-        else if (macType == 0x03){
+        else if (hashClass == 0x03){
             sha3_compute_hash(key, keyLen, (sha3_type_e)macLen, tmpKey);
         }
-        else if(macType == 0x33)
+        else if(hashClass == 0x33)
         {
             sha3_compute_hash(key, keyLen, (sha3_type_e)type, tmpKey);
         }
+        memset((tmpKey + macLen), 0, diff);
     }
     else{
         memcpy(tmpKey, key, keyLen);
     }
     /* Inner Hash Calculation */
-    for(idx = 0; idx < macLen; idx++){
+    for(idx = 0; idx < tmpKeyLen; idx++){
         innerHashIn[idx] = tmpKey[idx] ^ INNER_PAD;
     }
-    memcpy((innerHashIn + macLen), message, msgLen);
-    if(macType == 0x02){
-        sha2_compute_hash(innerHashIn, (macLen + msgLen), (sha2_type_e)macLen, innerHashOut);
+    memcpy((innerHashIn + tmpKeyLen), message, msgLen);
+    if(hashClass == 0x02){
+        sha2_compute_hash(innerHashIn, (tmpKeyLen + msgLen), (sha2_type_e)macLen, innerHashOut);
     }
-    else if (macType == 0x03 || macType == 0x33){
-        sha3_compute_hash(innerHashIn, (macLen + msgLen), (sha3_type_e)macLen, innerHashOut);
+    else if (hashClass == 0x03 || hashClass == 0x33){
+        sha3_compute_hash(innerHashIn, (tmpKeyLen + msgLen), (sha3_type_e)macLen, innerHashOut);
     }
 
     /* Outer Hash Calculation (Final MAC)*/
-    for(idx = 0; idx < macLen; idx++){
+    for(idx = 0; idx < tmpKeyLen; idx++){
         outerHashIn[idx] = tmpKey[idx] ^ OUTER_PAD;
     }
-    memcpy((outerHashIn + macLen), innerHashOut, macLen);
-    if(macType == 0x02){
-        sha2_compute_hash(outerHashIn, (macLen + macLen), (sha2_type_e)macLen, outerHashOut);
+    memcpy((outerHashIn + tmpKeyLen), innerHashOut, macLen);
+    if(hashClass == 0x02){
+        sha2_compute_hash(outerHashIn, (tmpKeyLen + macLen), (sha2_type_e)macLen, outerHashOut);
     }
-    else if (macType == 0x03 || macType == 0x33){
-        sha3_compute_hash(outerHashIn, (macLen + macLen), (sha3_type_e)macLen, outerHashOut);
+    else if (hashClass == 0x03 || hashClass == 0x33){
+        sha3_compute_hash(outerHashIn, (tmpKeyLen + macLen), (sha3_type_e)macLen, outerHashOut);
     }
     memcpy(digest, outerHashOut, macLen);
     *digestLen = macLen;
