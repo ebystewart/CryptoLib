@@ -247,11 +247,12 @@ static void tls13_ctx_queue(tls13_context_t *ctx, tls13_ctxOperation_e op)
 
             ecc_point_t ecc_x25519;
             ecc_keypair_t keyPair;
-            keyPair.privKey = ctx->client_random;
-            keyPair.pubKey = ctx->client_publicKey;
+            keyPair.privKey = ctx->client_random;   // This should get overridden by generated key
+            keyPair.pubKey = ctx->client_publicKey; // This should get overridden by generated key
             keyPair.privKeyLen = TLS13_RANDOM_LEN;
 
             /* Generate the public key */
+            ecc_init_genPoint(EC_ED25519, &ecc_x25519);
             ecc_generate_keypair(&ecc_x25519, &keyPair);
         }
         else if (ctx->role == TLS13_SERVER){
@@ -268,11 +269,12 @@ static void tls13_ctx_queue(tls13_context_t *ctx, tls13_ctxOperation_e op)
 
             ecc_point_t ecc_x25519;
             ecc_keypair_t keyPair;
-            keyPair.privKey = ctx->server_random;
-            keyPair.pubKey = ctx->server_publicKey;
+            keyPair.privKey = ctx->server_random;   // This should get overridden by generated key
+            keyPair.pubKey = ctx->server_publicKey; // This should get overridden by generated key
             keyPair.privKeyLen = TLS13_RANDOM_LEN;
 
             /* Generate the public key */
+            ecc_init_genPoint(EC_ED25519, &ecc_x25519);
             ecc_generate_keypair(&ecc_x25519, &keyPair);
         }
         else{
