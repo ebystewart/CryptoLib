@@ -21,9 +21,9 @@ typedef enum {
 
 void hmac_generate(const uint8_t *message, size_t msgLen, const uint8_t *key, size_t keyLen, hmac_sha_e type, uint8_t *digest, size_t *digestLen);
 
-void hmac_hkdf_extract(const uint8_t *salt, uint32_t saltLen, const uint8_t *keyIn, uint32_t keyInLen, uint8_t *keyOut, uint32_t *keyOutLen);
+void hmac_hkdf_extract(const uint8_t *salt, uint32_t saltLen, const uint8_t *keyIn, uint32_t keyInLen, hmac_sha_e type, uint8_t *keyOut, uint32_t *keyOutLen);
 
-void hmac_hkdf_expand_label(const uint8_t *keyIn, uint32_t keyInLen, const char *label, const uint8_t *ctx_hash, \
-                            const uint32_t hashLen, uint8_t *keyOut, const uint32_t keyOutLen);
+void hmac_hkdf_expand_label(const uint8_t *keyIn, uint32_t keyInLen, const char *label, uint8_t labelLen, const uint8_t *ctx_hash, uint8_t ctxLen, \
+                            hmac_sha_e type, uint8_t *keyOut, const uint32_t keyOutLen);
 
 #endif

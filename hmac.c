@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <string.h>
 #include "hmac.h"
 #include "sha.h"
 
@@ -120,13 +121,66 @@ void hmac_generate(const uint8_t *message, size_t msgLen, const uint8_t *key, si
     free(outerHashOut);
 }
 
-void hmac_hkdf_extract(const uint8_t *salt, uint32_t saltLen, const uint8_t *keyIn, uint32_t keyInLen, uint8_t *keyOut, uint32_t *keyOutLen)
+/* Salt - optional and non-secret 
+   Salt as key
+   IKM(input Key Material) as Data/message
+   Output is a Pseudo Random Key (PRK) 
+*/
+void hmac_hkdf_extract(const uint8_t *salt, uint32_t saltLen, const uint8_t *keyIn, uint32_t keyInLen, hmac_sha_e type, uint8_t *keyOut, uint32_t *keyOutLen)
 {
-
+    hmac_generate(keyIn, keyInLen, salt, saltLen, type, keyOut, keyOutLen);
 }
 
-void hmac_hkdf_expand_label(const uint8_t *keyIn, uint32_t keyInLen, const char *label, const uint8_t *ctx_hash, \
-                            const uint32_t hashLen, uint8_t *keyOut, const uint32_t keyOutLen)
+void hmac_hkdf_expand_label(const uint8_t *keyIn, uint32_t keyInLen, const char *label, uint8_t labelLen, const uint8_t *ctx_hash, uint8_t ctxLen, \
+                            hmac_sha_e type, uint8_t *keyOut, const uint32_t keyOutLen)
 {
+    uint8_t nIter;
+    uint8_t idx;
+    uint32_t *dOutLen;
+    uint8_t tmpLen;
+    uint8_t macLen    = (uint8_t)type;
+    uint8_t hashClass = (uint8_t)(type >> 8);
 
+    uint8_t *currIterData = calloc(1, macLen);
+    uint8_t *prevIterData = calloc(1, macLen);
+    uint32_t concatDataLen = strlen("") + labelLen + ctxLen + 1;
+    uint8_t *concatData = calloc(1, (macLen + labelLen + ctxLen));
+    {
+        tmpLen = strlen("");
+        memcpy(concatData, "", tmpLen);
+        memcpy((concatData + tmpLen), label, labelLen);
+        tmpLen += labelLen;
+        memcpy((concatData + tmpLen), ctx_hash, ctxLen);
+        tmpLen += ctxLen;
+        memcpy((concatData + tmpLen), 0x01, 1);
+        tmpLen += 1;
+    }
+
+    nIter = (macLen > keyOutLen)? macLen : keyOutLen;
+    uint8_t *dOut = calloc(1, (nIter * macLen));
+    uint8_t *dOutPtr = dOut;
+
+    /* T(0) is an empty string of length 0 */
+    prevIterData = "";
+
+    /* Iterate from T(1) until T(nIter) */
+    for(idx = 0; idx < nIter; idx++){
+        hmac_generate(keyIn, keyInLen, concatData, concatDataLen, type, currIterData, dOutLen);
+        memcpy(dOutPtr, currIterData, macLen);
+        memcpy(prevIterData, currIterData, macLen);
+        dOutPtr += macLen;
+        {
+            tmpLen = macLen;
+            memcpy(concatData, prevIterData, tmpLen);
+            memcpy((concatData + tmpLen), label, labelLen);
+            tmpLen += labelLen;
+            memcpy((concatData + tmpLen), ctx_hash, ctxLen);
+            tmpLen += ctxLen;
+            memcpy((concatData + tmpLen), (idx + 2), 1);
+            tmpLen += 1;
+        }
+        concatDataLen = tmpLen;
+    }
+    /* first keyOutLen bytes of dOut -> dOut = T(1) || T(2)  || .... || T(nIter) */
+    memcpy(keyOut, dOut, keyOutLen);
 }

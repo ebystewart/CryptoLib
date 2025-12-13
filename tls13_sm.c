@@ -558,19 +558,19 @@ static void tls13_computeHandshakeKeys(tls13_context_t *ctx, const uint8_t *clie
             uint8_t salt = 0x00;
 
             /* Employ a series of key Derivation actions */
-            hmac_hkdf_extract(&salt, 1, empty_key, ctx->keyLen, early_secret, shaLen);
+            hmac_hkdf_extract(&salt, 1, empty_key, ctx->keyLen, SHA3_384, early_secret, shaLen);
             sha3_compute_hash("", sizeof(""), SHA3_384, empty_hash);
-            hmac_hkdf_expand_label(early_secret, shaLen, "derived", empty_hash, shaLen, derived_secret, shaLen);
-            hmac_hkdf_extract(derived_secret, shaLen, ctx->sharedSecret, shaLen, handshake_secret, shaLen);
-            hmac_hkdf_expand_label(handshake_secret, shaLen, "c hs traffic", helloHash, shaLen, client_secret, shaLen);
-            hmac_hkdf_expand_label(handshake_secret, shaLen, "s hs traffic", helloHash, shaLen, server_secret, shaLen);
-            hmac_hkdf_expand_label(client_secret, shaLen, "key", "", strlen(""), ctx->clientHandshakeKey, ctx->keyLen);
+            hmac_hkdf_expand_label(early_secret, shaLen, "derived", strlen("derived"), empty_hash, shaLen, SHA3_384, derived_secret, shaLen);
+            hmac_hkdf_extract(derived_secret, shaLen, ctx->sharedSecret, shaLen, SHA3_384, handshake_secret, shaLen);
+            hmac_hkdf_expand_label(handshake_secret, shaLen, "c hs traffic", strlen("c hs traffic"), helloHash, shaLen, SHA3_384, client_secret, shaLen);
+            hmac_hkdf_expand_label(handshake_secret, shaLen, "s hs traffic", strlen("s hs traffic"), helloHash, shaLen, SHA3_384, server_secret, shaLen);
+            hmac_hkdf_expand_label(client_secret, shaLen, "key", strlen("key"), "", strlen(""), SHA3_384, ctx->clientHandshakeKey, ctx->keyLen);
             ctx->clientHandshakeKeyLen = ctx->keyLen;
-            hmac_hkdf_expand_label(server_secret, shaLen, "key", "", strlen(""), ctx->serverHandshakeKey, ctx->keyLen);
+            hmac_hkdf_expand_label(server_secret, shaLen, "key", strlen("key"), "", strlen(""), SHA3_384, ctx->serverHandshakeKey, ctx->keyLen);
             ctx->serverHandshakeKeyLen = ctx->keyLen;
-            hmac_hkdf_expand_label(client_secret, shaLen, "iv", "", strlen(""), ctx->clientHandshakeIV, 12);
+            hmac_hkdf_expand_label(client_secret, shaLen, "iv", strlen("iv"), "", strlen(""), SHA3_384, ctx->clientHandshakeIV, 12);
             ctx->clientHandshakeIVLen = 12;
-            hmac_hkdf_expand_label(server_secret, shaLen, "iv", "", strlen(""), ctx->serverHandshakeIV, 12);
+            hmac_hkdf_expand_label(server_secret, shaLen, "iv", strlen("iv"), "", strlen(""), SHA3_384, ctx->serverHandshakeIV, 12);
             ctx->serverHandshakeIVLen = 12;
 
             free(helloHash);

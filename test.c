@@ -606,7 +606,7 @@ SHAKE128("The quick brown fox jumps over the lazy dof", 256)
     printf("\n");
 #endif
 
-#if 1
+#if 1 // testing incomplete
 #include "hmac.h"
     uint8_t *message = "There shall be showers of blessing. Jesus is promise of Love.";
     /*
