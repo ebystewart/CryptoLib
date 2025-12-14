@@ -67,6 +67,7 @@ static void point_multiplication(const ecc_point_t *dIn, uint8_t *num, uint32_t 
 static void point_addition(const ecc_point_t *dIn1, const ecc_point_t *dIn2,  uint8_t *a_param, ecc_point_t *dOut);
 static bool is_point_at_infinity(const ecc_point_t *dIn1, const ecc_point_t *dIn2);
 static bool are_points_equal(const ecc_point_t *dIn1, const ecc_point_t *dIn2);
+ecc_get_aParam(ecc_curve_t curveType, uint8_t *aParam);
 
 static bool is_point_at_infinity(const ecc_point_t *dIn1, const ecc_point_t *dIn2)
 {
@@ -173,6 +174,10 @@ static void point_multiplication(const ecc_point_t *dIn, uint8_t *num, uint32_t 
         tNumLen++;
     }
 }
+ecc_get_aParam(ecc_curve_t curveType, uint8_t *aParam)
+{
+    memcpy(aParam, curve_table[curveType].a, sizeof(curve_table[curveType].a));
+}
 
 void ecc_init_genPoint(ecc_curve_t curveType, ecc_point_t *genPoint)
 {
@@ -190,15 +195,32 @@ void ecc_destroy_genPoint(ecc_curve_t curveType, ecc_point_t *genPoint)
     free(genPoint);
 }
 
-void ecc_generate_keypair(const ecc_point_t *genPoint, ecc_keypair_t *keyPair)
+void ecc_generate_keypair(const ecc_point_t *genPoint, ecc_curve_t curveType, ecc_keypair_t *keyPair)
 {
     ecc_point_t temp;
     uint32_t privKeyLen = genPoint->xLen;
+    if(curveType ==  EC_ED25519 || curveType ==  EC_SECP256r1 || curveType ==  EC_SECP256k1){
+        privKeyLen = 32;
+    }
+    else if(curveType == EC_SECP384r1){
+        privKeyLen = 48;
+    }
+    else if (curveType == EC_ED448){
+        privKeyLen = 56;
+    }
+    else if (curveType == EC_SECP521r1){
+        privKeyLen = 66; //actually 521 bits or 65 Byte and 1 bit)
+    }
 
     uint8_t privKey[] = {0x43, 0x21, 0x43, 0x21, 0x43, 0x21};// a randon number of length aNumLen (in actuals)
+    //generate_random(keyPair->privKey, privKeyLen);
 
     temp.x = calloc(1, genPoint->xLen);
     temp.y = calloc(1, genPoint->yLen);
+
+    /* Below lines are to be uncommented after testing */
+    //uint8_t aParam[4];
+    //ecc_get_aParam(curveType, &aParam);
 
     /* Public Key - used to be a point on the elliptic curve */
     point_multiplication(genPoint, privKey, privKeyLen, aParam,  &temp);
@@ -211,7 +233,7 @@ void ecc_generate_keypair(const ecc_point_t *genPoint, ecc_keypair_t *keyPair)
     free(temp.y);
 }
 
-void ecc_exchange_init(const ecc_point_t *genPoint, ecc_keypair_t *keyPair){
+void ecc_exchange_init(const ecc_point_t *genPoint, ecc_curve_t curveType, ecc_keypair_t *keyPair){
 
     ecc_keypair_t *key;
     key = calloc(1, ((3* genPoint->xLen) + (3* sizeof(uint32_t))));
@@ -219,11 +241,11 @@ void ecc_exchange_init(const ecc_point_t *genPoint, ecc_keypair_t *keyPair){
     key->pubKey->xLen = genPoint->xLen;
     key->pubKey->yLen = genPoint->xLen;
 
-    ecc_generate_keypair(genPoint, keyPair);
+    ecc_generate_keypair(genPoint, curveType, keyPair);
     free(key);
 }
 
-void ecc_exchange_update(const ecc_keypair_t *keyPair, ecc_point_t *dataForExchange)
+void ecc_exchange_update(const ecc_keypair_t *keyPair, ecc_curve_t curveType, ecc_point_t *dataForExchange)
 {
     ecc_point_t *temp;
 
@@ -244,7 +266,7 @@ void ecc_exchange_update(const ecc_keypair_t *keyPair, ecc_point_t *dataForExcha
     free(temp->y);
 }
 
-bool ecc_validate_Secret(const ecc_point_t *exchangedData, const ecc_keypair_t *keyPair, const ecc_point_t *receivedPubKey)
+bool ecc_validate_secret(const ecc_point_t *exchangedData, const ecc_keypair_t *keyPair, ecc_curve_t curveType, const ecc_point_t *receivedPubKey)
 {
     uint8_t *inverse;
     ecc_point_t *temp;
@@ -277,7 +299,7 @@ bool ecc_validate_Secret(const ecc_point_t *exchangedData, const ecc_keypair_t *
 }
 
 
-void ecc_extract_secret(const uint8_t *dIn1, uint8_t *dIn2, uint32_t dInLen, uint32_t a_param, uint8_t *dOut)
+void ecc_extract_secret(const uint8_t *dIn1, uint8_t *dIn2, uint32_t dInLen, ecc_curve_t curveType, uint32_t a_param, uint8_t *dOut)
 {
     ecc_point_t dKeyPair;
     dKeyPair.x = dIn1;
@@ -287,12 +309,12 @@ void ecc_extract_secret(const uint8_t *dIn1, uint8_t *dIn2, uint32_t dInLen, uin
     point_multiplication(&dKeyPair, dIn2, dInLen, &a_param, dOut);
 }
 
-void ecc_encrypt(const uint8_t *dIn, const uint8_t *key, uint8_t *dOut)
+void ecc_encrypt(const uint8_t *dIn, const uint8_t *key, ecc_curve_t curveType, uint8_t *dOut)
 {
 
 }
 
-void ecc_decrypt(const uint8_t *dIn, const uint8_t *key, uint8_t *dOut)
+void ecc_decrypt(const uint8_t *dIn, const uint8_t *key, ecc_curve_t curveType, uint8_t *dOut)
 {
     
 }

@@ -22,6 +22,29 @@
 
 typedef struct tls13_ctxDatabase_ tls13_ctxDatabase_t;
 
+typedef struct{
+    tls13_signAlgos_e algo;
+    ecc_curve_t curve;
+}ecc_mapping_table_t;
+
+ecc_mapping_table_t ecc_sign_table[] =
+{
+    { TLS13_SIGNALGOS_ECDSA_SECP256r1_SHA256,   EC_SECP256r1 },
+    { TLS13_SIGNALGOS_ECDSA_SECP384r1_SHA384,   EC_SECP384r1 },
+    { TLS13_SIGNALGOS_ECDSA_SECP521r1_SHA512,   EC_SECP521r1 },
+    { TLS13_SIGNALGOS_ED25519,                  EC_ED25519   },
+    { TLS13_SIGNALGOS_ED448,                    EC_ED448     },
+    { TLS13_SIGNALGOS_RSA_PSS_PSS_SHA256,       0            },
+    { TLS13_SIGNALGOS_RSA_PSS_PSS_SHA384,       0            },
+    { TLS13_SIGNALGOS_RSA_PSS_PSS_SHA512,       0            },
+    { TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA256,      0            },
+    { TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA384,      0            },
+    { TLS13_SIGNALGOS_RSA_PSS_RSAE_SHA512,      0            },
+    { TLS13_SIGNALGOS_RSA_PKCS1_SHA256,         0            },
+    { TLS13_SIGNALGOS_RSA_PKCS1_SHA384,         0            },
+    { TLS13_SIGNALGOS_RSA_PKCS1_SHA512,         0            }
+};
+
 struct tls13_ctxDatabase_
 {
     uint8_t ctxId;
@@ -158,6 +181,7 @@ static tls13_signAlgos_e tls13_selectSignatureAlgo(tls13_signAlgos_e *sAlg, uint
 static tls13_cipherSuite_e tls13_getCipherSuite(const tls13_context_t *ctx);
 static tls13_signAlgos_e tls13_getSignatureType(const tls13_context_t *ctx);
 static int tls13_getFileSize(const char *filepath);
+ecc_curve_t tls13_get_curveTypeFromSignAlgo(tls13_signAlgos_e signAlgo);
 
 static void tls13_ctx_queueDestroy(void)
 {
@@ -253,7 +277,7 @@ static void tls13_ctx_queue(tls13_context_t *ctx, tls13_ctxOperation_e op)
 
             /* Generate the public key */
             ecc_init_genPoint(EC_ED25519, &ecc_x25519);
-            ecc_generate_keypair(&ecc_x25519, &keyPair);
+            ecc_generate_keypair(&ecc_x25519, EC_ED25519, &keyPair);
         }
         else if (ctx->role == TLS13_SERVER){
             /* Generate the 32-Byte client random (private key) for handshake */
@@ -275,7 +299,7 @@ static void tls13_ctx_queue(tls13_context_t *ctx, tls13_ctxOperation_e op)
 
             /* Generate the public key */
             ecc_init_genPoint(EC_ED25519, &ecc_x25519);
-            ecc_generate_keypair(&ecc_x25519, &keyPair);
+            ecc_generate_keypair(&ecc_x25519, EC_ED25519, &keyPair);
         }
         else{
             assert(0);
@@ -543,12 +567,14 @@ static void tls13_computeHandshakeKeys(tls13_context_t *ctx, const uint8_t *clie
             }
             printf("\n");
             #endif
+
             /* extract the shared secret */
+            ecc_curve_t curve = tls13_get_curveTypeFromSignAlgo(ctx->signatureAlgoSupported);
             if(ctx->role == TLS13_CLIENT){
-                ecc_extract_secret(ctx->server_publicKey, ctx->client_privateKey, ctx->keyLen, 486662, ctx->sharedSecret);
+                ecc_extract_secret(ctx->server_publicKey, ctx->client_privateKey, ctx->keyLen, curve, 486662, ctx->sharedSecret);
             }
             else if (ctx->role == TLS13_SERVER){
-                ecc_extract_secret(ctx->client_publicKey, ctx->server_privateKey, ctx->keyLen, 486662, ctx->sharedSecret);
+                ecc_extract_secret(ctx->client_publicKey, ctx->server_privateKey, ctx->keyLen, curve, 486662, ctx->sharedSecret);
             }
             uint8_t *early_secret      = calloc(1, shaLen);
             uint8_t *empty_hash        = calloc(1, shaLen);
@@ -607,11 +633,20 @@ static void tls13_computeHandshakeKeys(tls13_context_t *ctx, const uint8_t *clie
     }
 }
 
+ecc_curve_t tls13_get_curveTypeFromSignAlgo(tls13_signAlgos_e signAlgo){
+    uint8_t idx = 0;
+    for(idx = 0; idx < (sizeof(ecc_sign_table)/sizeof(ecc_mapping_table_t)); idx++){
+        if(ecc_sign_table[idx].algo == signAlgo)
+            return ecc_sign_table[idx].curve;
+    }
+    return (ecc_curve_t)0;
+}
+
 static void tls13_hash_and_sign(uint8_t *clientHelloRec, uint16_t clientHelloRecLen, \
-                        uint8_t *serverHelloRec, uint16_t serverHelloRecLen, \
-                        uint8_t *serverWrappedRec, uint16_t serverWrappedRecLen, \
-                        uint8_t *clientRecExclFin, uint16_t clientRecExclFinLen, \
-                        tls13_cipherSuite_e cipherSuite, uint8_t *handshakeSign)
+                                uint8_t *serverHelloRec, uint16_t serverHelloRecLen, \
+                                uint8_t *serverWrappedRec, uint16_t serverWrappedRecLen, \
+                                uint8_t *clientRecExclFin, uint16_t clientRecExclFinLen, \
+                                tls13_cipherSuite_e cipherSuite, uint8_t *handshakeSign)
 {
 
 }

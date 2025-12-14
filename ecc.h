@@ -69,18 +69,18 @@ void ecc_init_genPoint(ecc_curve_t curveType, ecc_point_t *genPoint);
 
 void ecc_destroy_genPoint(ecc_curve_t curveType, ecc_point_t *genPoint);
 
-void ecc_generate_keypair(const ecc_point_t *genPoint, ecc_keypair_t *keyPair);
+void ecc_generate_keypair(const ecc_point_t *genPoint, ecc_curve_t curveType, ecc_keypair_t *keyPair);
 
-void ecc_exchange_init(const ecc_point_t *genPoint, ecc_keypair_t *keyPair);
+void ecc_exchange_init(const ecc_point_t *genPoint, ecc_curve_t curveType, ecc_keypair_t *keyPair);
 
-void ecc_exchange_update(const ecc_keypair_t *keyPair, ecc_point_t *dataForExchange);
+void ecc_exchange_update(const ecc_keypair_t *keyPair, ecc_curve_t curveType, ecc_point_t *dataForExchange);
 
-bool ecc_validate_Secret(const ecc_point_t *exchangedData, const ecc_keypair_t *keyPair, const ecc_point_t *receivedPubKey);
+bool ecc_validate_secret(const ecc_point_t *exchangedData, const ecc_keypair_t *keyPair, ecc_curve_t curveType, const ecc_point_t *receivedPubKey);
 
-void ecc_encrypt(const uint8_t *dIn, const uint8_t *key, uint8_t *dOut);
+void ecc_encrypt(const uint8_t *dIn, const uint8_t *key, ecc_curve_t curveType, uint8_t *dOut);
 
-void ecc_decrypt(const uint8_t *dIn, const uint8_t *key, uint8_t *dOut);
+void ecc_decrypt(const uint8_t *dIn, const uint8_t *key, ecc_curve_t curveType, uint8_t *dOut);
 
-void ecc_extract_secret(const uint8_t *dIn1, uint8_t *dIn2, uint32_t dInLen, uint32_t a_param, uint8_t *dOut);
+void ecc_extract_secret(const uint8_t *dIn1, uint8_t *dIn2, uint32_t dInLen, ecc_curve_t curveType, uint32_t a_param, uint8_t *dOut);
 
 #endif
