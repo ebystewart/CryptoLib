@@ -1,6 +1,6 @@
 #ifndef _ECC_H_
 #define _ECC_H_
-
+#include <string.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>

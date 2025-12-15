@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include "tls13_extensions.h"
+#include "tls13_cry.h"
 
 /*
    Ref: https://tls13.xargs.org/
@@ -81,13 +82,6 @@ struct {
    };
 }tls13_handshakeHdr_t;
 */
-
-typedef enum {
-   TLS13_EMPTY_RENEGOTIATION_INFO_SCSV = 0x00FF,
-   TLS13_AES_128_GCM_SHA256            = 0x1301,
-   TLS13_AES_256_GCM_SHA384            = 0x1302,
-   TLS13_CHACHA20_POLY1305_SHA256      = 0x1303
-}tls13_cipherSuite_e;
 
 typedef enum {
    TLS13_ALERT_WARNING = 1,
@@ -271,10 +265,9 @@ typedef struct{
 
 /* This structure includes change cipher Spec and encrypted data */
 typedef struct {
-   tls13_serverHello_t             serverHello;
    tls13_changeCipherSpec_t        serverCCS;
    tls13_wrappedRecord_t           record1;
-}tls13_serverHellowCompat_t;
+}tls13_serverHelloCCS_t;
 
 typedef struct {
    uint32_t     certLen : 24;
@@ -426,7 +419,7 @@ typedef struct {
                (tls13_serverExtensions_t *)((uint8_t *)(serverHelloPtr) + sessionIdLen)
 
 #define SERVERHELLO_SERVEREXT_LEN(serverHelloPtr, sessionIdLen)         \
-               (*(uint16_t *)((uint8_t *)(serverHelloPtr.extLen) + sessionIdLen))
+               (*(uint16_t *)((uint8_t *)(serverHelloPtr->extLen) + sessionIdLen))
 
 #define REACH_ELEMENT(inPtr, inPtrType, element, offset, retType)         \
                (*(retType *)((uint8_t *)&(((inPtrType *)inPtr)->element) + offset))
@@ -435,46 +428,49 @@ typedef struct {
 uint16_t tls13_prepareClientHello(const uint8_t *clientRandom, const uint8_t *sessionId, const char *dnsHostname, 
                                     const uint8_t *pubKey, const uint16_t pubKeyLen, uint8_t *tlsPkt);
 
-uint16_t tls13_prepareServerHello(const uint8_t *serverRandom, const uint8_t *sessionId, const tls13_cipherSuite_e cipherSuite, 
-                                    const uint8_t *pubKey, const uint16_t pubKeyLen, const uint16_t keyType, const uint8_t *extData, const uint16_t extDataLen, 
-                                    uint8_t *tlsPkt);
+uint16_t tls13_prepareServerHello(const uint8_t *serverRandom, const uint8_t *sessionId, const tls13_cipherSuite_e cipherSuite,
+                                    const uint8_t *pubKey, const uint16_t pubKeyLen, const uint16_t keyType, uint8_t *tlsPkt);
+
+uint16_t tls13_prepareServerHelloCCS(const uint8_t *extData, const uint16_t extDataLen, const crypt_ctx_t *cryptCtx, uint8_t *tlsPkt);
 
 uint16_t tls13_prepareServerWrappedRecord(const uint8_t *dCert, const uint16_t dCertLen,
                                         const uint8_t *dCertVerf, const uint16_t dCertVerfLen, 
-                                        const uint8_t *dVerify, const uint16_t dVerifyLen, tls13_cipherSuite_e cs, 
+                                        const uint8_t *dVerify, const uint16_t dVerifyLen, const crypt_ctx_t *cryptCtx, 
                                         tls13_signAlgos_e signType, uint8_t *tlsPkt);
 
 uint16_t tls13_prepareClientWrappedRecord(const uint8_t *dVerify, const uint16_t dVerifyLen,
-                                            const uint8_t *appData, const uint8_t appDataLen, tls13_cipherSuite_e cs, uint8_t *tlsPkt);
+                                            const uint8_t *appData, const uint8_t appDataLen, const crypt_ctx_t *cryptCtx, uint8_t *tlsPkt);
 
 uint16_t tls13_prepareServerSessionTicketRecord(const uint8_t *sessionTkt, \
                                                 const uint8_t sessionTktLen, \
-                                                tls13_cipherSuite_e cs, \
+                                                const crypt_ctx_t *cryptCtx, \
                                                 uint8_t *tlsPkt);
 
-uint16_t tls13_prepareAppData(const uint8_t *dIn, const uint16_t dInLen, tls13_cipherSuite_e cs, uint8_t *tlsPkt);
+uint16_t tls13_prepareAppData(const uint8_t *dIn, const uint16_t dInLen, const crypt_ctx_t *cryptCtx, uint8_t *tlsPkt);
 
-uint16_t tls13_prepareAlertRecord(const tls13_alert_t *alertData, tls13_cipherSuite_e cs, uint8_t *tlsPkt);
+uint16_t tls13_prepareAlertRecord(const tls13_alert_t *alertData, const crypt_ctx_t *cryptCtx, uint8_t *tlsPkt);
 
 /* Deserialize and update data structures based on received pkts */
 
 void tls13_extractClientHello(uint8_t *clientRandom, uint8_t *sessionId, uint8_t *dnsHostname, tls13_capability_t *capability,
                                     uint16_t *keyType, uint8_t *pubKey, uint16_t *pubKeyLen, const uint8_t *tlsPkt);
 
-void tls13_extractServerHello(uint8_t *serverRandom, uint8_t *sessionId, uint16_t *cipherSuite, 
-                                    uint8_t *pubKey, uint16_t *pubKeyLen, uint16_t *keyType, uint8_t *encryExt, uint16_t *encryExtLen, const uint8_t *tlsPkt);
+void tls13_extractServerHello(uint8_t *serverRandom, uint8_t *sessionId, uint16_t *cipherSuite,
+                                    uint8_t *pubKey, uint16_t *pubKeyLen, uint16_t *keyType, const uint8_t *tlsPkt);
+
+void tls13_extractServerHelloCCS(uint8_t *encryExt, uint16_t *encryExtLen,  const crypt_ctx_t *cryptCtx, const uint8_t *tlsPkt);
 
 void tls13_extractServerWrappedRecord(const uint8_t *tlsPkt, uint8_t *dCert, uint16_t *dCertLen, tls13_signature_t *sign, uint8_t *dVerify, uint16_t *dVerifyLen,
-                                           tls13_cipherSuite_e cs, tls13_signAlgos_e signType);
+                                           const crypt_ctx_t *cryptCtx, tls13_signAlgos_e signType);
 
 void tls13_extractClientWrappedRecord(const uint8_t *tlsPkt, uint8_t *dVerify, uint16_t *dVerifyLen, uint8_t *appData, \
-                                            uint16_t *appDataLen, tls13_cipherSuite_e cs);
+                                            uint16_t *appDataLen, const crypt_ctx_t *cryptCtx);
 
-void tls13_extractSessionTicket(tls13_serverNewSesTkt_t *sessionTkt, tls13_cipherSuite_e cs, const uint8_t *tlsPkt);
+void tls13_extractSessionTicket(tls13_serverNewSesTkt_t *sessionTkt, const crypt_ctx_t *cryptCtx, const uint8_t *tlsPkt);
 
-void tls13_extractEncryptedAppData(uint8_t *dOut, uint16_t *dOutLen, tls13_cipherSuite_e cs, const uint8_t *tlsPkt);
+void tls13_extractEncryptedAppData(uint8_t *dOut, uint16_t *dOutLen, const crypt_ctx_t *cryptCtx, const uint8_t *tlsPkt);
 
-void tls13_extractAlertRecord(tls13_alert_t *alertData, tls13_cipherSuite_e cs, const uint8_t *tlsPkt);
+void tls13_extractAlertRecord(tls13_alert_t *alertData, const crypt_ctx_t *cryptCtx, const uint8_t *tlsPkt);
 
 /* utilities */
 uint16_t tls13_htons(uint16_t dIn);

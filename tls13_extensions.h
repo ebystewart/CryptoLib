@@ -3,6 +3,18 @@
 
 #include <stdint.h>
 
+typedef enum {
+    TLS13_CLIENT,
+    TLS13_SERVER
+}tls13_ctxType_e;
+
+typedef enum {
+   TLS13_EMPTY_RENEGOTIATION_INFO_SCSV = 0x00FF,
+   TLS13_AES_128_GCM_SHA256            = 0x1301,
+   TLS13_AES_256_GCM_SHA384            = 0x1302,
+   TLS13_CHACHA20_POLY1305_SHA256      = 0x1303
+}tls13_cipherSuite_e;
+
 /* Extension Type
    0x00 0x05 - Status Request
    0x00 0x0A - Supported groups

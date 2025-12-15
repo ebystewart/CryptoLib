@@ -1,4 +1,3 @@
-#include <string.h>
 #include "math.h"
 #include "ecc.h"
 

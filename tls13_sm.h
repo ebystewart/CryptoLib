@@ -2,6 +2,7 @@
 #define _TLS13_SM_H_
 
 #include <stdint.h>
+#include "tls13.h"
 
 #define TLS13_CLIENT_HELLO_LEN 254U 
 #define TLS13_SERVER_HELLO_LEN 128U
@@ -26,11 +27,6 @@ typedef enum {
     TLS13_CTX_ENQUEUE,
     TLS13_CTX_DEQUEUE
 }tls13_ctxOperation_e;
-
-typedef enum {
-    TLS13_CLIENT,
-    TLS13_SERVER
-}tls13_ctxType_e;
 
 typedef struct{
     /* sent or received */

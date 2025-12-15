@@ -550,24 +550,41 @@ static void tls13_computeHandshakeKeys(tls13_context_t *ctx, const uint8_t *clie
 {
     size_t helloLen = 0;
     size_t shaLen = 0;
-    if(!clientHello_pkt && !serverHello_pkt){
+    if(!clientHello_pkt && !serverHello_pkt && (ctx->serverCipherSuiteSupported == TLS13_AES_256_GCM_SHA384 || \
+                            ctx->serverCipherSuiteSupported == TLS13_AES_128_GCM_SHA256 || ctx->serverCipherSuiteSupported == TLS13_CHACHA20_POLY1305_SHA256))
+    {
         helloLen = clientHelloLen + serverHelloLen - TLS13_RECORD_HEADER_SIZE - TLS13_RECORD_HEADER_SIZE;
         uint8_t *message = calloc(1, helloLen);
         memcpy(message, (clientHello_pkt + TLS13_RECORD_HEADER_SIZE), (clientHelloLen - TLS13_RECORD_HEADER_SIZE));
         memcpy((message + clientHelloLen), (serverHello_pkt + TLS13_RECORD_HEADER_SIZE), (serverHelloLen - TLS13_RECORD_HEADER_SIZE));
+        uint8_t *helloHash;
 
-        if(ctx->serverCipherSuiteSupported == TLS13_AES_256_GCM_SHA384){
+        if(ctx->serverCipherSuiteSupported == TLS13_AES_256_GCM_SHA384)
+        {
             shaLen = 48;
-            uint8_t *helloHash = calloc(1, shaLen);
+            helloHash = calloc(1, shaLen);
             sha3_compute_hash(message, helloLen, SHA3_384, helloHash);
             #ifndef DEBUG
-            printf("The sha-384 hash of server and client hello excluding the record header is:\n");
-            for(int i=0; i < helloLen; i++){
-                printf("[%d]: %x\n", i, helloHash[i]);
-            }
-            printf("\n");
+                printf("The sha-384 hash of server and client hello excluding the record header is:\n");
+                for(int i=0; i < helloLen; i++){
+                    printf("[%d]: %x\n", i, helloHash[i]);
+                }
+                printf("\n");
             #endif
-
+        }
+        else if(ctx->serverCipherSuiteSupported == TLS13_AES_128_GCM_SHA256 || ctx->serverCipherSuiteSupported == TLS13_CHACHA20_POLY1305_SHA256){
+            shaLen = 32;
+            helloHash = calloc(1, shaLen);
+            sha256_compute_hash(message, helloLen, helloHash);
+            #ifndef DEBUG
+                printf("The sha-256 hash of server and client hello excluding the record header is:\n");
+                for(int i=0; i < helloLen; i++){
+                    printf("[%d]: %x\n", i, helloHash[i]);
+                }
+                printf("\n");
+            #endif
+        }
+        {
             /* extract the shared secret */
             ecc_curve_t curve = tls13_get_curveTypeFromSignAlgo(ctx->signatureAlgoSupported);
             if(ctx->role == TLS13_CLIENT){
@@ -610,25 +627,6 @@ static void tls13_computeHandshakeKeys(tls13_context_t *ctx, const uint8_t *clie
             free(client_secret);
             free(server_secret);
         }
-        else if(ctx->serverCipherSuiteSupported == TLS13_AES_128_GCM_SHA256 || ctx->serverCipherSuiteSupported == TLS13_CHACHA20_POLY1305_SHA256){
-            shaLen = 32;
-            uint8_t *digest = calloc(1, 256);
-            sha256_compute_hash(message, helloLen, digest);
-            #ifndef DEBUG
-            printf("The sha-256 hash of server and client hello excluding the record header is:\n");
-            for(int i=0; i < helloLen; i++){
-                printf("[%d]: %x\n", i, digest[i]);
-            }
-            printf("\n");
-            #endif
-            /* logic to be implemented */
-            
-            free(digest);
-        }
-        else{
-            free(message);
-            assert(0);
-        }
         free(message);
     }
 }
@@ -656,10 +654,12 @@ static void *__client_handshake_thread(void *arg)
     int opt = 1;
     bool serverHelloReceived = false;
     bool serverWrappedRecReceived = false;
+    bool serverHelloCCSReceived = false;
     uint16_t handshakeSignLen;
     tls13_recordType_e first_record;
     size_t clientHelloLen = 0;
     size_t serverHelloLen = 0;
+    size_t serverHelloCCSLen = 0;
     size_t serverWrappedRecLen = 0;
     size_t clientWrappedRecLen = 0;
     uint8_t addr_len;
@@ -688,6 +688,7 @@ static void *__client_handshake_thread(void *arg)
     uint8_t *clientHello_pkt      = calloc(1, TLS13_CLIENT_HELLO_MAX_LEN);
     uint8_t *temp                 = calloc(1, TLS13_SERVER_WRAPPEDREC_MAX_LEN);
     uint8_t *serverHello_pkt      = calloc(1, TLS13_SERVER_HELLO_MAX_LEN); // If pkt is more than max size, we may receive as 2 pkts; need to handle this
+    uint8_t *serverHelloCCS_pkt   = calloc(1, TLS13_SERVER_HELLO_MAX_LEN); 
     uint8_t *serverWrappedRec_pkt = calloc(1, TLS13_SERVER_WRAPPEDREC_MAX_LEN);
     uint8_t *clientFinish_pkt     = calloc(1, TLS13_CLIENT_FINISHED_MAX_LEN);
 
@@ -744,7 +745,7 @@ static void *__client_handshake_thread(void *arg)
                         printf("\n");
                     #endif
                     tls13_extractServerHello(ctx->server_random, ctx->client_sessionId, &ctx->serverCipherSuiteSupported, ctx->server_publicKey, \
-                        &ctx->keyLen, &ctx->keyType, (tls13_serverExtensions_t *)ctx->serverExtension, &ctx->serverExtensionLen, serverHello_pkt);
+                        &ctx->keyLen, &ctx->keyType, serverHello_pkt);
                 
                     tls13_computeHandshakeKeys(ctx, clientHello_pkt, clientHelloLen, serverHello_pkt, serverHelloLen);
                     serverHelloReceived = true;
@@ -754,6 +755,51 @@ static void *__client_handshake_thread(void *arg)
     }
     printf("Server hello received...\n");
     memset(temp, 0, TLS13_SERVER_WRAPPEDREC_MAX_LEN);
+    crypt_ctx_t clientHelloCryptCtx;
+    clientHelloCryptCtx.role = TLS13_CLIENT;
+    clientHelloCryptCtx.cipherSuite = ctx->serverCipherSuiteSupported;
+    clientHelloCryptCtx.handshakeKey = ctx->clientHandshakeKey;
+    clientHelloCryptCtx.handshakeKeyLen = ctx->clientHandshakeKeyLen;
+    clientHelloCryptCtx.handshakeIV = ctx->clientHandshakeIV;
+    clientHelloCryptCtx.handshakeIVLen = ctx->clientHandshakeIVLen;
+
+    FD_SET(ctx->client_fd, &read_fds); // Add a socket to the set
+    while (serverHelloCCSReceived == false)
+    {
+        pthread_testcancel();
+        {        
+            //printf("Client ready to receive server wrapped record......\n");
+            select(ctx->client_fd + 1, &read_fds, NULL, NULL, &timeout);
+
+            /* recieve server wrapped record now */
+            if (FD_ISSET(ctx->client_fd, &read_fds))      
+            {
+                int rc = recvfrom(ctx->client_fd, temp, TLS13_SERVER_HELLO_MAX_LEN, 0, (struct sockaddr *)&server_addr, &addr_size);
+                //int rc = recv(ctx->client_fd, serverWrappedRec_pkt, TLS13_SERVER_WRAPPEDREC_MAX_LEN, 0);
+                if(rc == -1)
+                    perror("socket reception failed");
+                else
+                    printf("received data from server of length %d\n", rc);
+                serverHelloCCSLen = rc;
+                first_record = temp[TLS13_RECORD_HEADER_OFFSET];
+                if(first_record == TLS13_CHANGE_CIPHERSPEC_RECORD)
+                {
+                    memcpy(serverHelloCCS_pkt, temp, rc);
+                    #ifndef DEBUG
+                        printf("Received Server Hello CCS Length is %d\n", rc);
+                        for (int i= 0; i < rc; i++){
+                            printf("[%d] %x\n", i, serverHelloCCS_pkt[i]);
+                        }
+                        printf("\n");
+                    #endif
+
+                    tls13_extractServerHelloCCS((tls13_serverExtensions_t *)ctx->serverExtension, &ctx->serverExtensionLen,  \
+                                                     &clientHelloCryptCtx, serverHelloCCS_pkt);
+                    serverHelloCCSReceived = true;
+                }
+            }
+        }
+    }
     FD_SET(ctx->client_fd, &read_fds); // Add a socket to the set
     while (serverWrappedRecReceived == false)
     {
@@ -785,7 +831,7 @@ static void *__client_handshake_thread(void *arg)
                     #endif
 
                     tls13_extractServerWrappedRecord(serverWrappedRec_pkt, ctx->serverCert, ctx->serverCertLen, ctx->serverHandshakeSignature, ctx->serverCertVerify, &ctx->serverCertVerifyLen, \
-                                                     ctx->serverCipherSuiteSupported, ctx->signatureAlgoSupported);
+                                                     &clientHelloCryptCtx, ctx->signatureAlgoSupported);
                     serverWrappedRecReceived = true;
                 }
             }
@@ -823,7 +869,8 @@ static void *__client_handshake_thread(void *arg)
     memset(ctx->clientCertVerify, 0xCA, 256);
     memset(ctx->clientHandshakeSignature, 0xFA, 48);
 #endif
-    clientWrappedRecLen = tls13_prepareClientWrappedRecord(ctx->clientHandshakeSignature, ctx->clientHandshakeSignLen, "hello", strlen("hello"), cs, clientFinish_pkt);
+    clientWrappedRecLen = tls13_prepareClientWrappedRecord(ctx->clientHandshakeSignature, ctx->clientHandshakeSignLen, "hello", strlen("hello"), \
+                                                           &clientHelloCryptCtx, clientFinish_pkt);
 #ifndef DEBUG
     printf("Prepared client Wrapped Record Length is %d\n", clientWrappedRecLen);
     for (int i = 0; i < clientWrappedRecLen; i++)
@@ -841,7 +888,7 @@ static void *__client_handshake_thread(void *arg)
         {
             alert.level = TLS13_ALERT_FATAL;
             alert.description = TLS13_HANDSHAKE_FAILURE;
-            alertLen = tls13_prepareAlertRecord(&alert, cs, alert_pkt);
+            alertLen = tls13_prepareAlertRecord(&alert, &clientHelloCryptCtx, alert_pkt);
             send(ctx->client_fd, alert_pkt, alertLen, 0);
             ctx->handshakeExpired = true;
         }
@@ -858,6 +905,7 @@ static void *__client_handshake_thread(void *arg)
     free(clientHello_pkt);
     free(temp);
     free(serverHello_pkt);
+    free(serverHelloCCS_pkt);
     free(serverWrappedRec_pkt);
     free(clientFinish_pkt);
     free(handshakeSign);
@@ -876,6 +924,7 @@ static void *__server_handshake_thread(void *arg)
 
     size_t clientHelloLen  = 0;
     size_t serverHelloLen = 0;
+    size_t serverHelloCCSLen = 0;
     size_t serverWrappedRecLen = 0;
     size_t clientFinishRecLen = 0;
 
@@ -900,6 +949,7 @@ static void *__server_handshake_thread(void *arg)
     */
     uint8_t *clientHello_pkt = calloc(1, TLS13_CLIENT_HELLO_MAX_LEN);
     uint8_t *serverHello_pkt = calloc(1, TLS13_SERVER_HELLO_MAX_LEN); // If pkt is more than max size, we may receive as 2 pkts; need to handle this
+    uint8_t *serverHelloCCS_pkt   = calloc(1, TLS13_SERVER_HELLO_MAX_LEN);
     uint8_t *serverWrappedRec_pkt = calloc(1, TLS13_SERVER_WRAPPEDREC_MAX_LEN);
     uint8_t *clientFinish_pkt     = calloc(1, TLS13_CLIENT_FINISHED_MAX_LEN);
 
@@ -947,7 +997,6 @@ static void *__server_handshake_thread(void *arg)
             #ifndef DEBUG
                 print_capability(ctx->clientCapability, ctx->clientCapabilityLen);
             #endif
-            tls13_computeHandshakeKeys(ctx, clientHello_pkt, clientHelloLen, serverHello_pkt, serverHelloLen);
             /* Receive the server hello and extract the data */
             clientHelloReceived = true;
         }
@@ -960,9 +1009,11 @@ static void *__server_handshake_thread(void *arg)
 
     /* send server hello */
     serverHelloLen = tls13_prepareServerHello(ctx->server_random, ctx->server_sessionId, cs_supported, ctx->server_publicKey, ctx->keyLen, ctx->keyType, \
-                              ctx->serverExtension, ctx->serverExtensionLen, serverHello_pkt);
+                              serverHello_pkt);
     int rc = send(ctx->client_fd, serverHello_pkt, serverHelloLen, 0);
     assert(rc == serverHelloLen);
+    tls13_computeHandshakeKeys(ctx, clientHello_pkt, clientHelloLen, serverHello_pkt, serverHelloLen);
+
 #ifndef DEBUG
     printf("Prepared Server Hello (size: %d)\n",serverHelloLen);
     for (int i = 0; i < serverHelloLen; i++){
@@ -976,8 +1027,26 @@ static void *__server_handshake_thread(void *arg)
     printf("Server certificate Length is %d; cert signature length is %d; server handshake signature length is %d\n", ctx->serverCertLen, ctx->serverCertVerifyLen, ctx->serverHandshakeSignLen);
 #endif
 
+    crypt_ctx_t serverHelloCryptCtx;
+    serverHelloCryptCtx.role = TLS13_SERVER;
+    serverHelloCryptCtx.cipherSuite = ctx->serverCipherSuiteSupported;
+    serverHelloCryptCtx.handshakeKey = ctx->serverHandshakeKey;
+    serverHelloCryptCtx.handshakeKeyLen = ctx->serverHandshakeKeyLen;
+    serverHelloCryptCtx.handshakeIV = ctx->serverHandshakeIV;
+    serverHelloCryptCtx.handshakeIVLen = ctx->serverHandshakeIVLen;
+    serverHelloCCSLen = tls13_prepareServerHelloCCS(ctx->serverExtension, ctx->serverExtensionLen, &serverHelloCryptCtx, serverHelloCCS_pkt);
+    rc = send(ctx->client_fd, serverHelloCCS_pkt, serverHelloCCSLen, 0);
+    assert(rc == serverHelloCCSLen);
+#ifndef DEBUG
+    printf("Prepared Server Hello CCS (size: %d)\n",serverHelloCCSLen);
+    for (int i = 0; i < serverHelloCCSLen; i++){
+        printf("[%d] -> %x\n", i, serverHelloCCS_pkt[i]);
+    }
+    printf("\n");
+#endif
+
     serverWrappedRecLen = tls13_prepareServerWrappedRecord(ctx->serverCert, ctx->serverCertLen, ctx->serverCertVerify, ctx->serverCertVerifyLen, \
-                                        ctx->serverHandshakeSignature, ctx->serverHandshakeSignLen, ctx->serverCipherSuiteSupported, \
+                                        ctx->serverHandshakeSignature, ctx->serverHandshakeSignLen, &serverHelloCryptCtx, \
                                         ctx->signatureAlgoSupported, serverWrappedRec_pkt);
     rc = send(ctx->client_fd, serverWrappedRec_pkt, serverWrappedRecLen, 0);
     //rc = sendto(ctx->client_fd, serverWrappedRec_pkt, serverWrappedRecLen, 0,(struct sockaddr *)&client_addr, &addr_len);
@@ -1008,7 +1077,7 @@ static void *__server_handshake_thread(void *arg)
     printf("\n");
 #endif
             tls13_extractClientWrappedRecord(clientFinish_pkt, ctx->clientHandshakeSignature, ctx->clientHandshakeSignLen, \
-                                             NULL, 0, cs_supported); //app data to be paassed to application
+                                             NULL, 0, &serverHelloCryptCtx); //app data to be paassed to application
             clientFinishedReceived = true;
         }
     }

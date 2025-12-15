@@ -923,7 +923,7 @@ int aes_encrypt_end(aes_mode_t mode, const uint8_t *plain_text, uint8_t *cipher_
     return 0;
 }
 
-int aes_encrypt(aes_mode_t mode, uint8_t *initVal, uint8_t *plain_text, uint8_t *cipher_text, uint8_t dataLen, const uint8_t *key, aes_keylen_t keyLen)
+int aes_encrypt(aes_mode_t mode, const uint8_t *initVal, const uint8_t *plain_text, uint8_t *cipher_text, uint8_t dataLen, const uint8_t *key, aes_keylen_t keyLen)
 {
     int retVal;
     uint8_t dLength = dataLen;
@@ -1230,7 +1230,7 @@ int aes_decrypt_end(aes_mode_t mode, const uint8_t *cipher_text, uint8_t *plain_
     return 0;
 }
 
-int aes_decrypt(aes_mode_t mode, const uint8_t *initVal, const uint8_t *cipher_text, uint8_t *plain_text, const uint8_t *key, aes_keylen_t keyLen)
+int aes_decrypt(aes_mode_t mode, const uint8_t *initVal, const uint8_t *cipher_text, uint8_t *plain_text, uint8_t dataLen, const uint8_t *key, aes_keylen_t keyLen)
 {
     int retVal;
     uint8_t round_key[32] = {0};
