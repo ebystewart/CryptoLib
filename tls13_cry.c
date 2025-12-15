@@ -3,17 +3,36 @@
 #include "tls13_sm.h"
 #include "tls13.h"
 #include "aes.h"
+#include "sha.h"
 
 /* function definitions */
 
 bool tls13_verify_authTag(const uint8_t *cipherText, const uint16_t cipherTextLen, const uint8_t *mac, const uint16_t macLen, crypt_ctx_t *ctx)
 {
-    return true;
+    uint8_t tmpMac = calloc(1, macLen);
+    tls13_generate_authTag(cipherText, cipherTextLen, tmpMac, macLen, ctx);
+    int retVal = memcmp(tmpMac, mac, macLen);
+    if (retVal == 0)
+        return true;
+    return false;
 }
 
 bool tls13_generate_authTag(const uint8_t *cipherText, const uint16_t cipherTextLen, uint8_t *mac, uint16_t macLen, crypt_ctx_t *ctx)
 {
-    memset(mac, 0xFB, macLen);
+    //memset(mac, 0xFB, macLen);
+    if(ctx->role == TLS13_CLIENT || ctx->role == TLS13_SERVER)
+    {
+        if(ctx->cipherSuite == TLS13_AES_128_GCM_SHA256)
+        {
+            sha2_compute_hash(cipherText, cipherTextLen, SHA_256, mac);
+        }
+        else if (ctx->cipherSuite == TLS13_AES_256_GCM_SHA384){
+            sha3_compute_hash(cipherText, cipherTextLen, SHA3_384, mac);
+        }
+        else if (ctx->cipherSuite == TLS13_CHACHA20_POLY1305_SHA256){
+            /* To be updated */
+        }
+    }
 }
 
 void tls13_encrypt(const uint8_t *plainText, const uint16_t plainTextLen, uint8_t *cipherText, crypt_ctx_t *ctx)
