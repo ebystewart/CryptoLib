@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 #include "chacha20.h"
 #include "math.h"
 
@@ -67,6 +68,7 @@ static void chacha20_PerformQuarterRound(uint32_t *block)
 
 int chacha20_encrypt(uint8_t *plain_text, uint32_t dataLen, uint32_t *key, uint32_t *nounce, uint32_t counter, uint8_t *cipher_text, uint32_t *dOutLen)
 {
+    assert(dataLen == 64);
     uint32_t *state = calloc(1, 64);
 
     chacha20_initStateMatrix(key, nounce, counter, state);
@@ -78,4 +80,36 @@ int chacha20_encrypt(uint8_t *plain_text, uint32_t dataLen, uint32_t *key, uint3
     xor2((uint8_t *)state, plain_text, 64, cipher_text);
 
     free(state);
+}
+
+int chacha20_encrypt_stream(uint8_t *plain_text, uint32_t dataLen, uint32_t *key, uint32_t *nounce, uint8_t *cipher_text, uint32_t *dOutLen)
+{
+    uint32_t idx;
+    uint32_t nIter = 0;
+    uint32_t paddedDataLen = 0;
+    nIter = dataLen / 64;
+    if(dataLen % 64){
+        nIter += 1;
+    }
+    paddedDataLen = nIter * 64;
+    uint8_t *dataIn = (1, paddedDataLen);
+    uint8_t *dataOut = (1, paddedDataLen);
+    memcpy(dataIn, plain_text, paddedDataLen);
+    uint32_t *state = calloc(1, 64);
+
+    for(idx = 0; idx < nIter; idx++){
+        memcpy(state, (dataIn + (idx * 64)), 64);
+        chacha20_initStateMatrix(key, nounce, (nIter + 1), state);
+
+        /* scramble the state using quarter-round function */
+        chacha20_PerformQuarterRound(state);
+        memcpy(dataOut, (dataIn + (idx * 64)), 64);
+    }
+    /* Now XOR the scrambled block with the 512 bits of the plain text stream */
+    xor2(dataOut, plain_text, paddedDataLen, cipher_text);
+    *dOutLen = paddedDataLen;
+
+    free(state);
+    free(dataIn);
+    free(dataOut);
 }

@@ -4,6 +4,7 @@
 #include "tls13.h"
 #include "aes.h"
 #include "sha.h"
+#include "aead.h"
 
 /* function definitions */
 
@@ -31,6 +32,16 @@ bool tls13_generate_authTag(const uint8_t *cipherText, const uint16_t cipherText
         }
         else if (ctx->cipherSuite == TLS13_CHACHA20_POLY1305_SHA256){
             /* To be updated */
+            //sha2_compute_hash(cipherText, cipherTextLen, SHA_256, mac);
+            aead_context_t aead;
+            aead.cipherText = cipherText; // should be plain text
+            aead.cipherTextLen = cipherTextLen; // should be plain text length 
+            aead.associatedDataLen = TLS13_RECORD_HEADER_SIZE;
+            aead.key = ctx->handshakeKey;
+            aead.keyLen = ctx->handshakeKeyLen;
+            aead.nonce = ctx->handshakeIV;
+            aead.nonceLen = ctx->handshakeIVLen;
+            aead_authenticate(&ctx, AEAD_CHACHA20_POLY1305);
         }
     }
 }

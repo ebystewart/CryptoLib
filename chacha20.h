@@ -13,5 +13,6 @@
 */
 int chacha20_encrypt(uint8_t *plain_text, uint32_t dataLen, uint32_t *key, uint32_t *nounce, uint32_t counter, uint8_t *cipher_text, uint32_t *dOutLen);
 
+int chacha20_encrypt_stream(uint8_t *plain_text, uint32_t dataLen, uint32_t *key, uint32_t *nounce, uint8_t *cipher_text, uint32_t *dOutLen);
 
 #endif

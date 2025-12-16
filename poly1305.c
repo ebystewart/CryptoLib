@@ -27,7 +27,7 @@ static void poly1305_clamp_key(uint8_t *rKey)
 
 int poly1305_mac_generate(const uint8_t *plain_text, uint32_t dataLen, const uint8_t *key, uint8_t keyLen, uint8_t *mac)
 {
-    assert(keyLen != 32);
+    assert(keyLen == 32);
 
     uint32_t remainingBytes = 0;
     uint32_t paddingBytes = 0;
